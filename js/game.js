@@ -219,6 +219,38 @@
   const paLight=new THREE.PointLight(0xbfd0e0,.5,4,2);paLight.position.set(0,CH-.3,4.2);scene.add(paLight);
   box(1.6,.1,.7,2.3,.78,6.0,tableMat);box(.07,.78,.07,1.6,.39,5.75,steelMat);box(.07,.78,.07,3.0,.39,5.75,steelMat);
   crate(2.7,.4,7.6,.8,.4);crate(2.0,.35,7.7,.7,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI);
+  // ====== DETALLE DE SALAS: biblioteca, cultivo, descanso + luces ======
+  {
+    const bookWood=new THREE.MeshStandardMaterial({map:tex(grime('#3a2c1c'),1),normalMap:_wn,roughness:.9,metalness:.05});
+    function bookshelf(x,z,rot){const g=new THREE.Group();g.position.set(x,0,z);if(rot)g.rotation.y=rot;
+      g.add(meshBox(.06,2.1,.36,-.68,1.05,0,bookWood));g.add(meshBox(.06,2.1,.36,.68,1.05,0,bookWood));
+      g.add(meshBox(1.42,.06,.36,0,2.08,0,bookWood));g.add(meshBox(1.42,.06,.36,0,.03,0,bookWood));
+      g.add(meshBox(1.34,2.0,.03,0,1.05,-.16,bookWood));
+      for(let s=0;s<4;s++){const sy=.2+s*.5;g.add(meshBox(1.34,.03,.32,0,sy,0,bookWood));
+        let bx=-.62;while(bx<.58){const w=.06+Math.random()*.06,h=.3+Math.random()*.12,c=new THREE.Color().setHSL(Math.random(),.35,.3+Math.random()*.2);
+          const bk=new THREE.Mesh(new THREE.BoxGeometry(w,h,.24),new THREE.MeshStandardMaterial({color:c,roughness:.85}));
+          const lean=Math.random()<.08?.16:0;bk.position.set(bx+w/2,sy+.03+h/2,0);bk.rotation.z=lean;bk.castShadow=true;bk.userData.noOut=true;g.add(bk);bx+=w+.004+(lean?.05:0);}}
+      g.children.forEach(c=>c.castShadow=true);scene.add(g);return g;}
+    bookshelf(-3.05,6.1,Math.PI/2);bookshelf(-3.05,7.4,Math.PI/2);if(!SMALL)bookshelf(3.05,7.5,-Math.PI/2);
+    for(let i=0;i<3;i++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.24,.04,.18),new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(Math.random(),.4,.4),roughness:.8}));bk.position.set(2.1+(Math.random()-.5)*.1,.85+i*.045,6.0+(Math.random()-.5)*.1);bk.rotation.y=Math.random()*.4;bk.castShadow=true;scene.add(bk);}
+    {const l=new THREE.Group();l.position.set(2.55,.83,5.85);l.add(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.03,12),steelMat));l.add(meshBox(.02,.22,.02,0,.12,0,steelMat));const shade=new THREE.Mesh(new THREE.CylinderGeometry(.001,.11,.09,16,1,true),new THREE.MeshStandardMaterial({color:0x1f6b3a,roughness:.6,side:THREE.DoubleSide,metalness:.3}));shade.position.set(.08,.24,0);l.add(shade);l.children.forEach(c=>c.castShadow=true);scene.add(l);
+     const ll=new THREE.PointLight(0xfff0c0,.55,2.2,2);ll.position.set(2.62,.98,5.85);scene.add(ll);}
+    const readLight=new THREE.PointLight(0xffe0b0,.6,5,2);readLight.position.set(.6,CH-.4,6.8);scene.add(readLight);
+    // --- CULTIVO: reservorio de agua, 2ª batería, plantines ---
+    const tankMat=new THREE.MeshStandardMaterial({color:0x2a6a9a,transparent:true,opacity:.82,roughness:.3,metalness:.1});
+    {const tank=new THREE.Mesh(new THREE.CylinderGeometry(.4,.4,1.0,20),tankMat);tank.position.set(2.7,.55,10.7);tank.castShadow=true;scene.add(tank);const ring=new THREE.Mesh(new THREE.TorusGeometry(.41,.03,8,24),steelMat);ring.rotation.x=Math.PI/2;ring.position.set(2.7,1.0,10.7);scene.add(ring);const pipe=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1.4,8),rustMat);pipe.position.set(2.3,1.2,10.5);pipe.rotation.z=.5;scene.add(pipe);}
+    for(let k=0;k<3;k++){const y=.55+k*.62;box(.5,.04,1.3,2.9,y,9.6,steelMat);
+      for(let p=0;p<4;p++){const px=2.9,pz=9.1+p*.32;const stem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.02,.14,6),new THREE.MeshStandardMaterial({color:0x3a6b2a,roughness:.9}));stem.position.set(px,y+.11,pz);scene.add(stem);for(let lf=0;lf<5;lf++){const leaf=new THREE.Mesh(new THREE.SphereGeometry(.05,6,4),growMat);leaf.scale.set(1,.32,.55);leaf.position.set(px+(Math.random()-.5)*.1,y+.1+lf*.025,pz+(Math.random()-.5)*.1);leaf.rotation.set(Math.random(),Math.random()*6,Math.random());leaf.userData.noOut=true;leaf.castShadow=true;scene.add(leaf);}}
+      scene.add(place(new THREE.Mesh(new THREE.BoxGeometry(.46,.03,1.2),new THREE.MeshBasicMaterial({color:0xc83cff})),2.9,y+.5,9.6));}
+    const grow2=new THREE.PointLight(0xb43cff,1.1,4.5,2);grow2.position.set(2.6,1.5,9.6);scene.add(grow2);
+    {const tray=meshBox(.74,.08,.42,-2.6,.82,8.75,doorMat);tray.castShadow=true;scene.add(tray);for(let i=0;i<12;i++){const sp=new THREE.Mesh(new THREE.ConeGeometry(.02,.08,5),growMat);sp.position.set(-2.6-.28+(i%4)*.18,.92,8.75-.14+Math.floor(i/4)*.14);sp.userData.noOut=true;scene.add(sp);}}
+    // --- DESCANSO: alfombra, estufa (glow), mesita con taza, posters ---
+    scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.6),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.4,.02,6.6,-Math.PI/2,0,0));
+    {const heater=new THREE.Group();heater.position.set(-7.05,0,6.0);heater.add(meshBox(.4,.5,.22,0,.28,0,doorMat));for(let i=0;i<3;i++){const bar=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.32,8),new THREE.MeshStandardMaterial({color:0xff5520,emissive:0xff3300,emissiveIntensity:1.5}));bar.position.set(-.1+i*.1,.3,.1);bar.userData.noOut=true;heater.add(bar);}heater.children.forEach(c=>c.castShadow=true);scene.add(heater);const hglow=new THREE.PointLight(0xff5a20,.8,2.8,2);hglow.position.set(-6.95,.4,6.2);scene.add(hglow);}
+    {const st=meshBox(.4,.5,.4,-4.2,.25,5.9,_woodMat);st.castShadow=true;scene.add(st);const mugMat=new THREE.MeshStandardMaterial({color:0xcfcabc,roughness:.7});const mug=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.08,12),mugMat);mug.position.set(-4.2,.54,5.9);mug.castShadow=true;scene.add(mug);const hd=new THREE.Mesh(new THREE.TorusGeometry(.03,.01,6,12),mugMat);hd.position.set(-4.13,.54,5.9);scene.add(hd);}
+    for(const pz of[5.75,7.55]){scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(.7,.95),new THREE.MeshStandardMaterial({map:tex(grime('#6a5a3a'),1),roughness:1,emissive:0x0d0c06})),-7.34,1.5,pz,0,Math.PI/2,0));}
+    const restWarm=new THREE.PointLight(0xffb060,.5,5,2);restWarm.position.set(-5.4,1.9,6.6);scene.add(restWarm);
+  }
   const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25}];
   function inArea(x,z){for(const a of AREAS)if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return true;return false;}
   // ---- ZONAS DE INTERACCIÓN ----
