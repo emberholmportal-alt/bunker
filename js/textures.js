@@ -37,18 +37,38 @@
     for(let i=0;i<20;i++){x.strokeStyle='rgba(0,0,0,'+(0.05+Math.random()*0.11)+')';x.lineWidth=Math.random()*1.6;x.beginPath();const sx=Math.random()*128,sy=Math.random()*128;x.moveTo(sx,sy);x.lineTo(sx+(Math.random()-.5)*46,sy+(Math.random()-.5)*46);x.stroke();}
     return c;}
   const _wn=tex(heightToNormal(bump(),1.3),1);
-  function floorTiles(base){const c=cv(256,256),x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,256,256);
-    for(let i=0;i<4;i++)for(let j=0;j<4;j++){x.fillStyle='rgba(0,0,0,'+(Math.random()*.13)+')';x.fillRect(i*64+2,j*64+2,60,60);}
-    x.strokeStyle='rgba(0,0,0,.45)';x.lineWidth=3;for(let i=0;i<=4;i++){const q=i*64;x.beginPath();x.moveTo(q,0);x.lineTo(q,256);x.moveTo(0,q);x.lineTo(256,q);x.stroke();}
-    for(let i=0;i<42;i++){x.fillStyle='rgba(0,0,0,'+(.04+Math.random()*.1)+')';x.beginPath();x.arc(Math.random()*256,Math.random()*256,3+Math.random()*14,0,7);x.fill();}
+  function floorTiles(base){const c=cv(512,512),x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,512,512);const T=128;
+    for(let i=0;i<4;i++)for(let j=0;j<4;j++){const ox=i*T,oy=j*T,v=(Math.random()-.5)*.16;
+      x.fillStyle='rgba('+(v>0?255:0)+','+(v>0?255:0)+','+(v>0?255:0)+','+Math.abs(v).toFixed(3)+')';x.fillRect(ox+3,oy+3,T-6,T-6);
+      x.strokeStyle='rgba(255,255,255,.06)';x.lineWidth=2;x.strokeRect(ox+4,oy+4,T-8,T-8);
+      x.strokeStyle='rgba(0,0,0,.16)';x.strokeRect(ox+6,oy+6,T-11,T-11);}
+    x.strokeStyle='rgba(0,0,0,.55)';x.lineWidth=6;for(let i=0;i<=4;i++){const q=i*T;x.beginPath();x.moveTo(q,0);x.lineTo(q,512);x.moveTo(0,q);x.lineTo(512,q);x.stroke();}
+    for(let i=0;i<=4;i++)for(let j=0;j<=4;j++){const px=i*T,py=j*T;x.fillStyle='rgba(0,0,0,.45)';x.beginPath();x.arc(px,py,5,0,7);x.fill();x.fillStyle='rgba(190,188,176,.5)';x.beginPath();x.arc(px-1,py-1,2.4,0,7);x.fill();}
+    for(let i=0;i<8;i++){const px=Math.random()*512,py=Math.random()*512,r=20+Math.random()*70,g=x.createRadialGradient(px,py,0,px,py,r);g.addColorStop(0,'rgba(0,0,0,.3)');g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.beginPath();x.arc(px,py,r,0,7);x.fill();}
+    for(let i=0;i<90;i++){const dk=Math.random()<.5;x.strokeStyle=dk?'rgba(0,0,0,'+(Math.random()*.12)+')':'rgba(255,255,255,'+(Math.random()*.05)+')';x.lineWidth=Math.random()*1.4;const sx=Math.random()*512,sy=Math.random()*512,a=Math.random()*6.28,l=8+Math.random()*44;x.beginPath();x.moveTo(sx,sy);x.lineTo(sx+Math.cos(a)*l,sy+Math.sin(a)*l);x.stroke();}
+    for(let i=0;i<120;i++){x.fillStyle='rgba(0,0,0,'+(.03+Math.random()*.08)+')';x.beginPath();x.arc(Math.random()*512,Math.random()*512,2+Math.random()*10,0,7);x.fill();}
     return c;}
-  function wallPanels(base){const c=cv(256,256),x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,256,256);
-    for(let i=1;i<6;i++){const q=i*42.6;x.fillStyle='rgba(255,255,255,.04)';x.fillRect(0,q-1,256,2);x.fillStyle='rgba(0,0,0,.32)';x.fillRect(0,q,256,2);}
-    x.fillStyle='rgba(0,0,0,.32)';for(let i=0;i<6;i++)for(let j=0;j<6;j++){x.beginPath();x.arc(18+i*43,18+j*43,2,0,7);x.fill();}
-    for(let i=0;i<34;i++){x.fillStyle='rgba(0,0,0,'+(.04+Math.random()*.1)+')';x.beginPath();x.arc(Math.random()*256,Math.random()*256,4+Math.random()*16,0,7);x.fill();}
+  function floorHeight(){const c=cv(512,512),x=c.getContext('2d'),T=128;x.fillStyle='#888';x.fillRect(0,0,512,512);
+    for(let i=0;i<4;i++)for(let j=0;j<4;j++){x.fillStyle='#9c9c9c';x.fillRect(i*T+8,j*T+8,T-16,T-16);}
+    x.strokeStyle='#363636';x.lineWidth=8;for(let i=0;i<=4;i++){const q=i*T;x.beginPath();x.moveTo(q,0);x.lineTo(q,512);x.moveTo(0,q);x.lineTo(512,q);x.stroke();}
+    for(let i=0;i<=4;i++)for(let j=0;j<=4;j++){x.fillStyle='#ececec';x.beginPath();x.arc(i*T,j*T,4,0,7);x.fill();}
+    for(let i=0;i<9000;i++){const v=128+Math.random()*16;x.fillStyle='rgb('+v+','+v+','+v+')';x.fillRect(Math.random()*512,Math.random()*512,1,1);}return c;}
+  function wallPanels(base){const c=cv(512,512),x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,512,512);const PW=256,PH=170;
+    for(let i=0;i<2;i++)for(let j=0;j<4;j++){const v=(Math.random()-.5)*.12;x.fillStyle='rgba('+(v>0?255:0)+','+(v>0?255:0)+','+(v>0?255:0)+','+Math.abs(v).toFixed(3)+')';x.fillRect(i*PW,j*PH,PW,PH);}
+    x.fillStyle='rgba(0,0,0,.42)';x.fillRect(254,0,4,512);for(let j=0;j<=3;j++)x.fillRect(0,j*PH,512,4);
+    x.fillStyle='rgba(255,255,255,.05)';for(let j=0;j<=3;j++)x.fillRect(0,j*PH-2,512,2);x.fillRect(252,0,2,512);
+    x.fillStyle='rgba(0,0,0,.45)';for(let j=0;j<=3;j++)for(let i=0;i<512;i+=40){x.beginPath();x.arc(i+12,j*PH+10,3,0,7);x.fill();}
+    for(let yy=18;yy<512;yy+=40){x.beginPath();x.arc(256,yy,3,0,7);x.fill();}
+    for(let i=0;i<16;i++){const px=Math.random()*512,py=Math.floor(Math.random()*4)*PH+4,len=20+Math.random()*80,g=x.createLinearGradient(px,py,px,py+len);g.addColorStop(0,'rgba(124,72,32,.28)');g.addColorStop(1,'rgba(124,72,32,0)');x.fillStyle=g;x.fillRect(px,py,2+Math.random()*3,len);}
+    for(let i=0;i<46;i++){x.fillStyle='rgba(0,0,0,'+(.03+Math.random()*.09)+')';x.beginPath();x.arc(Math.random()*512,Math.random()*512,4+Math.random()*22,0,7);x.fill();}
     return c;}
-  const concreteMat=new THREE.MeshStandardMaterial({map:tex(wallPanels('#3f463f'),2),normalMap:tex(heightToNormal(bump(),1.2),2),roughness:.95,metalness:.03});
-  const floorMat=new THREE.MeshStandardMaterial({map:tex(floorTiles('#2c2e29'),3),normalMap:tex(heightToNormal(bump(),1.4),3),roughness:.88,metalness:.05});
+  function wallHeight(){const c=cv(512,512),x=c.getContext('2d'),PW=256,PH=170;x.fillStyle='#9a9a9a';x.fillRect(0,0,512,512);
+    x.fillStyle='#363636';x.fillRect(253,0,6,512);for(let j=0;j<=3;j++)x.fillRect(0,j*PH-1,512,6);
+    x.fillStyle='#ececec';for(let j=0;j<=3;j++)for(let i=0;i<512;i+=40){x.beginPath();x.arc(i+12,j*PH+9,3.6,0,7);x.fill();}
+    for(let yy=18;yy<512;yy+=40){x.beginPath();x.arc(256,yy,3.6,0,7);x.fill();}
+    for(let i=0;i<9000;i++){const v=146+Math.random()*14;x.fillStyle='rgb('+v+','+v+','+v+')';x.fillRect(Math.random()*512,Math.random()*512,1,1);}return c;}
+  const concreteMat=new THREE.MeshStandardMaterial({map:tex(wallPanels('#3f463f'),2),normalMap:tex(heightToNormal(wallHeight(),2.2),2),roughness:.9,metalness:.08});
+  const floorMat=new THREE.MeshStandardMaterial({map:tex(floorTiles('#2c2e29'),3),normalMap:tex(heightToNormal(floorHeight(),2.4),3),roughness:.8,metalness:.12});
   const ceilMat=new THREE.MeshStandardMaterial({map:tex(concrete('#34362f'),2),roughness:1,metalness:0});
   const rustMat=new THREE.MeshStandardMaterial({map:tex(rust(),1),normalMap:tex(heightToNormal(bump(),1.8),1),roughness:.55,metalness:.85});
   const metalN=tex(heightToNormal(metalHeight(),1.6),1);
