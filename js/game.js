@@ -109,6 +109,24 @@
     for(let i=0;i<4;i++){const l=new THREE.Mesh(new THREE.SphereGeometry(.018,8,8),new THREE.MeshBasicMaterial({color:0x39ffd0}));l.position.set(-.11+i*.07,.62,.32);fab.add(l);fabLeds.push(l);}
     fabLight=new THREE.PointLight(0x39ffd0,.6,3,2);fabLight.position.set(0,.85,0);fab.add(fabLight);
     fab.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
+    // --- blueprint azul (cianotipo) de la unidad M-01 sobre la estantería ---
+    function blueprintTex(){const c=cv(512,340),x=c.getContext('2d');x.fillStyle='#0b2a5e';x.fillRect(0,0,512,340);
+      x.strokeStyle='rgba(120,170,255,.16)';x.lineWidth=1;for(let i=0;i<512;i+=24){x.beginPath();x.moveTo(i,0);x.lineTo(i,340);x.stroke();}for(let j=0;j<340;j+=24){x.beginPath();x.moveTo(0,j);x.lineTo(512,j);x.stroke();}
+      x.strokeStyle='rgba(200,225,255,.7)';x.lineWidth=3;x.strokeRect(10,10,492,320);
+      x.fillStyle='#dbe8ff';x.font='24px Anton, sans-serif';x.fillText('PROYECTO M-01 · MIYAKO',22,44);
+      x.font='13px VT323, monospace';x.fillStyle='rgba(205,225,255,.85)';x.fillText('UNIDAD ANDROIDE — ESTADO: INERTE',22,66);
+      x.strokeStyle='rgba(210,230,255,.9)';x.lineWidth=2;const cx=370,cy=185;
+      x.beginPath();x.arc(cx,cy-72,22,0,7);x.stroke();x.beginPath();x.moveTo(cx,cy-50);x.lineTo(cx,cy+38);x.stroke();
+      x.beginPath();x.moveTo(cx,cy-32);x.lineTo(cx-42,cy+8);x.moveTo(cx,cy-32);x.lineTo(cx+42,cy+8);x.stroke();
+      x.beginPath();x.moveTo(cx,cy+38);x.lineTo(cx-22,cy+108);x.moveTo(cx,cy+38);x.lineTo(cx+22,cy+108);x.stroke();
+      x.strokeStyle='rgba(150,190,255,.6)';x.lineWidth=1;x.beginPath();x.moveTo(cx+74,cy-94);x.lineTo(cx+74,cy+110);x.stroke();
+      x.fillStyle='rgba(205,225,255,.85)';x.font='12px VT323, monospace';x.fillText('1.62 m',cx+80,cy+8);
+      ['NÚCLEO: DAÑADO','SERVOS: 12 / 40 OK','CHASIS: 64%','MEMORIA: CORRUPTA','REQ: circuitos · placa · batería'].forEach((s,i)=>x.fillText('· '+s,22,112+i*22));
+      return c;}
+    const bp=new THREE.Mesh(new THREE.PlaneGeometry(1.25,.83),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(blueprintTex())}));
+    bp.position.set(4.4,1.92,8.33);bp.rotation.y=Math.PI;scene.add(bp);
+    box(1.33,.91,.04,4.4,1.92,8.39,doorMat);
+    const bpLight=new THREE.PointLight(0x5a9cff,.5,3,2);bpLight.position.set(4.4,1.9,8.0);scene.add(bpLight);
     // --- luz de trabajo cálida sobre el banco (le da forma a los props) ---
     const workLamp=new THREE.SpotLight(0xffe2b4,2.1,5.5,Math.PI/4.5,.5,1.4);workLamp.position.set(5.9,2.35,6.2);workLamp.target.position.set(5.9,.78,6.4);workLamp.castShadow=!SMALL;if(!SMALL)workLamp.shadow.mapSize.set(1024,1024);scene.add(workLamp);scene.add(workLamp.target);
     const twFill=new THREE.PointLight(0xcdbfa6,.55,8,2);twFill.position.set(5.6,2.2,6.6);scene.add(twFill);
@@ -559,6 +577,20 @@
       scene.add(o);applyCel();
     },undefined,function(){});}catch(e){}
   }
+  // carga un personaje GLB escalando por ALTURA (para Miyako, inerte en la fabricadora)
+  function loadCharacter(file,x,y,z,height,rotY){
+    try{new THREE.GLTFLoader().load(file,function(g){
+      const o=g.scene;if(rotY)o.rotation.y=rotY;o.updateMatrixWorld(true);
+      let bb=new THREE.Box3().setFromObject(o),sz=bb.getSize(new THREE.Vector3());
+      o.scale.setScalar(height/(sz.y||1));o.updateMatrixWorld(true);
+      bb=new THREE.Box3().setFromObject(o);
+      o.position.set(x-(bb.min.x+bb.max.x)/2,y-bb.min.y,z-(bb.min.z+bb.max.z)/2);
+      o.traverse(m=>{if(m.isMesh){m.castShadow=true;if(m.material&&m.material.isMeshStandardMaterial){const tn=_toToon(m.material);celReg.push({m:m,toon:tn,std:m.material});}}});
+      scene.add(o);applyCel();
+    },undefined,function(){});}catch(e){}
+  }
+  // M-01 (Miyako): inerte dentro de la cámara de la fabricadora del taller
+  loadCharacter('assets/miyako.glb',6.7,0.2,6.05,1.08,-Math.PI/2);
   // colocaciones según necesidades del búnker
   [ // generador / combustible (observatorio, junto al generador)
     ['gas_can.glb',-1.15,0,-3.7,.42,.5],['propane_tank.glb',-1.5,0,-4.4,.72,-.3],['wood_log.glb',-1.0,0,-4.45,.5,1.2],
