@@ -1,0 +1,12 @@
+PROPS 3D — assets/props/
+==========================
+
+Modelos GLB del "Survival Pack" de Quaternius (https://quaternius.com /
+https://poly.pizza/bundle/Survival-Pack-XzvQPP0yWB).
+
+Licencia: CC0 1.0 (dominio público). Libres para uso personal y comercial,
+sin atribución requerida. Se incluye igual por cortesía.
+
+Descargados desde poly.pizza (static.poly.pizza). Optimizados/low-poly.
+Se cargan con GLTFLoader y se escalan/posicionan por código en js/game.js
+(función loadProp). Se registran para el toggle CEL/REAL igual que el robot.

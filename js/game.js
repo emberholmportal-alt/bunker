@@ -501,5 +501,36 @@
       robotUiAcc+=dt;if(robotUiAcc>0.5){renderRobot();robotUiAcc=0;}
     }
   }
+  // ====== PROPS GLB (Quaternius Survival Pack, CC0) ======
+  // loadProp(archivo, x, baseY, z, tamaño_objetivo, rotaciónY): escala por bounding box y apoya la base en baseY
+  function loadProp(file,x,y,z,target,rotY){
+    try{new THREE.GLTFLoader().load('assets/props/'+file,function(g){
+      const o=g.scene;if(rotY)o.rotation.y=rotY;o.updateMatrixWorld(true);
+      let bb=new THREE.Box3().setFromObject(o),sz=bb.getSize(new THREE.Vector3());
+      o.scale.setScalar(target/(Math.max(sz.x,sz.y,sz.z)||1));o.updateMatrixWorld(true);
+      bb=new THREE.Box3().setFromObject(o);
+      o.position.set(x-(bb.min.x+bb.max.x)/2,y-bb.min.y,z-(bb.min.z+bb.max.z)/2);
+      o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;
+        if(m.material&&m.material.isMeshStandardMaterial){const tn=_toToon(m.material);celReg.push({m:m,toon:tn,std:m.material});}}});
+      scene.add(o);applyCel();
+    },undefined,function(){});}catch(e){}
+  }
+  // colocaciones según necesidades del búnker
+  [ // generador / combustible (observatorio, junto al generador)
+    ['gas_can.glb',-1.15,0,-3.7,.42,.5],['propane_tank.glb',-1.5,0,-4.4,.72,-.3],['wood_log.glb',-1.0,0,-4.45,.5,1.2],
+    // compuerta del robot (equipo de carroñeo)
+    ['backpack.glb',1.55,0,-2.35,.55,2.4],['bear_trap.glb',2.4,0,-3.15,.5,.6],
+    // banco del taller (cocina / herramientas / componentes)
+    ['pot.glb',5.66,.78,6.02,.26,.4],['pan.glb',6.08,.78,6.12,.3,-.6],['can.glb',5.66,.78,6.7,.18,0],
+    ['can_red.glb',5.9,.78,6.74,.18,.3],['battery.glb',6.16,.78,6.6,.2,0],['knife.glb',5.58,.78,6.38,.28,1.1],
+    ['water_bottle.glb',6.2,.78,6.34,.24,0],
+    // estante del observatorio (botiquín / raciones)
+    ['first_aid_kit.glb',-2.5,1.73,-4.9,.3,.2],['can_broken.glb',-2.12,1.73,-4.9,.18,-.4],
+    // escritorio del observatorio (radio / brújula)
+    ['radio.glb',2.5,.78,.42,.34,1.6],['compass.glb',2.66,.78,.2,.2,0],
+    // herramientas en el piso del taller
+    ['axe.glb',7.2,0,5.95,.7,.7],['shovel.glb',7.18,0,8.05,1.0,-.5]
+  ].forEach(p=>loadProp(p[0],p[1],p[2],p[3],p[4],p[5]));
+
   buildCel();applyCel();renderHoldout(0,0,0);
   loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);

@@ -49,8 +49,10 @@ de marketing y mini-juego de supervivencia.
 - **Three.js vendorizado en `vendor/` (NO CDN).** El trailer debe funcionar aunque
   jsDelivr se caiga. Mantener la versión **exactamente r128** (la API cambió después).
 - **No frameworks de UI.** La UI es DOM + CSS a mano. Mantener ese estilo.
-- Todo el render 3D es **procedural** (texturas dibujadas en `<canvas>`, geometría
-  generada por código). El único asset binario es el **modelo GLB del robot**.
+- El render 3D es **mayormente procedural** (texturas dibujadas en `<canvas>`, geometría
+  generada por código). Assets binarios: el **GLB del robot** (`assets/robot.glb`), un set
+  de **props GLB CC0** (Quaternius Survival Pack, `assets/props/*.glb`, cargados con
+  `loadProp` en `game.js`) y `assets/miyako.glb` (reservado, sin usar todavía).
 
 ## Anatomía del `index.html` (bloques grandes)
 
