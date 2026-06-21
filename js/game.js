@@ -306,7 +306,6 @@
     prevInside=inside;prevOutside=outside;prevConsumed=consumed;
     refugioLight.intensity=(inside/CAP)*1.2;
     updateHoldersBoard(Math.round(holders),dt); // tablero split-flap en la pared
-    {const _wb=$('#wbalv');if(_wb){const _v=Math.round(holders);if(_wb._v!==_v){_wb._v=_v;_wb.textContent=_v.toLocaleString('es-AR');}}}
 
     crtAcc+=dt;if(crtAcc>.1){drawCRT(inside,outside,asim);crtAcc=0;}
     if(crtGlitch>0)crtGlitch-=dt*2;
