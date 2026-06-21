@@ -12,13 +12,18 @@
   <div id="app"></div><div id="flash"></div><div id="madness"></div>
   <div id="tag">REFUGIO 048 · <b>● SEÑAL EN VIVO</b><br>48 CADENAS CAÍDAS</div>
   <div id="alert"></div>
-  <div id="hint">movéte con <span class="k">WASD / joystick</span> · arrastrá para mirar · acercate a objetos para usarlos · ♪ sonido</div>
+  <div id="hint"><span class="k">▣ Movés el slider HOLDERS →</span> y mirás cuántos entran al refugio (capacidad 100); el resto queda <b>afuera con el enjambre</b><br>movéte con <span class="k">WASD / joystick</span> · arrastrá para mirar · acercate a objetos · ♪ sonido · <span class="k">F</span> linterna</div>
   <div id="joy"><div id="stick"></div></div>
   <button id="prompt"></button>
   <div id="decision"><div class="dbox"><div class="dh">⚠ COMPUERTA</div><div class="dt" id="dtext"></div><div class="dbtns"><button class="btn" id="dyes">ABRIR</button><button class="btn" id="dno">NO ABRIR</button></div></div></div>
 
   <div id="panel">
-    <div class="ctl"><label>HOLDERS</label><input type="range" id="holders" min="0" max="400" value="0"><span id="hv" style="color:var(--screen);width:32px">0</span></div>
+    <div class="ctl"><label>HOLDERS</label><input type="range" id="holders" class="cue" min="0" max="400" value="0"><span id="hv" style="color:var(--screen);width:32px">0</span></div>
+    <div id="holdout" class="cue">
+      <div class="hl"><span>⌂ REFUGIADOS</span><span id="ro-in">0<i>/100</i></span></div>
+      <div class="hbar"><div id="ro-fill"></div></div>
+      <div class="hl2"><span id="ro-out">—</span><span id="ro-cons"></span></div>
+    </div>
     <div class="prow">
       <button class="btn" id="auto">AUTO ▲</button>
       <div class="seg"><button class="btn on" data-spd="1">x1</button><button class="btn" data-spd="800">x800</button><button class="btn" data-spd="6000">x6k</button></div>
@@ -58,6 +63,7 @@
     </div>
   </div>
   <div id="inv"></div>
+  <div id="ticks"></div>
 
   <div id="boot"><h2>ABRIENDO REFUGIO</h2><p class="blink">sellando compuertas…</p></div>
   <div id="end"><div class="eb">FIN DE LA TRANSMISIÓN</div><h2 id="eh" class="dead">EXTINCIÓN</h2><div class="sub" id="es"></div>

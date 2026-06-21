@@ -8,6 +8,8 @@
   renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=0.86;
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;app.appendChild(renderer.domElement);
   scene.add(new THREE.HemisphereLight(0x283440,0x06090d,.32));
+  // luz cálida "refugio" — sube con la cantidad de refugiados adentro (payoff del slider HOLDERS)
+  const refugioLight=new THREE.PointLight(0xffcf94,0,9,2);refugioLight.position.set(0,2.25,0.4);scene.add(refugioLight);
 
   const RX=3.2,RZ0=-5.4,RZ1=3.2,CH=2.65,depth=RZ1-RZ0,midz=(RZ0+RZ1)/2;
   function box(w,h,d,x,y,z,m){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;scene.add(o);return o;}
