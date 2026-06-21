@@ -18,30 +18,30 @@
   function shortName(){return walletState.info&&walletState.info.name?walletState.info.name:'WALLET';}
 
   function renderWallet(){const el=$('#wallet');if(!el)return;
-    if(walletState.addr){el.className='connected';el.title='tocá para desconectar';
-      el.innerHTML='<div class="wh">◈ '+shortName()+'</div><div class="waddr">'+truncAddr(walletState.addr)+'</div><div class="wstat">● CONECTADA</div>';
+    if(walletState.addr){el.className='connected';el.title=T('w_tap_disconnect');
+      el.innerHTML='<div class="wh">◈ '+shortName()+'</div><div class="waddr">'+truncAddr(walletState.addr)+'</div><div class="wstat">'+T('w_connected')+'</div>';
     }else{el.className='disconnected';el.title='';
-      el.innerHTML='<button class="wconnect" type="button">▸ CONECTAR WALLET</button>';}}
+      el.innerHTML='<button class="wconnect" type="button">'+T('w_connect')+'</button>';}}
 
   // Selector cuando hay varias wallets inyectadas (mini-lista CRT)
   function renderPicker(){const el=$('#wallet');if(!el)return;el.className='disconnected';el.title='';
-    let h='<div class="wh">ELEGÍ WALLET</div>';
+    let h='<div class="wh">'+T('w_pick')+'</div>';
     walletProviders.forEach((p,i)=>{h+='<button class="wpick" type="button" data-i="'+i+'">'+(p.info.name||('Wallet '+(i+1)))+'</button>';});
     el.innerHTML=h;}
 
   async function doConnect(detail){
     const provider=detail?detail.provider:(window.ethereum||null);
-    if(!provider){showWalletMsg('SIN WALLET — abrí desde el dapp browser de tu wallet');renderWallet();return;}
+    if(!provider){showWalletMsg(T('w_none'));renderWallet();return;}
     try{const accs=await provider.request({method:'eth_requestAccounts'});
       if(!accs||!accs.length){renderWallet();return;}
       walletState={addr:accs[0],provider:provider,info:detail?detail.info:{name:'WALLET'}};
       // gate del futuro $COIN — hoy DESACTIVADO (CONTRACT_ADDRESS vacío => true)
-      try{const ok=await checkGate(walletState.addr,provider);if(!ok)showWalletMsg('NECESITÁS $COIN');}catch(e){}
+      try{const ok=await checkGate(walletState.addr,provider);if(!ok)showWalletMsg(T('w_need_coin'));}catch(e){}
       // re-render ante cambios de cuenta / red
       if(provider.on){provider.on('accountsChanged',a=>{if(a&&a.length){walletState.addr=a[0];renderWallet();}else{walletState={addr:null,provider:null,info:null};renderWallet();}});
         provider.on('chainChanged',()=>{});}
       renderWallet();
-    }catch(err){renderWallet();if(err&&err.code===4001)showWalletMsg('CONEXIÓN RECHAZADA');else showWalletMsg('NO SE PUDO CONECTAR');}}
+    }catch(err){renderWallet();if(err&&err.code===4001)showWalletMsg(T('w_rejected'));else showWalletMsg(T('w_failed'));}}
 
   function connectWallet(){
     if(walletProviders.length>1){renderPicker();return;}      // varias inyectadas => elegir

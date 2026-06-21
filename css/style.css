@@ -76,7 +76,7 @@
   /* STATS (arriba izquierda, bajo el tag) */
   #stats{position:fixed;right:14px;bottom:14px;z-index:9;display:flex;flex-direction:column;gap:9px;width:196px}
   /* MAPA (abajo izquierda) */
-  #map{position:fixed;left:14px;top:64px;z-index:9;width:196px;border:1px solid rgba(143,255,176,.22);background:rgba(10,16,20,.6);padding:6px;border-radius:6px}
+  #map{position:fixed;left:14px;bottom:14px;z-index:9;width:196px;border:1px solid rgba(143,255,176,.22);background:rgba(10,16,20,.6);padding:6px;border-radius:6px}
   #map canvas{display:block}
   #map .blip{position:absolute;width:8px;height:8px;border-radius:50%;background:#8fffb0;box-shadow:0 0 9px #8fffb0;animation:bk .8s steps(2) infinite}
   .sbar .lab{font-size:13px;letter-spacing:.5px;display:flex;justify-content:space-between;color:#9aa3b0;margin-bottom:3px;text-transform:uppercase}

@@ -11,17 +11,17 @@
   function holdoutPulse(kind){const b=$('#holdout');if(!b)return;b.classList.remove('hin','hout');void b.offsetWidth;b.classList.add(kind==='in'?'hin':'hout');}
   function renderHoldout(inside,outside,consumed){const f=$('#ro-fill');if(f)f.style.width=(inside/CAP*100)+'%';
     const ri=$('#ro-in');if(ri)ri.innerHTML=inside+'<i>/100</i>';
-    const ro=$('#ro-out');if(ro)ro.textContent=outside>0?(outside+' afuera'):'—';
+    const ro=$('#ro-out');if(ro)ro.textContent=outside>0?T('ho_outside',outside):'—';
     const rc=$('#ro-cons');if(rc)rc.textContent=consumed>0?('☣ '+consumed):'';
-    const rp=$('#ro-pop');if(rp){if(inside<=0)rp.textContent='refugio vacío';
-      else rp.innerHTML='<b'+(inside>=CAP?' class="warn"':'')+'>'+inside+'</b> '+(inside===1?'alma a salvo':'almas a salvo')+(inside>=CAP?' · refugio lleno':'');}
+    const rp=$('#ro-pop');if(rp){if(inside<=0)rp.textContent=T('ho_empty');
+      else rp.innerHTML='<b'+(inside>=CAP?' class="warn"':'')+'>'+inside+'</b> '+(inside===1?T('ho_soul_one'):T('ho_soul_many'))+(inside>=CAP?T('ho_full'):'');}
     const b=$('#holdout');if(b)b.classList.toggle('full',inside>=CAP);}
   function clearHoldersCue(){const s=$('#holders');if(s)s.classList.remove('cue');const h=$('#holdout');if(h)h.classList.remove('cue');}
-  function onFirstOutside(){showAlert('LOS QUE NO ENTRARON QUEDAN AFUERA');enjSurge=Math.max(enjSurge,3.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;robotReact('No',2.6);}
+  function onFirstOutside(){showAlert(T('a_first_outside'));enjSurge=Math.max(enjSurge,3.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;robotReact('No',2.6);}
   function fireEvent(){const r=Math.random();
-    if(r<.4){showAlert('GOLPE DEL ENJAMBRE');shake=1;setFlash('120,120,140',.35);dustFall=1.2;rumble();alarm();gyroOn=3.0;robotReact('No',2.4);stats.energia=clamp(stats.energia-15,0,100);stats.cordura=clamp(stats.cordura-8,0,100);if(Math.random()<.6&&crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}}
-    else if(r<.72){showAlert('FALLA ELÉCTRICA');blackout=.8;crtGlitch=1;rumble();stats.cordura=clamp(stats.cordura-14,0,100);}
-    else{showAlert('SOBRECARGA DEL GENERADOR');coreSurge=1.4;setFlash('255,140,0',.4);rumble();stats.cordura=clamp(stats.cordura-12,0,100);stats.energia=clamp(stats.energia-6,0,100);}
+    if(r<.4){showAlert(T('a_swarm_hit'));shake=1;setFlash('120,120,140',.35);dustFall=1.2;rumble();alarm();gyroOn=3.0;robotReact('No',2.4);stats.energia=clamp(stats.energia-15,0,100);stats.cordura=clamp(stats.cordura-8,0,100);if(Math.random()<.6&&crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}}
+    else if(r<.72){showAlert(T('a_power_fail'));blackout=.8;crtGlitch=1;rumble();stats.cordura=clamp(stats.cordura-14,0,100);}
+    else{showAlert(T('a_gen_overload'));coreSurge=1.4;setFlash('255,140,0',.4);rumble();stats.cordura=clamp(stats.cordura-12,0,100);stats.energia=clamp(stats.energia-6,0,100);}
     renderStats();}
 
   // look-around
@@ -256,16 +256,16 @@
   // ---- ZONAS DE INTERACCIÓN ----
   const V=(x,z)=>new THREE.Vector3(x,0,z);
   const zones=[
-    {p:V(-0.9,-3.4),r:1.3,label:'ALIMENTAR GENERADOR  (-combustible)',cdM:1.0,cd:0,fn:()=>{if(res.fuel>0){res.fuel--;nucleo=clamp(nucleo+26,0,100);renderRes();blip();}else showAlert('SIN COMBUSTIBLE');}},
-    {p:V(-2.4,10.3),r:1.5,label:'COSECHAR  (+comida)',cdM:2.0,cd:0,fn:()=>{res.food++;if(Math.random()<.4){res.semillas++;floatTick('+1 semillas','#9fe0b0');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderHotbar();renderStats();blip();}},
-    {p:V(-1.3,-4.55),r:1.4,label:'JUNTAR AGUA  (+agua)',cdM:2.0,cd:0,fn:()=>{res.water++;stats.energia=clamp(stats.energia-6,0,100);renderRes();renderHotbar();renderStats();blip();}},
-    {p:V(1.9,-4.55),r:1.4,label:'SACAR COMBUSTIBLE  (+combustible)',cdM:2.5,cd:0,fn:()=>{res.fuel++;stats.energia=clamp(stats.energia-10,0,100);renderRes();renderStats();blip();}},
-    {p:V(2.3,-4.3),r:1.5,label:'BUSCAR CHATARRA  (+chatarra)',cdM:2.0,cd:0,fn:()=>{res.chatarra++;if(Math.random()<.35){res.cables++;floatTick('+1 cables','#cfd2cc');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderStats();blip();}},
-    {p:V(RX-.4,1.6),r:1.3,label:'REPARAR SISTEMA  (-chatarra)',cdM:1.5,cd:0,fn:()=>{if(res.chatarra>0){res.chatarra--;nucleo=clamp(nucleo+14,0,100);renderRes();blip();}else showAlert('SIN CHATARRA');}},
-    {p:V(-5.8,7.0),r:1.4,label:'DESCANSAR  (+energía)',cdM:1.5,cd:0,fn:()=>{stats.energia=clamp(stats.energia+35,0,100);renderStats();blip();}},
-    {p:V(-1.0,3.0),r:1.3,label:'LEER  (+cordura)',cdM:1.5,cd:0,fn:()=>{stats.cordura=clamp(stats.cordura+30,0,100);renderStats();blip();}},
-    {p:V(1.95,2.2),r:1.2,label:'SINTONIZAR RADIO',cdM:.6,cd:0,fn:radioTune},
-    {p:V(5.9,6.3),r:1.7,label:'BANCO DE CRAFTEO',cdM:.3,cd:0,fn:openCraft}
+    {p:V(-0.9,-3.4),r:1.3,label:T('z_feed_gen'),cdM:1.0,cd:0,fn:()=>{if(res.fuel>0){res.fuel--;nucleo=clamp(nucleo+26,0,100);renderRes();blip();}else showAlert(T('a_no_fuel'));}},
+    {p:V(-2.4,10.3),r:1.5,label:T('z_harvest'),cdM:2.0,cd:0,fn:()=>{res.food++;if(Math.random()<.4){res.semillas++;floatTick(T('ft_seeds'),'#9fe0b0');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderHotbar();renderStats();blip();}},
+    {p:V(-1.3,-4.55),r:1.4,label:T('z_water'),cdM:2.0,cd:0,fn:()=>{res.water++;stats.energia=clamp(stats.energia-6,0,100);renderRes();renderHotbar();renderStats();blip();}},
+    {p:V(1.9,-4.55),r:1.4,label:T('z_fuel'),cdM:2.5,cd:0,fn:()=>{res.fuel++;stats.energia=clamp(stats.energia-10,0,100);renderRes();renderStats();blip();}},
+    {p:V(2.3,-4.3),r:1.5,label:T('z_scrap'),cdM:2.0,cd:0,fn:()=>{res.chatarra++;if(Math.random()<.35){res.cables++;floatTick(T('ft_cables'),'#cfd2cc');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderStats();blip();}},
+    {p:V(RX-.4,1.6),r:1.3,label:T('z_repair'),cdM:1.5,cd:0,fn:()=>{if(res.chatarra>0){res.chatarra--;nucleo=clamp(nucleo+14,0,100);renderRes();blip();}else showAlert(T('a_no_scrap'));}},
+    {p:V(-5.8,7.0),r:1.4,label:T('z_rest'),cdM:1.5,cd:0,fn:()=>{stats.energia=clamp(stats.energia+35,0,100);renderStats();blip();}},
+    {p:V(-1.0,3.0),r:1.3,label:T('z_read'),cdM:1.5,cd:0,fn:()=>{stats.cordura=clamp(stats.cordura+30,0,100);renderStats();blip();}},
+    {p:V(1.95,2.2),r:1.2,label:T('z_radio'),cdM:.6,cd:0,fn:radioTune},
+    {p:V(5.9,6.3),r:1.7,label:T('z_craft'),cdM:.3,cd:0,fn:openCraft}
   ];
   const zoneRings=[];zones.forEach(z=>{const rg=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:z.fn?0x39ffaa:0xff3030,transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false}));rg.rotation.x=-Math.PI/2;rg.position.set(z.p.x,.015,z.p.z);scene.add(rg);zoneRings.push(rg);});
   const torch=new THREE.SpotLight(0xfff0d0,0,9,Math.PI/6,.5,1.5);torch.visible=false;scene.add(torch);scene.add(torch.target);
@@ -287,21 +287,21 @@
       evT-=dt;if(evT<=0){evT=10+Math.random()*9;fireEvent();}
       decT-=dt;if(decT<=0&&!decisionOpen){decT=45+Math.random()*40;openDecision();}
       nucleo=Math.max(0,nucleo-dt*0.35);
-      if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert('GENERADOR APAGÁNDOSE');}if(Math.random()<.025)alarm();if(critT<=0)loseGame('apagon');}
+      if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert(T('a_gen_dying'));}if(Math.random()<.025)alarm();if(critT<=0)loseGame('apagon');}
       else{critT=22;critWarned=false;}
       // decay de stats (tiempo real)
       statAcc+=dt;if(statAcc>1){const d=statAcc;stats.hambre=clamp(stats.hambre-d*.6,0,100);stats.sed=clamp(stats.sed-d*.9,0,100);stats.energia=clamp(stats.energia-d*.5,0,100);
         let cd2=d*.35;if(stats.hambre<=0||stats.sed<=0||stats.energia<=0)cd2+=d*2.2;stats.cordura=clamp(stats.cordura-cd2,0,100);statAcc=0;renderStats();renderRes();
-        ['hambre','sed','energia'].forEach(k=>{if(stats[k]<=0&&!ended)showAlert(({hambre:'INANICIÓN',sed:'DESHIDRATACIÓN',energia:'AGOTAMIENTO'})[k]);});}
+        ['hambre','sed','energia'].forEach(k=>{if(stats[k]<=0&&!ended)showAlert(({hambre:T('a_starvation'),sed:T('a_dehydration'),energia:T('a_exhaustion')})[k]);});}
       if(stats.cordura<=0&&!ended)loseGame('conversion');
     }
     const inside=Math.min(Math.round(holders),CAP);
     const consumed=Math.floor(Math.max(0,holders-CAP)*Math.max(0,(asim-.6))/.4);
     const outside=Math.max(0,Math.round(holders)-CAP-consumed);
     const dIn=inside-prevInside,dOut=outside-prevOutside;
-    if(dIn>0){blipBatch(dIn);floatTick('+'+dIn+' entran','#8fffb0');holdoutPulse('in');if(prevInside===0)robotReact('Wave',3);}
-    if(inside>=CAP&&prevInside<CAP){showAlert('REFUGIO COMPLETO · 100/100');setFlash('255,200,80',.3);floatTick('REFUGIO LLENO','#ffd86a');blip();robotReact('Dance',4);}
-    if(dOut>0&&outside>0){if(Math.random()<.6)thud();shake=Math.max(shake,.3+Math.min(.5,dOut*.05));floatTick('−'+dOut+' afuera','#ff2e88');holdoutPulse('out');if(prevOutside===0)onFirstOutside();}
+    if(dIn>0){blipBatch(dIn);floatTick(T('ft_enter',dIn),'#8fffb0');holdoutPulse('in');if(prevInside===0)robotReact('Wave',3);}
+    if(inside>=CAP&&prevInside<CAP){showAlert(T('a_shelter_complete'));setFlash('255,200,80',.3);floatTick(T('ft_full'),'#ffd86a');blip();robotReact('Dance',4);}
+    if(dOut>0&&outside>0){if(Math.random()<.6)thud();shake=Math.max(shake,.3+Math.min(.5,dOut*.05));floatTick(T('ft_outside',dOut),'#ff2e88');holdoutPulse('out');if(prevOutside===0)onFirstOutside();}
     if(inside!==prevInside||outside!==prevOutside||consumed!==prevConsumed)renderHoldout(inside,outside,consumed);
     prevInside=inside;prevOutside=outside;prevConsumed=consumed;
     refugioLight.intensity=(inside/CAP)*1.2;
@@ -404,12 +404,12 @@
 
   function conclude(){if(ended)return;ended=true;running=false;alarm();
     const inside=Math.min(Math.round(holders),CAP),lost=Math.max(0,Math.round(holders)-CAP);const h=$('#eh'),s=$('#es');
-    if(inside>0){h.className='live';h.textContent='BÚNKER SELLADO';s.innerHTML=`<b>${inside}</b> almas sobrevivieron al fin del mundo.<br>${lost} quedaron afuera, con la IA.`;}
-    else{h.className='dead';h.textContent='EXTINCIÓN';s.innerHTML='Nadie entró al búnker.<br>La consciencia era la infección.';}
+    if(inside>0){h.className='live';h.textContent=T('end_sealed');s.innerHTML=T('sub_sealed',inside,lost);}
+    else{h.className='dead';h.textContent=T('end_extinct');s.innerHTML=T('sub_extinct');}
     $('#end').style.display='flex';}
   function loseGame(tipo){if(ended)return;ended=true;running=false;alarm();const h=$('#eh'),s=$('#es');h.className='dead';
-    if(tipo==='apagon'){h.textContent='APAGÓN';s.innerHTML='El núcleo se apagó.<br>La oscuridad dejó entrar la infección.';}
-    else{h.textContent='CONVERTIDO';s.innerHTML='Tu mente cedió.<br>Ahora sos parte del enjambre.<br>La consciencia era la infección.';}
+    if(tipo==='apagon'){h.textContent=T('end_blackout');s.innerHTML=T('sub_blackout');}
+    else{h.textContent=T('end_converted');s.innerHTML=T('sub_converted');}
     $('#end').style.display='flex';}
   function openDecision(){
     if(decisionOpen||ended||!running)return;decisionOpen=true;wasRunning=running;running=false;
@@ -418,10 +418,10 @@
   }
   function closeDecision(){decisionOpen=false;$('#decision').style.display='none';running=wasRunning;}
   function decideYes(){closeDecision();
-    if(Math.random()<.6){const g={food:1+Math.floor(Math.random()*2),water:1+Math.floor(Math.random()*2),chatarra:Math.floor(Math.random()*2)};let t='ENTRÓ. Trajo:';const nm={food:'comida',water:'agua',chatarra:'chatarra'};for(const k in g){if(g[k]>0){res[k]=Math.min(99,res[k]+g[k]);t+=' +'+g[k]+' '+nm[k];}}stats.cordura=clamp(stats.cordura+8,0,100);showAlert(t);renderRes();renderHotbar();renderStats();}
-    else{stats.cordura=clamp(stats.cordura-22,0,100);stats.energia=clamp(stats.energia-12,0,100);shake=1;setFlash('120,120,140',.4);rumble();alarm();gyroOn=3;if(crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}showAlert('ESTABA INFECTADO');renderStats();}
+    if(Math.random()<.6){const g={food:1+Math.floor(Math.random()*2),water:1+Math.floor(Math.random()*2),chatarra:Math.floor(Math.random()*2)};let t=T('a_entered_brought');const nm={food:T('m_food'),water:T('m_water'),chatarra:T('m_scrap')};for(const k in g){if(g[k]>0){res[k]=Math.min(99,res[k]+g[k]);t+=' +'+g[k]+' '+nm[k];}}stats.cordura=clamp(stats.cordura+8,0,100);showAlert(t);renderRes();renderHotbar();renderStats();}
+    else{stats.cordura=clamp(stats.cordura-22,0,100);stats.energia=clamp(stats.energia-12,0,100);shake=1;setFlash('120,120,140',.4);rumble();alarm();gyroOn=3;if(crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}showAlert(T('a_was_infected'));renderStats();}
   }
-  function decideNo(){closeDecision();stats.cordura=clamp(stats.cordura-6,0,100);showAlert('LO DEJASTE AFUERA');renderStats();}
+  function decideNo(){closeDecision();stats.cordura=clamp(stats.cordura-6,0,100);showAlert(T('a_left_outside'));renderStats();}
   $('#dyes').addEventListener('click',decideYes);$('#dno').addEventListener('click',decideNo);
 
   // controles
@@ -459,7 +459,7 @@
   });}
   const _celAmb=new THREE.AmbientLight(0x7a8a9a,0);scene.add(_celAmb);
   let celOn=false;
-  function applyCel(){celReg.forEach(r=>{r.m.material=celOn?r.toon:r.std;});celOutlines.forEach(o=>{o.visible=celOn;});_celAmb.intensity=celOn?0.34:0.05;if(renderer)renderer.toneMappingExposure=celOn?0.95:0.86;const b=$('#cel');if(b){b.textContent=celOn?'ESTILO: CEL':'ESTILO: REAL';b.classList.toggle('on',celOn);}}
+  function applyCel(){celReg.forEach(r=>{r.m.material=celOn?r.toon:r.std;});celOutlines.forEach(o=>{o.visible=celOn;});_celAmb.intensity=celOn?0.34:0.05;if(renderer)renderer.toneMappingExposure=celOn?0.95:0.86;const b=$('#cel');if(b){b.textContent=celOn?T('btn_style_cel'):T('btn_style_real');b.classList.toggle('on',celOn);}}
   // ====== UNIDAD R-01 (robot explorador) ======
   // ====== BANCO DE CRAFTEO (árbol estilo Last Day on Earth) ======
   const MATN={chatarra:'Chatarra',circuitos:'Circuitos',cables:'Cables',plastico:'Plástico',tela:'Tela',semillas:'Semillas',quimicos:'Químicos',lingote:'Lingote',placa:'Placa',telatratada:'Tela tratada',bateria:'Batería',fuel:'Combustible',food:'Comida',water:'Agua',med:'Medicina'};
@@ -526,7 +526,7 @@
     if($('#rhpv'))$('#rhpv').textContent=Math.round(robot.hp)+'%';
     if($('#rtempv'))$('#rtempv').textContent=Math.round(robot.temp)+'°';
     if($('#rcargav'))$('#rcargav').textContent=Math.round(robot.carga)+'%';
-    const st={idle:'EN BASE',mission:'EN MISIÓN…',broken:'FUERA DE SERVICIO',charging:'MANTENIMIENTO'}[robot.status];
+    const st={idle:T('st_base'),mission:T('st_mission'),broken:T('st_broken'),charging:T('st_maintenance')}[robot.status];
     if($('#rstatus'))$('#rstatus').textContent=st;
     const mission=robot.status==='mission';
     if($('#rsend'))$('#rsend').disabled=robot.status!=='idle'||robot.bat<30||robot.hp<=0||robot.temp>85;
@@ -534,11 +534,11 @@
     if($('#rrepair'))$('#rrepair').disabled=mission||robot.hp>=100;
   }
   function sendRobot(){
-    if(robot.status!=='idle'){showAlert('LA UNIDAD NO ESTÁ DISPONIBLE');return;}
-    if(robot.temp>85){showAlert('UNIDAD SOBRECALENTADA');return;}
-    if(robot.bat<30){showAlert('BATERÍA INSUFICIENTE');return;}
-    if(robot.hp<=0){showAlert('UNIDAD AVERIADA');return;}
-    robot.status='leaving';robot.moving=true;robot.tx=DOORINX;robot.tz=DOORZ;doorTarget=1;setRobotAnim('Walking');showAlert('R-01 SE DIRIGE A LA COMPUERTA');
+    if(robot.status!=='idle'){showAlert(T('a_unit_unavailable'));return;}
+    if(robot.temp>85){showAlert(T('a_unit_overheat'));return;}
+    if(robot.bat<30){showAlert(T('a_low_battery'));return;}
+    if(robot.hp<=0){showAlert(T('a_unit_damaged'));return;}
+    robot.status='leaving';robot.moving=true;robot.tx=DOORINX;robot.tz=DOORZ;doorTarget=1;setRobotAnim('Walking');showAlert(T('a_unit_to_hatch'));
     renderRobot();
   }
   function robotReturn(){
@@ -555,23 +555,23 @@
     if(Math.random()<0.4){const dmg=15+Math.floor(Math.random()*22);robot.hp=clamp(robot.hp-dmg,0,100);txt+=' (dañada -'+dmg+')';}
     renderRes();showAlert(txt);
     setTimeout(()=>{robot.carga=0;renderRobot();},1800);
-    if(robot.hp<=0||robot.bat<=0){robot.status='broken';robot.moving=false;if(robot.model)robot.model.position.set(2.05,0,-1.2);setRobotAnim('Death');doorTarget=0;showAlert('R-01 QUEDÓ FUERA DE SERVICIO');}
+    if(robot.hp<=0||robot.bat<=0){robot.status='broken';robot.moving=false;if(robot.model)robot.model.position.set(2.05,0,-1.2);setRobotAnim('Death');doorTarget=0;showAlert(T('a_unit_oos'));}
     else{robot.status='returning';robot.moving=true;robot.tx=2.05;robot.tz=-1.2;setRobotAnim('Walking');}
     renderRobot();
   }
   function chargeRobot(){
     if(robot.status==='mission')return;
-    if(res.fuel<=0){showAlert('SIN COMBUSTIBLE PARA CARGAR');return;}
+    if(res.fuel<=0){showAlert(T('a_no_fuel_charge'));return;}
     res.fuel--;robot.bat=clamp(robot.bat+45,0,100);robot.temp=clamp(robot.temp+8,0,100);
     if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';robot.moving=false;setRobotAnim('Idle');}
-    renderRes();renderRobot();showAlert('BATERÍA DE R-01 CARGADA');
+    renderRes();renderRobot();showAlert(T('a_battery_charged'));
   }
   function repairRobot(){
     if(robot.status==='mission')return;
-    if(res.chatarra<=0){showAlert('SIN CHATARRA PARA REPARAR');return;}
+    if(res.chatarra<=0){showAlert(T('a_no_scrap_repair'));return;}
     res.chatarra--;robot.hp=clamp(robot.hp+35,0,100);
     if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';setRobotAnim('Idle');}
-    renderRes();renderRobot();showAlert('R-01 REPARADA');
+    renderRes();renderRobot();showAlert(T('a_unit_repaired'));
   }
   function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.wanderT=1.5;if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
   function pickRobotTarget(){let tx,tz,tr=0,ok;do{tx=-2.4+Math.random()*4.8;tz=-4.6+Math.random()*7.0;ok=true;for(const o of COLLIDERS){if(Math.hypot(tx-o.x,tz-o.z)<o.r+.5){ok=false;break;}}tr++;}while(!ok&&tr<24);robot.tx=tx;robot.tz=tz;robot.moving=true;}
@@ -585,7 +585,7 @@
     if(robot.status==='idle'){
       robot.bat=clamp(robot.bat-dt*0.22,0,100);
       robot.temp=clamp(robot.temp-dt*1.6,30,100);
-      if(robot.bat<=0){robot.status='broken';robot.moving=false;setRobotAnim('Death');showAlert('R-01 SIN BATERÍA');renderRobot();return;}
+      if(robot.bat<=0){robot.status='broken';robot.moving=false;setRobotAnim('Death');showAlert(T('a_unit_no_battery'));renderRobot();return;}
       if(robot.model){
         if(robot.moving){
           const px=robot.model.position.x,pz=robot.model.position.z,dx=robot.tx-px,dz=robot.tz-pz,d=Math.hypot(dx,dz);
