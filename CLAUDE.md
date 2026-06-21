@@ -120,9 +120,37 @@ Sitio estático en **Render**. La raíz del repo se sirve tal cual; `index.html`
 punto de entrada. Cualquier asset nuevo debe referenciarse por **ruta relativa**
 (`vendor/...`, `js/...`, `assets/...`) para que ande tanto en Render como por `file://`.
 
-## Estado actual del repo
+## Estado actual del repo (ya separado)
 
-- `index.html` — el monolito original (todo inline). Punto de partida de la refactorización
-  hacia un shell liviano + `css/` + `js/` + `assets/` + `vendor/` (ver plan de separación).
+El monolito original se separó en un shell liviano + archivos planos (sin bundler):
+
+```
+index.html        shell ~6 KB: <head>, body HTML y <script src> en orden de dependencia
+css/style.css     todo el CSS
+vendor/           Three.js r128 + ejemplos (12 archivos locales, no CDN)
+assets/robot.glb  modelo del robot (binario real, ~464 KB)
+js/
+  config.js       constantes y helpers (SMALL, CAP, FULL, clamp, fmt, $)
+  textures.js     texturas procedurales y materiales
+  scene.js        escena, render, geometría estática, CRT y postprocesado (init)
+  audio.js        WebAudio
+  hud.js          stats, recursos, inventario, mapa
+  game.js         lógica de juego: estado, slider HOLDERS, eventos, zonas, loop,
+                  cel-shading, robot R-01 y crafteo, + kickoff final
+```
+
+Notas importantes para mantener:
+
+- **No hay IIFE.** Los `<script>` son clásicos y comparten el scope global léxico. Las
+  declaraciones top-level (`const`/`let`/`function`) de un archivo son visibles para los
+  que cargan después. **El orden de los `<script>` importa** y debe respetar dependencias.
+- **El hoisting de `function` NO cruza archivos.** Por eso todo el cluster con referencias
+  cruzadas hacia adelante (estado → zonas → `openCraft`/robot/cel → kickoff) vive junto en
+  `game.js`. Si vas a partir `game.js`, cuidá que ninguna ejecución inmediata referencie una
+  función declarada en un archivo posterior.
+- **Fuentes (Google Fonts) siguen por CDN** en `index.html`. Si fallan, la página degrada a
+  `monospace`/`sans-serif` (definido en el CSS). Three.js sí está vendorizado.
+- Para verificar cambios: servir la raíz por HTTP (no `file://`, por el fetch del `.glb`)
+  y abrir `index.html`. El robot carga vía `GLTFLoader.load('assets/robot.glb')`.
 </content>
 </invoke>
