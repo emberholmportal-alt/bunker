@@ -18,6 +18,11 @@ de marketing y mini-juego de supervivencia.
 - **Motor:** Three.js **r128 (0.128.0)** + sus ejemplos (postprocesado, GLTFLoader,
   shaders). Todo en **un solo archivo HTML** (`index.html`).
 - **Idioma:** toda la UI y narrativa están en **español rioplatense** (voseo). Mantenerlo.
+- **Experiencia single-player.** Por ahora es **un solo jugador** sobreviviendo solo en
+  el búnker (multijugador es a futuro). El slider HOLDERS es la **métrica/atmósfera** del
+  trailer (almas a salvo adentro vs. afuera con el enjambre), **no** una colonia que
+  alimentás. La supervivencia y el crafteo son del jugador (vos + el robot R-01), con
+  feeling más cercano a **60 Seconds** que a Fallout Shelter.
 
 ## La mecánica del slider HOLDERS (es el corazón del trailer)
 
@@ -96,9 +101,12 @@ comentarios `// ---- ... ----`:
     decodifica con `atob` → `GLTFLoader().parse()`. Tiene `AnimationMixer` (Idle, Walking,
     Wave, Death, etc.), batería/HP/temp/carga, y una mini-IA: deambula, lo enviás a
     misión por la compuerta, vuelve con recursos, se puede cargar/reparar.
-18. **Banco de crafteo** — `CRAFT_BASES` / `CRAFT_COMP` / `CRAFT_PROD`: elegís una base
-    (agua/comida/chatarra) y aplicás procesos **en orden** (el orden importa) para
-    transformar el estado hasta un producto con efectos sobre stats.
+18. **Banco de crafteo (árbol estilo Last Day on Earth)** — `RECIPES`: recetas
+    `need → give`. Materias primas (`chatarra`, `circuitos`, `cables`, `plastico`,
+    `tela`, `semillas`, `quimicos`) → **componentes** (`lingote`, `placa`,
+    `telatratada`, `bateria`) → **provisiones/energía** (food/water/med, +núcleo,
+    fuel). `res` es el inventario completo; arriba solo se muestran los vitales
+    (fuel/food/water/chatarra/med), el resto vive en el banco (`#cinv`/`#crecipes`).
 
 ## Convenciones a mantener
 

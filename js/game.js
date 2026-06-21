@@ -167,11 +167,11 @@
   const V=(x,z)=>new THREE.Vector3(x,0,z);
   const zones=[
     {p:V(-0.9,-3.4),r:1.3,label:'ALIMENTAR GENERADOR  (-combustible)',cdM:1.0,cd:0,fn:()=>{if(res.fuel>0){res.fuel--;nucleo=clamp(nucleo+26,0,100);renderRes();blip();}else showAlert('SIN COMBUSTIBLE');}},
-    {p:V(-2.4,10.3),r:1.5,label:'COSECHAR  (+comida)',cdM:2.0,cd:0,fn:()=>{res.food++;stats.energia=clamp(stats.energia-8,0,100);renderRes();renderHotbar();renderStats();blip();}},
+    {p:V(-2.4,10.3),r:1.5,label:'COSECHAR  (+comida)',cdM:2.0,cd:0,fn:()=>{res.food++;if(Math.random()<.4){res.semillas++;floatTick('+1 semillas','#9fe0b0');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderHotbar();renderStats();blip();}},
     {p:V(-1.3,-4.55),r:1.4,label:'JUNTAR AGUA  (+agua)',cdM:2.0,cd:0,fn:()=>{res.water++;stats.energia=clamp(stats.energia-6,0,100);renderRes();renderHotbar();renderStats();blip();}},
     {p:V(1.9,-4.55),r:1.4,label:'SACAR COMBUSTIBLE  (+combustible)',cdM:2.5,cd:0,fn:()=>{res.fuel++;stats.energia=clamp(stats.energia-10,0,100);renderRes();renderStats();blip();}},
-    {p:V(2.3,-4.3),r:1.5,label:'BUSCAR MATERIALES  (+materiales)',cdM:2.0,cd:0,fn:()=>{res.mats++;stats.energia=clamp(stats.energia-8,0,100);renderRes();renderStats();blip();}},
-    {p:V(RX-.4,1.6),r:1.3,label:'REPARAR SISTEMA  (-materiales)',cdM:1.5,cd:0,fn:()=>{if(res.mats>0){res.mats--;nucleo=clamp(nucleo+14,0,100);renderRes();blip();}else showAlert('SIN MATERIALES');}},
+    {p:V(2.3,-4.3),r:1.5,label:'BUSCAR CHATARRA  (+chatarra)',cdM:2.0,cd:0,fn:()=>{res.chatarra++;if(Math.random()<.35){res.cables++;floatTick('+1 cables','#cfd2cc');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderStats();blip();}},
+    {p:V(RX-.4,1.6),r:1.3,label:'REPARAR SISTEMA  (-chatarra)',cdM:1.5,cd:0,fn:()=>{if(res.chatarra>0){res.chatarra--;nucleo=clamp(nucleo+14,0,100);renderRes();blip();}else showAlert('SIN CHATARRA');}},
     {p:V(-5.8,7.0),r:1.4,label:'DESCANSAR  (+energía)',cdM:1.5,cd:0,fn:()=>{stats.energia=clamp(stats.energia+35,0,100);renderStats();blip();}},
     {p:V(-1.0,3.0),r:1.3,label:'LEER  (+cordura)',cdM:1.5,cd:0,fn:()=>{stats.cordura=clamp(stats.cordura+30,0,100);renderStats();blip();}},
     {p:V(1.95,2.2),r:1.2,label:'SINTONIZAR RADIO',cdM:.6,cd:0,fn:radioTune},
@@ -323,7 +323,7 @@
   }
   function closeDecision(){decisionOpen=false;$('#decision').style.display='none';running=wasRunning;}
   function decideYes(){closeDecision();
-    if(Math.random()<.6){const g={food:1+Math.floor(Math.random()*2),water:1+Math.floor(Math.random()*2),mats:Math.floor(Math.random()*2)};let t='ENTRÓ. Trajo:';const nm={food:'comida',water:'agua',mats:'mat'};for(const k in g){if(g[k]>0){res[k]=Math.min(99,res[k]+g[k]);t+=' +'+g[k]+' '+nm[k];}}stats.cordura=clamp(stats.cordura+8,0,100);showAlert(t);renderRes();renderHotbar();renderStats();}
+    if(Math.random()<.6){const g={food:1+Math.floor(Math.random()*2),water:1+Math.floor(Math.random()*2),chatarra:Math.floor(Math.random()*2)};let t='ENTRÓ. Trajo:';const nm={food:'comida',water:'agua',chatarra:'chatarra'};for(const k in g){if(g[k]>0){res[k]=Math.min(99,res[k]+g[k]);t+=' +'+g[k]+' '+nm[k];}}stats.cordura=clamp(stats.cordura+8,0,100);showAlert(t);renderRes();renderHotbar();renderStats();}
     else{stats.cordura=clamp(stats.cordura-22,0,100);stats.energia=clamp(stats.energia-12,0,100);shake=1;setFlash('120,120,140',.4);rumble();alarm();gyroOn=3;if(crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}showAlert('ESTABA INFECTADO');renderStats();}
   }
   function decideNo(){closeDecision();stats.cordura=clamp(stats.cordura-6,0,100);showAlert('LO DEJASTE AFUERA');renderStats();}
@@ -337,11 +337,11 @@
   $('#cel').addEventListener('click',()=>{celOn=!celOn;applyCel();});
   $('#rclose').addEventListener('click',()=>{$('#robotui').style.display='none';});
   $('#cclose').addEventListener('click',()=>{$('#craftui').style.display='none';});
-  $('#cmake').addEventListener('click',cMake);$('#cclear').addEventListener('click',cClear);
   $('#rsend').addEventListener('click',sendRobot);$('#rcharge').addEventListener('click',chargeRobot);$('#rrepair').addEventListener('click',repairRobot);
   $('#reset').addEventListener('click',rst);$('#eb2').addEventListener('click',rst);
   function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;decT=30+Math.random()*20;decisionOpen=false;look2portilla=0;enjSurge=0;
-    stats.hambre=stats.sed=stats.energia=stats.cordura=100;res.fuel=6;res.food=5;res.water=5;res.mats=3;res.med=2;nucleo=80;
+    stats.hambre=stats.sed=stats.energia=stats.cordura=100;nucleo=80;
+    for(const k in res)res[k]=0;res.fuel=6;res.food=5;res.water=5;res.med=2;res.chatarra=2;res.tela=1;res.semillas=1;
     zones.forEach(z=>z.cd=0);if(torch)torch.visible=false;refugioLight.intensity=0;
     cracks.forEach(c=>c.opacity=0);crackIdx=0;resetRobot();renderStats();renderHotbar();renderRes();renderHoldout(0,0,0);
     $('#holders').value=0;$('#hv').textContent='0';$('#auto').classList.remove('on');$('#decision').style.display='none';$('#end').style.display='none';
@@ -366,27 +366,39 @@
   let celOn=false;
   function applyCel(){celReg.forEach(r=>{r.m.material=celOn?r.toon:r.std;});celOutlines.forEach(o=>{o.visible=celOn;});_celAmb.intensity=celOn?0.34:0.05;if(renderer)renderer.toneMappingExposure=celOn?0.95:0.86;const b=$('#cel');if(b){b.textContent=celOn?'ESTILO: CEL':'ESTILO: REAL';b.classList.toggle('on',celOn);}}
   // ====== UNIDAD R-01 (robot explorador) ======
-  // ====== BANCO DE CRAFTEO ======
-  const CRAFT_BASES={agua:{label:'💧 Agua sucia',name:'Agua sucia',st:'Sucio',cost:{water:1}},comida:{label:'🥫 Comida cruda',name:'Comida cruda',st:'Crudo',cost:{food:1}},chatarra:{label:'🔩 Chatarra',name:'Chatarra',st:'Oxidado',cost:{mats:1}}};
-  const CRAFT_COMP={
-    calor:{label:'🔥 Calor',name:'Calor',cost:{fuel:1},tf:{Sucio:'Hervido',Crudo:'Cocido',Filtrado:'Estéril',Tóxico:'Inerte',Oxidado:'Forjado',Salado:'Salmuera'}},
-    filtro:{label:'💧 Filtro',name:'Filtro',cost:{mats:1},tf:{Sucio:'Filtrado',Hervido:'Potable',Tóxico:'Filtrado',Salmuera:'Suave'}},
-    sal:{label:'🧂 Sal',name:'Sal',cost:{},tf:{Cocido:'Conserva',Potable:'Electrolito',Hervido:'Salmuera',Crudo:'Curado'}},
-    carbon:{label:'⚫ Carbón',name:'Carbón',cost:{mats:1},tf:{Tóxico:'Medicinal',Sucio:'Filtrado',Hervido:'Purificado',Inerte:'Medicinal'}},
-    hierba:{label:'🌿 Hierba',name:'Hierba',cost:{food:1},tf:{Cocido:'Nutritivo',Potable:'Infusión',Medicinal:'Remedio',Forjado:'Tóxico',Filtrado:'Tónico'}}
-  };
-  const CRAFT_PROD={Potable:{n:'Agua Potable',fx:{sed:30}},Electrolito:{n:'Bebida Isotónica',fx:{sed:25,energia:15}},Estéril:{n:'Agua Estéril',fx:{sed:22,cordura:4}},Purificado:{n:'Agua Purificada',fx:{sed:35}},Tónico:{n:'Tónico',fx:{sed:18,cordura:10}},Suave:{n:'Agua Blanda',fx:{sed:20}},Conserva:{n:'Ración Conservada',fx:{hambre:35}},Nutritivo:{n:'Comida Nutritiva',fx:{hambre:30,cordura:5}},Cocido:{n:'Comida Cocida',fx:{hambre:22}},Curado:{n:'Carne Curada',fx:{hambre:25}},Medicinal:{n:'Antídoto',fx:{cordura:20}},Remedio:{n:'Remedio Herbal',fx:{cordura:25,energia:10}},Infusión:{n:'Infusión',fx:{cordura:15,energia:6}},Forjado:{n:'Herramienta',fx:{mats:2}}};
-  let crB=null,crSt=null,crSteps=[];
+  // ====== BANCO DE CRAFTEO (árbol estilo Last Day on Earth) ======
+  const MATN={chatarra:'Chatarra',circuitos:'Circuitos',cables:'Cables',plastico:'Plástico',tela:'Tela',semillas:'Semillas',quimicos:'Químicos',lingote:'Lingote',placa:'Placa',telatratada:'Tela tratada',bateria:'Batería',fuel:'Combustible',food:'Comida',water:'Agua',med:'Medicina'};
+  const MAT=[['chatarra','🔩'],['circuitos','🖥'],['cables','🔌'],['plastico','🧴'],['tela','🧵'],['semillas','🌱'],['quimicos','⚗'],['lingote','🧱'],['placa','🟩'],['telatratada','🧶'],['bateria','🔋'],['fuel','⛽'],['food','🥫'],['water','💧'],['med','💊']];
+  // recetas: need (consume) → give (produce). give apunta a res[k] o a 'nucleo'.
+  const RECIPES=[
+    {id:'lingote', n:'Lingote de metal',  i:'🧱', cat:'Componentes', need:{chatarra:3,fuel:1},          give:{lingote:1}},
+    {id:'placa',   n:'Placa de circuito', i:'🟩', cat:'Componentes', need:{circuitos:2,cables:1},        give:{placa:1}},
+    {id:'telat',   n:'Tela tratada',      i:'🧶', cat:'Componentes', need:{tela:2,quimicos:1},           give:{telatratada:1}},
+    {id:'bateria', n:'Batería casera',    i:'🔋', cat:'Componentes', need:{circuitos:1,cables:1,chatarra:1}, give:{bateria:1}},
+    {id:'racion',  n:'Ración enlatada',   i:'🥫', cat:'Provisiones', need:{semillas:2,plastico:1},       give:{food:3}},
+    {id:'agua',    n:'Agua filtrada',     i:'💧', cat:'Provisiones', need:{chatarra:1,telatratada:1},    give:{water:3}},
+    {id:'vendaje', n:'Vendaje',           i:'🩹', cat:'Provisiones', need:{tela:2},                      give:{med:1}},
+    {id:'antidoto',n:'Antídoto',          i:'💊', cat:'Provisiones', need:{quimicos:1,semillas:1},       give:{med:2}},
+    {id:'celula',  n:'Célula de energía', i:'⚡', cat:'Energía',     need:{placa:1,bateria:1},           give:{nucleo:35}},
+    {id:'kit',     n:'Kit de reparación', i:'🛠', cat:'Energía',     need:{lingote:2,cables:1},          give:{nucleo:20,chatarra:1}},
+    {id:'combust', n:'Combustible sintético', i:'⛽', cat:'Energía', need:{quimicos:2,plastico:1},       give:{fuel:2}}
+  ];
   function openCraft(){$('#craftui').style.display='block';renderCraft();}
-  function cStart(b){const c=CRAFT_BASES[b];for(const k in c.cost){if((res[k]||0)<c.cost[k]){showAlert('FALTA '+k.toUpperCase());return;}}for(const k in c.cost)res[k]-=c.cost[k];crB=b;crSt=c.st;crSteps=[];renderRes();renderCraft();}
-  function cApply(comp){if(!crB){showAlert('ELEGÍ UNA BASE');return;}const c=CRAFT_COMP[comp];for(const k in c.cost){if((res[k]||0)<c.cost[k]){showAlert('FALTA '+k.toUpperCase());return;}}for(const k in c.cost)res[k]-=c.cost[k];const nx=c.tf[crSt];crSt=nx?nx:'Tóxico';crSteps.push(c.name);renderRes();renderCraft();}
-  function cMake(){if(!crB){showAlert('NO HAY MEZCLA');return;}const pr=CRAFT_PROD[crSt];if(pr){for(const k in pr.fx){if(k in stats)stats[k]=clamp(stats[k]+pr.fx[k],0,100);else res[k]=Math.min(99,(res[k]||0)+pr.fx[k]);}showAlert('FABRICASTE: '+pr.n);blip();}else{stats.cordura=clamp(stats.cordura-6,0,100);showAlert('MEZCLA TÓXICA — sin valor');}crB=null;crSt=null;crSteps=[];renderRes();renderStats();renderCraft();}
-  function cClear(){crB=null;crSt=null;crSteps=[];renderCraft();}
+  function canCraft(rc){for(const k in rc.need)if((res[k]||0)<rc.need[k])return false;return true;}
+  function doCraft(id){const rc=RECIPES.find(r=>r.id===id);if(!rc)return;if(!canCraft(rc)){showAlert('FALTAN MATERIALES');return;}
+    for(const k in rc.need)res[k]-=rc.need[k];
+    for(const k in rc.give){if(k==='nucleo')nucleo=clamp(nucleo+rc.give[k],0,100);else res[k]=Math.min(99,(res[k]||0)+rc.give[k]);}
+    blip();showAlert('FABRICASTE: '+rc.n);renderRes();renderHotbar();renderCraft();}
   function renderCraft(){
-    const bb=$('#cbases');if(bb&&!bb.dataset.init){bb.dataset.init='1';for(const k in CRAFT_BASES){const b=document.createElement('button');b.className='btn';b.textContent=CRAFT_BASES[k].label;b.onclick=()=>cStart(k);bb.appendChild(b);}}
-    const cc=$('#ccomps');if(cc&&!cc.dataset.init){cc.dataset.init='1';for(const k in CRAFT_COMP){const b=document.createElement('button');b.className='btn';b.textContent=CRAFT_COMP[k].label;b.onclick=()=>cApply(k);cc.appendChild(b);}}
-    if($('#cseq'))$('#cseq').textContent=crB?(CRAFT_BASES[crB].name+(crSteps.length?' → '+crSteps.join(' → '):'')):'— elegí una base —';
-    if($('#cstate'))$('#cstate').textContent=crSt||'—';
+    const inv=$('#cinv');if(inv){inv.innerHTML='';MAT.forEach(([k,ic])=>{const n=res[k]||0;const e=document.createElement('span');e.className='ci'+(n>0?' has':'');e.innerHTML=ic+' '+MATN[k]+' <b>'+n+'</b>';inv.appendChild(e);});}
+    const list=$('#crecipes');if(!list)return;list.innerHTML='';let lastCat='';
+    RECIPES.forEach(rc=>{if(rc.cat!==lastCat){lastCat=rc.cat;const h=document.createElement('div');h.className='ccat';h.textContent=rc.cat;list.appendChild(h);}
+      const ok=canCraft(rc),row=document.createElement('div');row.className='rcp';
+      const need=Object.keys(rc.need).map(k=>{const have=(res[k]||0),req=rc.need[k];return '<span class="'+(have>=req?'ok':'no')+'">'+req+' '+MATN[k]+'</span>';}).join(' + ');
+      const give=Object.keys(rc.give).map(k=>'+'+rc.give[k]+' '+(k==='nucleo'?'núcleo':(MATN[k]||k))).join(', ');
+      row.innerHTML='<span class="ic">'+rc.i+'</span><span class="info"><span class="nm">'+rc.n+'</span><br><span class="nd">'+need+' → '+give+'</span></span><button class="mk"'+(ok?'':' disabled')+'>FABRICAR</button>';
+      row.querySelector('.mk').onclick=()=>doCraft(rc.id);
+      list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null};
   const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45}];
@@ -438,8 +450,12 @@
     robot.bat=clamp(robot.bat-35,0,100);robot.temp=clamp(robot.temp+30,0,100);doorTarget=1;
     if(robot.model){robot.model.visible=true;robot.model.position.set(DOORINX,0,DOORZ);robot.model.rotation.y=Math.atan2(2.05-DOORINX,-1.2-DOORZ);}
     const cap=robot.hp>60?1:.6;
-    const g={food:Math.round((1+Math.floor(Math.random()*3))*cap),water:Math.round((1+Math.floor(Math.random()*2))*cap),mats:Math.floor(Math.random()*3),med:Math.random()<.4?1:0,fuel:Math.random()<.5?1:0};
-    let tot=0,txt='R-01 VOLVIÓ:';for(const k in g){if(g[k]>0){res[k]=Math.min(99,res[k]+g[k]);tot+=g[k];txt+=' +'+g[k]+' '+({food:'comida',water:'agua',mats:'mat',med:'med',fuel:'fuel'}[k]);}}
+    // R-01 carroñea un mix aleatorio ponderado de materias primas (estilo Last Day on Earth)
+    const LOOT=[['chatarra',5],['cables',3],['circuitos',3],['plastico',3],['tela',3],['semillas',3],['quimicos',2],['food',3],['water',3],['fuel',2],['med',1]];
+    const NM={chatarra:'chatarra',cables:'cables',circuitos:'circuitos',plastico:'plástico',tela:'tela',semillas:'semillas',quimicos:'químicos',food:'comida',water:'agua',fuel:'combustible',med:'medicina'};
+    const totW=LOOT.reduce((s,x)=>s+x[1],0),picks=2+Math.floor(Math.random()*3),g={};
+    for(let i=0;i<picks;i++){let r=Math.random()*totW,sel=LOOT[0];for(const x of LOOT){r-=x[1];if(r<=0){sel=x;break;}}const k=sel[0];g[k]=(g[k]||0)+Math.max(1,Math.round((1+Math.floor(Math.random()*2))*cap));}
+    let tot=0,txt='R-01 VOLVIÓ:';for(const k in g){if(g[k]>0){res[k]=Math.min(99,(res[k]||0)+g[k]);tot+=g[k];txt+=' +'+g[k]+' '+NM[k];}}
     robot.carga=Math.min(100,tot*14);
     if(Math.random()<0.4){const dmg=15+Math.floor(Math.random()*22);robot.hp=clamp(robot.hp-dmg,0,100);txt+=' (dañada -'+dmg+')';}
     renderRes();showAlert(txt);
@@ -457,8 +473,8 @@
   }
   function repairRobot(){
     if(robot.status==='mission')return;
-    if(res.mats<=0){showAlert('SIN MATERIALES PARA REPARAR');return;}
-    res.mats--;robot.hp=clamp(robot.hp+35,0,100);
+    if(res.chatarra<=0){showAlert('SIN CHATARRA PARA REPARAR');return;}
+    res.chatarra--;robot.hp=clamp(robot.hp+35,0,100);
     if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';setRobotAnim('Idle');}
     renderRes();renderRobot();showAlert('R-01 REPARADA');
   }

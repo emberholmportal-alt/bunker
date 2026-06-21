@@ -8,7 +8,8 @@
   renderStats();
 
   // ---- RECURSOS DEL REFUGIO ----
-  const res={fuel:6,food:5,water:5,mats:3,med:2};
+  // inventario completo: vitales (se muestran arriba) + materias primas y componentes (banco de crafteo)
+  const res={fuel:6,food:5,water:5,med:2,chatarra:2,circuitos:0,cables:0,plastico:0,tela:1,semillas:1,quimicos:0,lingote:0,placa:0,telatratada:0,bateria:0};
   let nucleo=80;
   function renderRes(){for(const k in res){const e=document.querySelector(`#res [data-r="${k}"] .rv`);if(e)e.textContent=res[k];}
     const nb=$('#nucleo-bar');if(nb){nb.style.width=clamp(nucleo,0,100)+'%';nb.style.background=nucleo<25?'#ff2e88':'#39ffd0';nb.style.boxShadow='0 0 10px '+(nucleo<25?'#ff2e88':'#39ffd0');}

@@ -35,6 +35,19 @@
   #craftui .crow .btn:hover{border-color:#ffcf90;box-shadow:0 0 8px rgba(255,200,120,.3)}
   #craftui .cseq{font-size:13px;color:#cfe0d0;background:rgba(255,255,255,.05);border-radius:4px;padding:7px 9px;margin:9px 0;min-height:16px;line-height:1.4}
   #craftui .cstate{font-size:15px;color:#bfc4cc;margin:6px 0}#craftui .cstate b{color:#ffcf90}
+  #craftui{width:360px;max-height:88vh;overflow-y:auto}
+  #craftui .cinv{display:flex;flex-wrap:wrap;gap:4px 9px;font-size:13px;color:#cfe0d0}
+  #craftui .cinv .ci{opacity:.55}#craftui .cinv .ci.has{opacity:1}#craftui .cinv .ci b{color:#ffcf90}
+  #craftui #crecipes{display:flex;flex-direction:column;gap:5px}
+  #craftui .rcp{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,200,120,.18);border-radius:5px;padding:5px 8px}
+  #craftui .rcp .ic{font-size:18px;width:22px;text-align:center}
+  #craftui .rcp .info{flex:1;min-width:0}
+  #craftui .rcp .nm{font-size:14px;color:#f0e6d0;letter-spacing:.5px}
+  #craftui .rcp .nd{font-size:12px;color:#9aa3b0}#craftui .rcp .nd .ok{color:#9fe0b0}#craftui .rcp .nd .no{color:#ff6b8a}
+  #craftui .rcp .mk{font-size:12px;padding:3px 9px;color:#e0d6c0;border:1px solid rgba(255,200,120,.4);background:transparent;cursor:pointer;font-family:'VT323',monospace;border-radius:3px}
+  #craftui .rcp .mk:hover:not(:disabled){border-color:#ffcf90;box-shadow:0 0 8px rgba(255,200,120,.3);color:#fff}
+  #craftui .rcp .mk:disabled{opacity:.3;cursor:default}
+  #craftui .ccat{font-size:10px;letter-spacing:2px;color:#8a7a5a;margin:6px 0 1px}
   #robotui{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:30;width:280px;border:1px solid rgba(143,255,176,.45);background:rgba(8,12,16,.96);border-radius:8px;padding:13px 15px;font-family:'VT323',monospace;display:none;box-shadow:0 10px 50px rgba(0,0,0,.65)}
   #robotui #rclose{float:right;cursor:pointer;color:#9aa3b0;font-size:18px;line-height:1}#robotui #rclose:hover{color:#fff}
   #inv .slot svg{width:26px;height:26px}#res .r svg{width:17px;height:17px;vertical-align:-3px}.slot.tablet{border-color:rgba(143,255,176,.5)}

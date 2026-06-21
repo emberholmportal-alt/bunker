@@ -38,17 +38,14 @@
     <div class="r" data-r="fuel"><svg viewBox="0 0 24 24" fill="none" stroke="#e6a868" stroke-width="1.5" stroke-linejoin="round"><rect x="5" y="8" width="10" height="11" rx="1"/><path d="M15 11h3v5h-3M8 8V6h4v2"/><line x1="7.5" y1="11.5" x2="13.5" y2="11.5" stroke-width="1.1"/></svg><span class="rv">6</span></div>
     <div class="r" data-r="food"><svg viewBox="0 0 24 24" fill="none" stroke="#e6c490" stroke-width="1.5" stroke-linecap="round"><ellipse cx="12" cy="5.5" rx="5.5" ry="2"/><path d="M6.5 5.5v13c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-13"/><path d="M9.5 9v8M12 9v8M14.5 9v8" stroke-width="1.1"/></svg><span class="rv">5</span></div>
     <div class="r" data-r="water"><svg viewBox="0 0 24 24"><path d="M12 3.5c0 0-6.5 7.2-6.5 11.2a6.5 6.5 0 0 0 13 0c0-4-6.5-11.2-6.5-11.2z" fill="#6cc0ee" stroke="#9bd8f8" stroke-width="1"/><path d="M9 14a3 3 0 0 0 1 3" fill="none" stroke="#bfeaff" stroke-width="1" stroke-linecap="round"/></svg><span class="rv">5</span></div>
-    <div class="r" data-r="mats"><svg viewBox="0 0 24 24" fill="none" stroke="#c2c8d0" stroke-width="1.5" stroke-linejoin="round"><path d="M8 4.5h8l4 7.5-4 7.5H8l-4-7.5z"/><circle cx="12" cy="12" r="3.3"/></svg><span class="rv">3</span></div>
+    <div class="r" data-r="chatarra" title="Chatarra (metal)"><svg viewBox="0 0 24 24" fill="none" stroke="#c2c8d0" stroke-width="1.5" stroke-linejoin="round"><path d="M8 4.5h8l4 7.5-4 7.5H8l-4-7.5z"/><circle cx="12" cy="12" r="3.3"/></svg><span class="rv">2</span></div>
     <div class="r" data-r="med"><svg viewBox="0 0 24 24"><g transform="rotate(45 12 12)"><rect x="5.5" y="9" width="13" height="6" rx="3" fill="#ef6b6b"/><path d="M12 9h-3.5a3 3 0 0 0 0 6H12z" fill="#f6dada"/><rect x="5.5" y="9" width="13" height="6" rx="3" fill="none" stroke="#cf4a4a" stroke-width="1"/></g></svg><span class="rv">2</span></div>
   </div>
   <div id="map"><canvas id="mapc" width="196" height="150"></canvas><div class="blip" id="blip"></div></div>
   <div id="craftui">
     <div class="ctitle">⚗ BANCO DE CRAFTEO <span id="cclose">✕</span></div>
-    <div class="csec">1 · BASE</div><div class="crow" id="cbases"></div>
-    <div class="csec">2 · PROCESOS — el orden importa</div><div class="crow" id="ccomps"></div>
-    <div class="cseq" id="cseq">— elegí una base —</div>
-    <div class="cstate">resultado: <b id="cstate">—</b></div>
-    <div class="crow" style="margin-top:8px"><button class="btn" id="cmake">FABRICAR</button><button class="btn" id="cclear">LIMPIAR</button></div>
+    <div class="csec">MATERIALES</div><div id="cinv" class="cinv"></div>
+    <div class="csec">RECETAS</div><div id="crecipes"></div>
   </div>
   <div id="robotui">
     <div class="rtitle">🤖 UNIDAD R-01 <span id="rclose">✕</span></div>
