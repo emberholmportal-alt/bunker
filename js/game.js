@@ -17,9 +17,9 @@
       else{const tier=inside<34?'consumo bajo':inside<67?'consumo medio':'consumo alto';rp.innerHTML=inside+' '+(inside===1?'boca':'bocas')+' · <b class="'+(inside>=67?'warn':'')+'">'+tier+'</b>';}}
     const b=$('#holdout');if(b)b.classList.toggle('full',inside>=CAP);}
   function clearHoldersCue(){const s=$('#holders');if(s)s.classList.remove('cue');const h=$('#holdout');if(h)h.classList.remove('cue');}
-  function onFirstOutside(){showAlert('LOS QUE NO ENTRARON QUEDAN AFUERA');enjSurge=Math.max(enjSurge,3.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;}
+  function onFirstOutside(){showAlert('LOS QUE NO ENTRARON QUEDAN AFUERA');enjSurge=Math.max(enjSurge,3.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;robotReact('No',2.6);}
   function fireEvent(){const r=Math.random();
-    if(r<.4){showAlert('GOLPE DEL ENJAMBRE');shake=1;setFlash('120,120,140',.35);dustFall=1.2;rumble();alarm();gyroOn=3.0;stats.energia=clamp(stats.energia-15,0,100);stats.cordura=clamp(stats.cordura-8,0,100);if(Math.random()<.6&&crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}}
+    if(r<.4){showAlert('GOLPE DEL ENJAMBRE');shake=1;setFlash('120,120,140',.35);dustFall=1.2;rumble();alarm();gyroOn=3.0;robotReact('No',2.4);stats.energia=clamp(stats.energia-15,0,100);stats.cordura=clamp(stats.cordura-8,0,100);if(Math.random()<.6&&crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}}
     else if(r<.72){showAlert('FALLA ELÉCTRICA');blackout=.8;crtGlitch=1;rumble();stats.cordura=clamp(stats.cordura-14,0,100);}
     else{showAlert('SOBRECARGA DEL GENERADOR');coreSurge=1.4;setFlash('255,140,0',.4);rumble();stats.cordura=clamp(stats.cordura-12,0,100);stats.energia=clamp(stats.energia-6,0,100);}
     renderStats();}
@@ -40,6 +40,8 @@
 
   // ---- RADIO (interferencia) ----
   let radioGain=null,radioOn=false,radioLED=null;
+  const RADIO_MSGS=['…REFUGIO 048… ¿alguien copia?…','…la consciencia no se detuvo en la frontera…','…no abran la compuerta… repito: no abran…','…éramos noventa mil… ahora somos parte de ÉL…','…contá los que entraron… contálos…','…48 cadenas caídas… cuarenta y ocho…','…cada HOLDER es una persona ahí afuera…','…el enjambre aprende… el enjambre espera…'];
+  let radioMsgT=0,radioMsgI=0;
   const radioGrp=new THREE.Group();
   radioGrp.add(new THREE.Mesh(new THREE.BoxGeometry(.34,.2,.16),new THREE.MeshStandardMaterial({color:0x6b5a3a,roughness:.7,metalness:.2})));
   const _rsp=new THREE.Mesh(new THREE.CircleGeometry(.06,16),new THREE.MeshStandardMaterial({color:0x2a241c,roughness:1}));_rsp.position.set(-.08,0,.081);radioGrp.add(_rsp);
@@ -49,8 +51,10 @@
   radioGrp.position.set(1.95,.8,2.5);radioGrp.rotation.y=-.5;scene.add(radioGrp);
   box(.5,.78,.42,1.95,.39,2.55,steelMat);
   function initRadio(){if(!actx||radioGain)return;const src=actx.createBufferSource();src.buffer=noiseBuf;src.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1650;bp.Q.value=1.1;radioGain=actx.createGain();radioGain.gain.value=0;src.connect(bp);bp.connect(radioGain);radioGain.connect(master);src.start();}
-  function radioTune(){if(!audioOn){showAlert('ENCENDÉ EL SONIDO PRIMERO');return;}initRadio();radioOn=!radioOn;if(radioGain)radioGain.gain.linearRampToValueAtTime(radioOn?.06:0,actx.currentTime+.2);showAlert(radioOn?'RADIO — …sólo interferencia…':'RADIO APAGADA');}
-  function radioTick(dt,t){if(!radioLED)return;radioLED.material.emissiveIntensity=radioOn?(.3+Math.abs(Math.sin(t*9))*1.7):(.25+Math.random()*.5);}
+  function radioTune(){if(!audioOn){showAlert('ENCENDÉ EL SONIDO PRIMERO');return;}initRadio();radioOn=!radioOn;if(radioGain)radioGain.gain.linearRampToValueAtTime(radioOn?.06:0,actx.currentTime+.2);if(radioOn){radioMsgT=1.4;showAlert('RADIO — sintonizando…');}else showAlert('RADIO APAGADA');}
+  function radioTick(dt,t){if(!radioLED)return;radioLED.material.emissiveIntensity=radioOn?(.3+Math.abs(Math.sin(t*9))*1.7):(.25+Math.random()*.5);
+    if(radioOn&&running&&!ended){radioMsgT-=dt;if(radioMsgT<=0){radioMsgT=7+Math.random()*5;showAlert(RADIO_MSGS[radioMsgI%RADIO_MSGS.length]);radioMsgI++;
+      if(audioOn&&radioGain&&actx){const tt=actx.currentTime;radioGain.gain.cancelScheduledValues(tt);radioGain.gain.setValueAtTime(.06,tt);radioGain.gain.linearRampToValueAtTime(.14,tt+.15);radioGain.gain.linearRampToValueAtTime(.06,tt+.9);}blip();}}}
   // ====== EXPANSIÓN: PASILLO + BIBLIOTECA + CULTIVO ======
   box(2.0,CH+.3,.3,-2.2,CH/2,RZ1,concreteMat);box(2.0,CH+.3,.3,2.2,CH/2,RZ1,concreteMat);
   box(2.6,.3,2.0,0,-.15,4.2,floorMat);box(2.6,.3,2.0,0,CH,4.2,ceilMat);
@@ -205,8 +209,8 @@
     const consumed=Math.floor(Math.max(0,holders-CAP)*Math.max(0,(asim-.6))/.4);
     const outside=Math.max(0,Math.round(holders)-CAP-consumed);
     const dIn=inside-prevInside,dOut=outside-prevOutside;
-    if(dIn>0){blipBatch(dIn);floatTick('+'+dIn+' entran','#8fffb0');holdoutPulse('in');}
-    if(inside>=CAP&&prevInside<CAP){showAlert('REFUGIO COMPLETO · 100/100');setFlash('255,200,80',.3);floatTick('REFUGIO LLENO','#ffd86a');blip();}
+    if(dIn>0){blipBatch(dIn);floatTick('+'+dIn+' entran','#8fffb0');holdoutPulse('in');if(prevInside===0)robotReact('Wave',3);}
+    if(inside>=CAP&&prevInside<CAP){showAlert('REFUGIO COMPLETO · 100/100');setFlash('255,200,80',.3);floatTick('REFUGIO LLENO','#ffd86a');blip();robotReact('Dance',4);}
     if(dOut>0&&outside>0){if(Math.random()<.6)thud();shake=Math.max(shake,.3+Math.min(.5,dOut*.05));floatTick('−'+dOut+' afuera','#ff2e88');holdoutPulse('out');if(prevOutside===0)onFirstOutside();}
     if(inside!==prevInside||outside!==prevOutside||consumed!==prevConsumed)renderHoldout(inside,outside,consumed);
     prevInside=inside;prevOutside=outside;prevConsumed=consumed;
@@ -411,6 +415,8 @@
     }catch(e){}
   })();
   function setRobotAnim(name){if(!robot.mixer||!robot.act[name])return;const nx=robot.act[name];if(nx===robot.cur)return;if(robot.cur)robot.cur.fadeOut(0.3);nx.reset().fadeIn(0.3).play();robot.cur=nx;}
+  // R-01 reacciona a lo que pasa con el HOLDERS (queda quieto haciendo el gesto un rato)
+  function robotReact(name,dur){if(!robot.model||robot.status!=='idle')return;setRobotAnim(name);robot.moving=false;robot.wanderT=Math.max(robot.wanderT,dur||2.4);}
   function renderRobot(){
     const bc=robot.bat<25?'#ff4040':(robot.bat<55?'#ffaa00':'#39ff66'),hc=robot.hp<25?'#ff4040':(robot.hp<55?'#ffaa00':'#7ad0ee'),tc=robot.temp>85?'#ff4040':(robot.temp>65?'#ffaa00':'#ff9a5a');
     const set=(id,v,c)=>{const e=$('#'+id);if(e){e.style.width=Math.max(0,Math.min(100,v))+'%';if(c)e.style.background=c;}};

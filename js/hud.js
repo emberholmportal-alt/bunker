@@ -19,7 +19,7 @@
   function renderHotbar(){invEl.innerHTML='';HB.forEach(([rk,sk,lbl])=>{const s=document.createElement('div');s.className='slot'+(res[rk]<=0?' empty':'');
     s.innerHTML=`${ICONS[rk]}<span class="cnt">${res[rk]}</span><span class="hlbl">${lbl}</span>`;
     if(res[rk]>0)s.addEventListener('click',()=>{res[rk]--;stats[sk]=clamp(stats[sk]+28,0,100);blip();renderHotbar();renderRes();renderStats();});invEl.appendChild(s);});
-    const tb=document.createElement('div');tb.className='slot tablet';tb.innerHTML=`${ICONS.tablet}<span class="hlbl">R-01</span>`;tb.addEventListener('click',()=>{const r=$('#robotui');r.style.display=r.style.display==='block'?'none':'block';});invEl.appendChild(tb);}
+    const tb=document.createElement('div');tb.className='slot tablet';tb.title='Consola de la unidad R-01 (enviar a buscar, cargar, reparar)';tb.innerHTML=`${ICONS.tablet}<span class="hlbl">R-01</span>`;tb.addEventListener('click',()=>{const r=$('#robotui');r.style.display=r.style.display==='block'?'none':'block';});invEl.appendChild(tb);}
   renderHotbar();renderRes();let flashLight=0;
 
   // ---- MAPA (blueprint) ----
