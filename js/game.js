@@ -74,6 +74,46 @@
   const _alm=new THREE.Mesh(new THREE.CylinderGeometry(.12,.16,.32,12),new THREE.MeshStandardMaterial({color:0x9aa0a8,metalness:.85,roughness:.3}));_alm.position.set(-.45,.94,0);craftG.add(_alm);
   const _tb=new THREE.Mesh(new THREE.TorusGeometry(.1,.018,8,16),new THREE.MeshStandardMaterial({color:0x8a8f96,metalness:.7}));_tb.position.set(-.22,1.02,0);_tb.rotation.y=Math.PI/2;craftG.add(_tb);
   const _fcc=[0x40a0c0,0xc04060,0x60c040];for(let i=0;i<3;i++){const fl=new THREE.Mesh(new THREE.CylinderGeometry(.05,.06,.17,8),new THREE.MeshStandardMaterial({color:_fcc[i],transparent:true,opacity:.65,emissive:_fcc[i],emissiveIntensity:.6}));fl.position.set(.12+i*.2,.865,.12);craftG.add(fl);}
+  twLight.intensity=1.15;twLight.distance=8;
+  // ====== TALLER DETALLADO (banco de trabajo, herramientas, fabricadora, luz de trabajo) ======
+  let fabLeds=[],fabLight=null,grindWheel=null,weldT=0;const weldLight=new THREE.PointLight(0x9fd0ff,0,2.2,2);weldLight.position.set(5.62,1.0,5.65);scene.add(weldLight);
+  {
+    const woodMat=new THREE.MeshStandardMaterial({map:tex(grime('#4a3a26'),1),normalMap:_wn,roughness:.9,metalness:.05});
+    const darkMetal=new THREE.MeshStandardMaterial({color:0x33383d,metalness:.85,roughness:.45,normalMap:metalN});
+    const toolMat=new THREE.MeshStandardMaterial({color:0x9aa0a8,metalness:.75,roughness:.4});
+    // --- pegboard + herramientas colgadas (pared derecha, x≈7.2) ---
+    const peg=new THREE.Mesh(new THREE.BoxGeometry(.05,1.25,2.4),new THREE.MeshStandardMaterial({color:0x5e4527,roughness:.92,map:tex(grime('#5e4527'),2),normalMap:_wn}));
+    peg.position.set(7.2,1.55,7.0);peg.receiveShadow=true;scene.add(peg);
+    const HX=7.12;
+    function hangTool(g,z,y,rotX){g.position.set(HX,y,z);if(rotX!==undefined)g.rotation.x=rotX;g.children.forEach(c=>{c.castShadow=true;});scene.add(g);}
+    {const g=new THREE.Group();g.add(meshBox(.025,.34,.025,0,0,0,woodMat));g.add(meshBox(.05,.06,.14,0,.18,0,toolMat));hangTool(g,6.35,1.78,Math.PI/2);} // martillo
+    {const g=new THREE.Group();g.add(meshBox(.03,.32,.012,0,0,0,toolMat));const j=new THREE.Mesh(new THREE.TorusGeometry(.045,.014,6,14),toolMat);j.position.y=.17;g.add(j);hangTool(g,6.72,1.73,Math.PI/2);} // llave
+    {const g=new THREE.Group();g.add(new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.12,8),new THREE.MeshStandardMaterial({color:0xc0392b,roughness:.5})));g.add(meshBox(.008,.18,.008,0,-.14,0,toolMat));hangTool(g,7.05,1.8,Math.PI/2);} // destornillador
+    {const g=new THREE.Group();g.add(meshBox(.012,.05,.36,0,0,0,toolMat));g.add(meshBox(.05,.11,.1,0,0,-.22,woodMat));hangTool(g,7.45,1.55);} // sierra
+    {const g=new THREE.Group();g.add(meshBox(.018,.24,.012,-.02,0,0,toolMat));g.add(meshBox(.018,.24,.012,.02,0,0,toolMat));hangTool(g,7.75,1.7,Math.PI/2);} // pinza
+    for(let i=0;i<2;i++){const c=new THREE.Mesh(new THREE.TorusGeometry(.09,.03,8,18),new THREE.MeshStandardMaterial({color:0x18181a,roughness:1}));c.position.set(HX,1.02,6.4+i*.55);c.castShadow=true;scene.add(c);} // rollos de cable
+    // --- tornillo de banco (vise) sobre el banco ---
+    {const g=new THREE.Group();g.position.set(5.62,.78,5.65);g.add(meshBox(.13,.1,.18,0,.05,0,darkMetal));g.add(meshBox(.17,.09,.06,0,.13,-.05,darkMetal));g.add(meshBox(.17,.09,.06,0,.13,.05,toolMat));const scr=new THREE.Mesh(new THREE.CylinderGeometry(.014,.014,.22,8),toolMat);scr.rotation.x=Math.PI/2;scr.position.set(0,.13,.13);g.add(scr);g.children.forEach(c=>c.castShadow=true);scene.add(g);}
+    // --- amoladora de banco (grinder con rueda que gira) ---
+    {const g=new THREE.Group();g.position.set(6.15,.78,7.0);g.add(meshBox(.22,.1,.13,0,.05,0,darkMetal));const mot=new THREE.Mesh(new THREE.CylinderGeometry(.06,.06,.18,12),darkMetal);mot.rotation.z=Math.PI/2;mot.position.set(-.02,.14,0);g.add(mot);grindWheel=new THREE.Mesh(new THREE.CylinderGeometry(.075,.075,.022,16),new THREE.MeshStandardMaterial({color:0x4a4a4a,roughness:1}));grindWheel.rotation.z=Math.PI/2;grindWheel.position.set(.11,.14,0);g.add(grindWheel);g.children.forEach(c=>c.castShadow=true);scene.add(g);}
+    // --- estantería de componentes (pared del fondo z≈8.15) ---
+    {const sh=new THREE.Group();sh.position.set(4.4,0,8.15);for(const px of[-.62,.62])for(const pz of[-.13,.13])sh.add(meshBox(.05,1.6,.05,px,.8,pz,steelMat));for(const yy of[.42,.9,1.38])sh.add(meshBox(1.34,.04,.34,0,yy,0,steelMat));const binC=[0x3a6a4a,0x6a5a2a,0x2a4a6a,0x6a2a3a,0x4a4a52];for(let r=0;r<3;r++)for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(.3,.2,.26),new THREE.MeshStandardMaterial({color:binC[(r*3+i)%5],roughness:.75,metalness:.1}));b.position.set(-.4+i*.4,.42+.48*r+.12,0);b.castShadow=true;sh.add(b);}sh.children.forEach(c=>c.castShadow=true);scene.add(sh);}
+    // --- pila de chatarra (esquina) ---
+    {const g=new THREE.Group();g.position.set(6.95,0,8.0);for(let i=0;i<11;i++){const s=new THREE.Mesh(new THREE.BoxGeometry(.12+Math.random()*.2,.06+Math.random()*.12,.12+Math.random()*.2),i%2?rustMat:steelMat);s.position.set((Math.random()-.5)*.5,.05+Math.random()*.28,(Math.random()-.5)*.5);s.rotation.set(Math.random(),Math.random(),Math.random());s.castShadow=true;g.add(s);}scene.add(g);}
+    // --- fabricadora (cámara sci-fi; futura cuna de M-01) ---
+    const fab=new THREE.Group();fab.position.set(6.7,0,6.05);scene.add(fab);
+    fab.add(meshBox(.74,.2,.54,0,.1,0,darkMetal));fab.add(meshBox(.74,.13,.54,0,1.52,0,darkMetal));
+    for(const px of[-.31,.31])for(const pz of[-.21,.21])fab.add(meshBox(.05,1.3,.05,px,.82,pz,steelMat));
+    const glass=new THREE.Mesh(new THREE.CylinderGeometry(.27,.27,1.22,20,1,true),new THREE.MeshPhysicalMaterial({color:0x88c0d0,transparent:true,opacity:.14,roughness:.1,metalness:0,side:THREE.DoubleSide}));glass.position.set(0,.8,0);fab.add(glass);
+    fab.add(meshBox(.32,.42,.06,0,.52,.28,doorMat));
+    for(let i=0;i<4;i++){const l=new THREE.Mesh(new THREE.SphereGeometry(.018,8,8),new THREE.MeshBasicMaterial({color:0x39ffd0}));l.position.set(-.11+i*.07,.62,.32);fab.add(l);fabLeds.push(l);}
+    fabLight=new THREE.PointLight(0x39ffd0,.6,3,2);fabLight.position.set(0,.85,0);fab.add(fabLight);
+    fab.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
+    // --- luz de trabajo cálida sobre el banco (le da forma a los props) ---
+    const workLamp=new THREE.SpotLight(0xffe2b4,2.1,5.5,Math.PI/4.5,.5,1.4);workLamp.position.set(5.9,2.35,6.2);workLamp.target.position.set(5.9,.78,6.4);workLamp.castShadow=!SMALL;if(!SMALL)workLamp.shadow.mapSize.set(1024,1024);scene.add(workLamp);scene.add(workLamp.target);
+    const twFill=new THREE.PointLight(0xcdbfa6,.55,8,2);twFill.position.set(5.6,2.2,6.6);scene.add(twFill);
+    {const a=new THREE.Group();a.position.set(6.5,0,5.7);a.add(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.04,12),darkMetal));const arm=meshBox(.03,1.7,.03,0,.85,0,darkMetal);arm.rotation.z=.18;a.add(arm);const arm2=meshBox(.03,.7,.03,-.5,1.55,0,darkMetal);arm2.rotation.z=1.1;a.add(arm2);const head=new THREE.Mesh(new THREE.CylinderGeometry(.06,.11,.13,14),darkMetal);head.position.set(-.62,1.78,.3);head.rotation.x=1.0;a.add(head);a.children.forEach(c=>c.castShadow=true);scene.add(a);}
+  }
   // ====== SALA D (DESCANSO) - espejo del taller, x[-7.4,-3.4] z[5.5,8.5] ======
   box(4.0,.3,3.0,-5.4,-.15,7.0,floorMat);box(4.0,.3,3.0,-5.4,CH,7.0,ceilMat);
   box(.3,CH+.3,3.0,-7.4,CH/2,7.0,concreteMat);
@@ -250,6 +290,10 @@
     recLed.visible=(Math.sin(t*3)>0);lensGlow.material.color.setHex((Math.sin(t*2)>.3)?0xff3030:0x661010);
     if(mv){for(let i=0;i<serverLeds.length;i++){if(Math.random()<.04)serverLeds[i].material.color.setHex(Math.random()<.5?0x39ff88:0xff8a33);serverLeds[i].visible=Math.random()<.92;}}
     growLight.intensity=1.3+(mv?Math.sin(t*9)*.08:0);
+    // taller: fabricadora, amoladora, soldadura
+    if(fabLight){fabLight.intensity=.4+(mv?Math.abs(Math.sin(t*1.4))*.5:.2);for(let i=0;i<fabLeds.length;i++)fabLeds[i].visible=(Math.sin(t*3+i*1.3)>0);}
+    if(grindWheel&&mv)grindWheel.rotation.x+=dt*8;
+    if(weldT>0){weldT-=dt;weldLight.intensity=Math.random()<.5?2.4:.4;if(audioOn&&Math.random()<.04)blip();}else{weldLight.intensity*=.7;if(mv&&Math.random()<.0025)weldT=.25+Math.random()*.45;}
 
     // enjambre
     if(enjSurge>0)enjSurge-=dt;const enjB=mv?(.5+.5*Math.sin(t*.5)):.5,_es=Math.max(0,enjSurge);
