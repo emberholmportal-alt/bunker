@@ -2,7 +2,7 @@
   // ---- estado ----
   let holders=0,clock=FULL,speed=1,auto=false,running=true,ended=false,asim=.05;
   let shake=0,blackout=0,evT=7+Math.random()*6,prevInside=0,prevOutside=0,prevConsumed=0,coreSurge=0,flashA=0,flashCol='255,46,136',critT=22,critWarned=false,decT=30+Math.random()*20,decisionOpen=false,wasRunning=true;
-  let look2portilla=0;
+  let look2portilla=0,enjSurge=0;
   function showAlert(txt){const a=$('#alert');a.textContent=txt;a.classList.add('show');alertMsg=txt;setTimeout(()=>a.classList.remove('show'),1700);setTimeout(()=>{if(alertMsg===txt)alertMsg='';},2300);}
   function setFlash(col,a){flashCol=col;flashA=a;}
   // ---- feedback del slider HOLDERS (visual, no depende del audio) ----
@@ -13,9 +13,11 @@
     const ri=$('#ro-in');if(ri)ri.innerHTML=inside+'<i>/100</i>';
     const ro=$('#ro-out');if(ro)ro.textContent=outside>0?(outside+' afuera'):'—';
     const rc=$('#ro-cons');if(rc)rc.textContent=consumed>0?('☣ '+consumed):'';
+    const rp=$('#ro-pop');if(rp){if(inside<=0)rp.textContent='refugio vacío';
+      else{const tier=inside<34?'consumo bajo':inside<67?'consumo medio':'consumo alto';rp.innerHTML=inside+' '+(inside===1?'boca':'bocas')+' · <b class="'+(inside>=67?'warn':'')+'">'+tier+'</b>';}}
     const b=$('#holdout');if(b)b.classList.toggle('full',inside>=CAP);}
   function clearHoldersCue(){const s=$('#holders');if(s)s.classList.remove('cue');const h=$('#holdout');if(h)h.classList.remove('cue');}
-  function onFirstOutside(){showAlert('LOS QUE NO ENTRARON QUEDAN AFUERA');if(typeof enjLight!=='undefined')enjLight.intensity=Math.max(enjLight.intensity,5.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;}
+  function onFirstOutside(){showAlert('LOS QUE NO ENTRARON QUEDAN AFUERA');enjSurge=Math.max(enjSurge,3.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;}
   function fireEvent(){const r=Math.random();
     if(r<.4){showAlert('GOLPE DEL ENJAMBRE');shake=1;setFlash('120,120,140',.35);dustFall=1.2;rumble();alarm();gyroOn=3.0;stats.energia=clamp(stats.energia-15,0,100);stats.cordura=clamp(stats.cordura-8,0,100);if(Math.random()<.6&&crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}}
     else if(r<.72){showAlert('FALLA ELÉCTRICA');blackout=.8;crtGlitch=1;rumble();stats.cordura=clamp(stats.cordura-14,0,100);}
@@ -181,7 +183,7 @@
       else promptEl.style.display='none';}}
   promptEl.addEventListener('click',()=>{if(activeZone&&activeZone.fn&&activeZone.cd<=0){activeZone.fn();activeZone.cd=activeZone.cdM;}});
 
-  const dummy=new THREE.Object3D(),clk=new THREE.Clock();let statAcc=0;
+  const dummy=new THREE.Object3D(),clk=new THREE.Clock();let statAcc=0,popAcc=0;
   function loop(){requestAnimationFrame(loop);
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     tickRobot(dt);radioTick(dt,t);mapAcc+=dt;if(mapAcc>.16){drawMapPlan(pos.x,pos.z,yaw);mapAcc=0;}
@@ -190,7 +192,7 @@
       if(clock<=0){clock=0;conclude();}
       evT-=dt;if(evT<=0){evT=10+Math.random()*9;fireEvent();}
       decT-=dt;if(decT<=0&&!decisionOpen){decT=45+Math.random()*40;openDecision();}
-      nucleo=Math.max(0,nucleo-dt*0.8);
+      const _pop=Math.min(Math.round(holders),CAP);nucleo=Math.max(0,nucleo-dt*(0.8-_pop/CAP*0.32));
       if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert('GENERADOR APAGÁNDOSE');}if(Math.random()<.025)alarm();if(critT<=0)loseGame('apagon');}
       else{critT=22;critWarned=false;}
       // decay de stats (tiempo real)
@@ -209,6 +211,12 @@
     if(inside!==prevInside||outside!==prevOutside||consumed!==prevConsumed)renderHoldout(inside,outside,consumed);
     prevInside=inside;prevOutside=outside;prevConsumed=consumed;
     refugioLight.intensity=(inside/CAP)*1.2;
+    // población: más refugiados = más bocas que consumen comida/agua del refugio
+    if(running&&inside>0){popAcc+=dt*Math.min(speed,3);if(popAcc>=7){popAcc=0;const draw=Math.max(1,Math.round(inside/45));
+      let lack=false;if(res.food>0)res.food=Math.max(0,res.food-draw);else lack=true;if(res.water>0)res.water=Math.max(0,res.water-draw);else lack=true;
+      if(lack){stats.cordura=clamp(stats.cordura-4,0,100);if(Math.random()<.7)showAlert('LA POBLACIÓN PASA HAMBRE');}
+      renderRes();renderHotbar();renderStats();}}
+    else popAcc=0;
 
     crtAcc+=dt;if(crtAcc>.1){drawCRT(inside,outside,asim);crtAcc=0;}
     if(crtGlitch>0)crtGlitch-=dt*2;
@@ -246,7 +254,8 @@
     growLight.intensity=1.3+(mv?Math.sin(t*9)*.08:0);
 
     // enjambre
-    enjLight.intensity=1.4+asim*2.2;enjLeak.intensity=.3+asim*1.0;parts.material.opacity=.4+asim*.5;sky.material.color.setRGB(1,1-asim*.3,1-asim*.2);
+    if(enjSurge>0)enjSurge-=dt;const enjB=mv?(.5+.5*Math.sin(t*.5)):.5,_es=Math.max(0,enjSurge);
+    enjLight.intensity=1.1+asim*2.0+enjB*.7+_es;enjLeak.intensity=.25+asim*1.0+enjB*.18+_es*.4;parts.material.opacity=Math.min(1,.32+asim*.45+enjB*.12+_es*.08);sky.material.color.setRGB(1,1-asim*.3-enjB*.04,1-asim*.2);
 
     const cShow=Math.min(outside,cN);
     for(let i=0;i<cShow;i++){const b=cBase[i],bob=mv?Math.sin(t*1.5+cPh[i])*.04:0,sw=mv?Math.sin(t*1.0+cPh[i])*.05:0;
@@ -289,9 +298,12 @@
     const sx=(Math.random()-.5)*.09*sh,sy=(Math.random()-.5)*.09*sh,sr=(Math.random()-.5)*.025*sh;
     camera.position.set(pos.x+sx,EYEH+wb+br+sy,pos.z);camera.rotation.set(pitch+sr,yaw,0,'YXZ');
     if(torch.visible){torch.intensity=2.6;torch.position.copy(camera.position);torch.target.position.set(camera.position.x+fwd.x,camera.position.y+fwd.y-.1,camera.position.z+fwd.z);}else torch.intensity=0;
-    for(let i=0;i<zoneRings.length;i++)zoneRings[i].material.opacity=.18+(mv?Math.abs(Math.sin(t*2+i))*.18:.1);
+    for(let i=0;i<zoneRings.length;i++){const z=zones[i],rg=zoneRings[i];
+      if(z.cd>0){const fr=1-z.cd/z.cdM;rg.material.color.setHex(0xff5a5a);rg.material.opacity=.1+fr*.26;}
+      else{rg.material.color.setHex(z.fn?0x39ffaa:0xff3030);rg.material.opacity=.18+(mv?Math.abs(Math.sin(t*2+i))*.18:.1);}}
     for(const z of zones)if(z.cd>0)z.cd-=dt;
     updateZones();
+    if(activeZone&&activeZone.cd>0)promptEl.textContent='… '+activeZone.label+'  ('+Math.ceil(activeZone.cd)+'s)';
 
     if(composer)composer.render();else renderer.render(scene,camera);
     if(filmPass)filmPass.uniforms.time.value+=dt;
@@ -330,7 +342,7 @@
   $('#cmake').addEventListener('click',cMake);$('#cclear').addEventListener('click',cClear);
   $('#rsend').addEventListener('click',sendRobot);$('#rcharge').addEventListener('click',chargeRobot);$('#rrepair').addEventListener('click',repairRobot);
   $('#reset').addEventListener('click',rst);$('#eb2').addEventListener('click',rst);
-  function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;decT=30+Math.random()*20;decisionOpen=false;look2portilla=0;
+  function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;decT=30+Math.random()*20;decisionOpen=false;look2portilla=0;enjSurge=0;popAcc=0;
     stats.hambre=stats.sed=stats.energia=stats.cordura=100;res.fuel=6;res.food=5;res.water=5;res.mats=3;res.med=2;nucleo=80;
     zones.forEach(z=>z.cd=0);if(torch)torch.visible=false;refugioLight.intensity=0;
     cracks.forEach(c=>c.opacity=0);crackIdx=0;resetRobot();renderStats();renderHotbar();renderRes();renderHoldout(0,0,0);
