@@ -286,7 +286,7 @@
       if(clock<=0){clock=0;conclude();}
       evT-=dt;if(evT<=0){evT=10+Math.random()*9;fireEvent();}
       decT-=dt;if(decT<=0&&!decisionOpen){decT=45+Math.random()*40;openDecision();}
-      nucleo=Math.max(0,nucleo-dt*0.8);
+      nucleo=Math.max(0,nucleo-dt*0.35);
       if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert('GENERADOR APAGÁNDOSE');}if(Math.random()<.025)alarm();if(critT<=0)loseGame('apagon');}
       else{critT=22;critWarned=false;}
       // decay de stats (tiempo real)
@@ -496,7 +496,7 @@
       list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45}];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:1.95,z:6.0,r:.6},{x:2.65,z:6.0,r:.6}/*escritorio/mesa biblioteca↔taller*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
