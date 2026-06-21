@@ -34,6 +34,36 @@
   // (literas removidas del observatorio)
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.7),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signTex('REFUGIO 048','CAPACIDAD 100'))}));sign.position.set(-RX+.18,1.95,-2.6);sign.rotation.y=Math.PI/2;scene.add(sign);
 
+  // ---- TABLERO SPLIT-FLAP "HOLDERS" (montado en la pared, debajo del cartel REFUGIO 048) ----
+  const HB_DIG=7,HB_FLIP=0.13,hbC=cv(1024,384),hbX=hbC.getContext('2d'),hbTex=new THREE.CanvasTexture(hbC);hbTex.anisotropy=4;
+  box(.10,.80,1.92,-RX+.13,1.16,-2.6,doorMat); // carcasa/bisel del tablero
+  const hbBoard=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.64),new THREE.MeshBasicMaterial({map:hbTex}));hbBoard.position.set(-RX+.20,1.16,-2.6);hbBoard.rotation.y=Math.PI/2;scene.add(hbBoard);
+  const hbGlow=new THREE.PointLight(0xffc24a,.5,3.2,2);hbGlow.position.set(-RX+.75,1.16,-2.6);scene.add(hbGlow);
+  // estado por dígito: cur=mostrado, nxt=destino, p=progreso de volteo (1=quieto)
+  const hbCells=[];for(let i=0;i<HB_DIG;i++)hbCells.push({cur:'0',nxt:'0',p:1});let hbDirty=true;
+  function hbGlyph(ch,cx,cy,cw,chh,top,col){hbX.save();hbX.beginPath();hbX.rect(cx,top?cy:cy+chh/2,cw,chh/2);hbX.clip();
+    hbX.fillStyle=col;hbX.shadowColor=col;hbX.shadowBlur=14;hbX.font='150px Anton, sans-serif';hbX.textAlign='center';hbX.textBaseline='middle';hbX.fillText(ch,cx+cw/2,cy+chh/2+4);hbX.restore();}
+  function hbDrawCell(cx,cy,cw,chh,old,nu,p,dim){const seam=cy+chh/2,col=dim?'rgba(120,150,120,.4)':'#ffc24a';
+    hbX.fillStyle='#0b0f0c';hbX.fillRect(cx,cy,cw,chh);hbX.fillStyle='#14201a';hbX.fillRect(cx+2,cy+2,cw-4,chh/2-3);
+    hbGlyph(nu,cx,cy,cw,chh,true,col);hbGlyph(p<.5?old:nu,cx,cy,cw,chh,false,col); // estáticos: arriba=nuevo, abajo=viejo
+    if(p<.5){const s=1-p/.5;hbX.save();hbX.beginPath();hbX.rect(cx,cy,cw,chh/2);hbX.clip();hbX.translate(0,seam);hbX.scale(1,s);hbX.translate(0,-seam);hbGlyph(old,cx,cy,cw,chh,true,col);hbX.restore();} // hoja superior cae
+    else if(p<1){const s=(p-.5)/.5;hbX.save();hbX.beginPath();hbX.rect(cx,cy+chh/2,cw,chh/2);hbX.clip();hbX.translate(0,seam);hbX.scale(1,s);hbX.translate(0,-seam);hbGlyph(nu,cx,cy,cw,chh,false,col);hbX.restore();} // hoja inferior sube
+    hbX.shadowBlur=0;hbX.fillStyle='rgba(0,0,0,.85)';hbX.fillRect(cx,seam-2,cw,4);hbX.strokeStyle='rgba(0,0,0,.6)';hbX.lineWidth=3;hbX.strokeRect(cx+1,cy+1,cw-2,chh-2);}
+  function hbRedraw(){hbX.fillStyle='#06080a';hbX.fillRect(0,0,1024,384);
+    hbX.fillStyle='#ffb000';hbX.shadowColor='#ffb000';hbX.shadowBlur=12;hbX.textAlign='center';hbX.textBaseline='alphabetic';hbX.font='48px Anton, sans-serif';hbX.fillText('HOLDERS',512,58);
+    hbX.font='22px VT323, monospace';hbX.fillStyle='#8fffb0';hbX.shadowColor='#8fffb0';hbX.shadowBlur=6;hbX.fillText('· ALMAS REGISTRADAS · EN VIVO ·',512,86);hbX.shadowBlur=0;
+    const cw=120,gap=14,chh=210,top=120,total=HB_DIG*cw+(HB_DIG-1)*gap,x0=(1024-total)/2;
+    let firstSig=HB_DIG-1;for(let i=0;i<HB_DIG;i++){if(hbCells[i].nxt!=='0'){firstSig=i;break;}} // atenúa ceros a la izquierda
+    for(let i=0;i<HB_DIG;i++){const c=hbCells[i];hbDrawCell(x0+i*(cw+gap),top,cw,chh,c.cur,c.nxt,c.p,i<firstSig);}
+    hbTex.needsUpdate=true;}
+  function updateHoldersBoard(target,dt){const str=String(Math.max(0,target|0)).padStart(HB_DIG,'0').slice(-HB_DIG);let started=0,active=false;
+    for(let i=0;i<HB_DIG;i++){const c=hbCells[i],want=str[i];
+      if(c.p>=1){if(c.nxt!==want){c.cur=c.nxt;c.nxt=want;c.p=0;started++;}}
+      if(c.p<1){c.p=Math.min(1,c.p+dt/HB_FLIP);if(c.p>=1)c.cur=c.nxt;active=true;}}
+    if(started&&typeof flap==='function')flap(started);
+    if(active||hbDirty){hbRedraw();hbDirty=false;}}
+  updateHoldersBoard(0,1); // primer render (ceros)
+
   // cajas / barriles / sacos / generador / bidones
   const crateMat=new THREE.MeshStandardMaterial({map:tex(grime('#6e5a36'),1),normalMap:_wn,roughness:.92,metalness:.05});
   const barrelMat=new THREE.MeshStandardMaterial({map:tex(grime('#394b3a'),1),normalMap:_wn,roughness:.55,metalness:.6});

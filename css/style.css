@@ -15,6 +15,11 @@
   #hint{position:fixed;z-index:8;left:50%;top:46%;transform:translate(-50%,-50%);font-size:clamp(15px,2vw,20px);letter-spacing:2px;color:var(--ash);text-align:center;text-shadow:0 0 8px #000;pointer-events:none;transition:opacity .5s;line-height:1.5}
   #hint .k{color:var(--screen)}
   #tag{position:fixed;z-index:8;left:16px;top:13px;font-size:14px;letter-spacing:2px;color:var(--ash);text-shadow:0 0 6px #000;line-height:1.3}#tag b{color:var(--enj);text-shadow:0 0 8px var(--enj)}
+  #wallet{position:fixed;z-index:8;left:16px;top:54px;font-family:'VT323',monospace;background:rgba(6,9,7,.5);border:1px solid rgba(143,255,176,.28);border-left:3px solid var(--amber);padding:5px 9px 6px;min-width:148px;text-shadow:0 0 6px #000;line-height:1.2}
+  #wallet .wh{font-size:11px;letter-spacing:2px;color:var(--amber);text-shadow:0 0 8px var(--amber)}
+  #wallet .waddr{font-size:13px;letter-spacing:1px;color:var(--ash);opacity:.8}
+  #wallet .wbal{font-size:16px;color:var(--screen)}#wallet .wbal b{text-shadow:0 0 9px var(--screen)}
+  #wallet .wbal i{font-size:10px;letter-spacing:1px;color:var(--enj);text-shadow:0 0 8px var(--enj);font-style:normal;margin-left:3px}
 
   /* controles demo (arriba derecha) */
   #panel{position:fixed;z-index:9;right:12px;top:12px;display:flex;flex-direction:column;align-items:flex-end;gap:7px;background:rgba(6,7,10,.55);padding:9px 11px;border:1px solid rgba(201,201,184,.2)}
