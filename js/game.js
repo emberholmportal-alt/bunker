@@ -495,8 +495,8 @@
       row.querySelector('.mk').onclick=()=>doCraft(rc.id);
       list.appendChild(row);});
   }
-  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:1.95,z:6.0,r:.6},{x:2.65,z:6.0,r:.6}/*escritorio/mesa biblioteca↔taller*/,{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:2.3,z:7.85,r:.7}/*biblioteca reubicada a pared norte (libera puerta taller)*/];
+  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0};
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:1.95,z:6.0,r:.6},{x:2.65,z:6.0,r:.5}/*escritorio/mesa biblioteca↔taller (esfera este recortada: jamba sur de la puerta al taller)*/,{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:1.8,z:7.9,r:.55},{x:2.65,z:7.9,r:.55}/*biblioteca pared norte (2 esferas: calzan el mueble largo y despejan el paso al taller)*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -573,8 +573,37 @@
     if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';setRobotAnim('Idle');}
     renderRes();renderRobot();showAlert(T('a_unit_repaired'));
   }
-  function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.wanderT=1.5;if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
-  function pickRobotTarget(){let tx,tz,tr=0,ok;do{tx=-2.4+Math.random()*4.8;tz=-4.6+Math.random()*7.0;ok=true;for(const o of COLLIDERS){if(Math.hypot(tx-o.x,tz-o.z)<o.r+.5){ok=false;break;}}tr++;}while(!ok&&tr<24);robot.tx=tx;robot.tz=tz;robot.moving=true;}
+  function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.path=null;robot.wanderT=1.5;if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
+  // ---- NAVEGACIÓN R-01: grafo de waypoints (árbol) que cruza por el CENTRO de cada puerta ----
+  // Cada arista queda dentro de una sala (contención por AREAS, sin colisión de paredes) y los
+  // nodos de puerta están centrados en el hueco. BIBC es el nodo central (biblioteca) que ramifica.
+  const NAV=[
+    {x:0,    z:-1.0},  //0 HUB   centro del observatorio (cerca de la compuerta)
+    {x:0,    z:2.4 },  //1 HUBN  hub, frente a la puerta al pasillo (hueco z=3.2)
+    {x:0,    z:4.3 },  //2 COR   pasillo SALA A
+    {x:0,    z:6.9 },  //3 BIBC  biblioteca, nodo central (alto para esquivar el escritorio al este)
+    {x:0,    z:10.0},  //4 CULC  cultivo
+    {x:2.55, z:6.95},  //5 BIBE  biblioteca este, entre escritorio (sur) y biblioteca (norte)
+    {x:3.4,  z:6.85},  //6 TALd  puerta al taller (centro del hueco z[6.045,7.355], sesgo norte)
+    {x:4.7,  z:7.2 },  //7 TALC  taller
+    {x:-3.4, z:6.7 },  //8 DESd  puerta a descanso (centro del hueco)
+    {x:-4.7, z:6.8 }   //9 DESC  descanso
+  ];
+  const ADJ=[[1],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8]];
+  const DEST=[0,2,3,4,7,9]; // nodos "centro de sala" donde el robot puede plantarse
+  function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
+  function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
+    for(let h=0;h<q.length;h++){const u=q[h];if(u===t)break;for(const v of ADJ[u])if(!seen[v]){seen[v]=true;prev[v]=u;q.push(v);}}
+    const path=[];let c=t;while(c!==-1&&c!==s){path.unshift(c);c=prev[c];}return path;}
+  function setWP(){const n=NAV[robot.path[robot.pi]];robot.tx=n.x;robot.tz=n.z;}
+  function robotWander(){
+    if(!robot.model)return;
+    const s=nearestNode(robot.model.position.x,robot.model.position.z);
+    let t=DEST[Math.floor(Math.random()*DEST.length)],tr=0;while(t===s&&tr<8){t=DEST[Math.floor(Math.random()*DEST.length)];tr++;}
+    const p=navPath(s,t);
+    if(!p.length){robot.wanderT=1;return;}
+    robot.path=p;robot.pi=0;robot.dest=t;setWP();robot.moving=true;
+  }
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
@@ -589,9 +618,15 @@
       if(robot.model){
         if(robot.moving){
           const px=robot.model.position.x,pz=robot.model.position.z,dx=robot.tx-px,dz=robot.tz-pz,d=Math.hypot(dx,dz);
-          if(d<0.25){robot.moving=false;robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}
-          else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;nx=Math.max(-2.7,Math.min(2.7,nx));nz=Math.max(-4.9,Math.min(2.7,nz));robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
-        }else{robot.wanderT-=dt;if(robot.wanderT<=0)pickRobotTarget();}
+          const last=!robot.path||robot.pi>=robot.path.length-1;
+          if(d<(last?0.25:0.5)){
+            if(!last){robot.pi++;setWP();}
+            else{robot.moving=false;robot.path=null;robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}
+          }
+          else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;
+            if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
+            robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
+        }else{robot.wanderT-=dt;if(robot.wanderT<=0)robotWander();}
       }
       robotUiAcc+=dt;if(robotUiAcc>0.5){renderRobot();robotUiAcc=0;}
     }
