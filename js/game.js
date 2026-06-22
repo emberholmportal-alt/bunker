@@ -231,7 +231,7 @@
           const bk=new THREE.Mesh(new THREE.BoxGeometry(w,h,.24),new THREE.MeshStandardMaterial({color:c,roughness:.85}));
           const lean=Math.random()<.08?.16:0;bk.position.set(bx+w/2,sy+.03+h/2,0);bk.rotation.z=lean;bk.castShadow=true;bk.userData.noOut=true;g.add(bk);bx+=w+.004+(lean?.05:0);}}
       g.children.forEach(c=>c.castShadow=true);scene.add(g);return g;}
-    if(!SMALL)bookshelf(3.05,7.5,-Math.PI/2);
+    if(!SMALL)bookshelf(2.3,7.85,Math.PI);
     for(let i=0;i<3;i++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.24,.04,.18),new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(Math.random(),.4,.4),roughness:.8}));bk.position.set(2.1+(Math.random()-.5)*.1,.85+i*.045,6.0+(Math.random()-.5)*.1);bk.rotation.y=Math.random()*.4;bk.castShadow=true;scene.add(bk);}
     {const l=new THREE.Group();l.position.set(2.55,.83,5.85);l.add(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.03,12),steelMat));l.add(meshBox(.02,.22,.02,0,.12,0,steelMat));const shade=new THREE.Mesh(new THREE.CylinderGeometry(.001,.11,.09,16,1,true),new THREE.MeshStandardMaterial({color:0x1f6b3a,roughness:.6,side:THREE.DoubleSide,metalness:.3}));shade.position.set(.08,.24,0);l.add(shade);l.children.forEach(c=>c.castShadow=true);scene.add(l);
      const ll=new THREE.PointLight(0xfff0c0,.55,2.2,2);ll.position.set(2.62,.98,5.85);scene.add(ll);}
@@ -496,7 +496,7 @@
       list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:1.95,z:6.0,r:.6},{x:2.65,z:6.0,r:.6}/*escritorio/mesa biblioteca↔taller*/,{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:3.05,z:7.5,r:.75}/*biblioteca pared der (taller)*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:1.95,z:6.0,r:.6},{x:2.65,z:6.0,r:.6}/*escritorio/mesa biblioteca↔taller*/,{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:2.3,z:7.85,r:.7}/*biblioteca reubicada a pared norte (libera puerta taller)*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
