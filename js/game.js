@@ -231,7 +231,7 @@
           const bk=new THREE.Mesh(new THREE.BoxGeometry(w,h,.24),new THREE.MeshStandardMaterial({color:c,roughness:.85}));
           const lean=Math.random()<.08?.16:0;bk.position.set(bx+w/2,sy+.03+h/2,0);bk.rotation.z=lean;bk.castShadow=true;bk.userData.noOut=true;g.add(bk);bx+=w+.004+(lean?.05:0);}}
       g.children.forEach(c=>c.castShadow=true);scene.add(g);return g;}
-    bookshelf(-3.05,6.1,Math.PI/2);bookshelf(-3.05,7.4,Math.PI/2);if(!SMALL)bookshelf(3.05,7.5,-Math.PI/2);
+    if(!SMALL)bookshelf(3.05,7.5,-Math.PI/2);
     for(let i=0;i<3;i++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.24,.04,.18),new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(Math.random(),.4,.4),roughness:.8}));bk.position.set(2.1+(Math.random()-.5)*.1,.85+i*.045,6.0+(Math.random()-.5)*.1);bk.rotation.y=Math.random()*.4;bk.castShadow=true;scene.add(bk);}
     {const l=new THREE.Group();l.position.set(2.55,.83,5.85);l.add(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.03,12),steelMat));l.add(meshBox(.02,.22,.02,0,.12,0,steelMat));const shade=new THREE.Mesh(new THREE.CylinderGeometry(.001,.11,.09,16,1,true),new THREE.MeshStandardMaterial({color:0x1f6b3a,roughness:.6,side:THREE.DoubleSide,metalness:.3}));shade.position.set(.08,.24,0);l.add(shade);l.children.forEach(c=>c.castShadow=true);scene.add(l);
      const ll=new THREE.PointLight(0xfff0c0,.55,2.2,2);ll.position.set(2.62,.98,5.85);scene.add(ll);}
