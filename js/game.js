@@ -200,7 +200,7 @@
 
   // ---- colocaciones: OBSERVATORIO (detalle pro) ----
   armchair(-1.2,2.7,Math.PI,0x4a3f30);
-  deskTerm(2.55,0.3,-Math.PI/2);
+  // (terminal/observatorio deskTerm removido — cuello al taller despejado)
   jerryCan(-1.15,-3.85,0xb84028);jerryCan(-.95,-4.05,0x7a6a30);jerryCan(-1.35,-4.0,0xb84028);
   medCab(-2.5,1.5,-5.18,0);
   ventGrille(3.18,1.85,0.6,-Math.PI/2);
@@ -217,7 +217,7 @@
   const sbLight=new THREE.PointLight(0xa8c0e8,.9,8,2);sbLight.position.set(0,CH-.35,6.6);scene.add(sbLight);
   const scLight=new THREE.PointLight(0x9ab0d0,.6,7,2);scLight.position.set(1.4,CH-.35,10.2);scene.add(scLight);
   const paLight=new THREE.PointLight(0xbfd0e0,.5,4,2);paLight.position.set(0,CH-.3,4.2);scene.add(paLight);
-  box(1.6,.1,.7,2.3,.78,6.0,tableMat);box(.07,.78,.07,1.6,.39,5.75,steelMat);box(.07,.78,.07,3.0,.39,5.75,steelMat);
+  // (escritorio este removido — cuello al taller despejado)
   crate(2.7,.4,7.6,.8,.4);crate(2.0,.35,7.7,.7,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI);
   // ====== DETALLE DE SALAS: biblioteca, cultivo, descanso + luces ======
   {
@@ -231,10 +231,7 @@
           const bk=new THREE.Mesh(new THREE.BoxGeometry(w,h,.24),new THREE.MeshStandardMaterial({color:c,roughness:.85}));
           const lean=Math.random()<.08?.16:0;bk.position.set(bx+w/2,sy+.03+h/2,0);bk.rotation.z=lean;bk.castShadow=true;bk.userData.noOut=true;g.add(bk);bx+=w+.004+(lean?.05:0);}}
       g.children.forEach(c=>c.castShadow=true);scene.add(g);return g;}
-    if(!SMALL)bookshelf(2.3,7.85,Math.PI);
-    for(let i=0;i<3;i++){const bk=new THREE.Mesh(new THREE.BoxGeometry(.24,.04,.18),new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(Math.random(),.4,.4),roughness:.8}));bk.position.set(2.1+(Math.random()-.5)*.1,.85+i*.045,6.0+(Math.random()-.5)*.1);bk.rotation.y=Math.random()*.4;bk.castShadow=true;scene.add(bk);}
-    {const l=new THREE.Group();l.position.set(2.55,.83,5.85);l.add(new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,.03,12),steelMat));l.add(meshBox(.02,.22,.02,0,.12,0,steelMat));const shade=new THREE.Mesh(new THREE.CylinderGeometry(.001,.11,.09,16,1,true),new THREE.MeshStandardMaterial({color:0x1f6b3a,roughness:.6,side:THREE.DoubleSide,metalness:.3}));shade.position.set(.08,.24,0);l.add(shade);l.children.forEach(c=>c.castShadow=true);scene.add(l);
-     const ll=new THREE.PointLight(0xfff0c0,.55,2.2,2);ll.position.set(2.62,.98,5.85);scene.add(ll);}
+    // (biblioteca reubicada + libros y lámpara del escritorio este removidos — cuello al taller despejado)
     const readLight=new THREE.PointLight(0xffe0b0,.6,5,2);readLight.position.set(.6,CH-.4,6.8);scene.add(readLight);
     // --- CULTIVO: reservorio de agua, 2ª batería, plantines ---
     const tankMat=new THREE.MeshStandardMaterial({color:0x2a6a9a,transparent:true,opacity:.82,roughness:.3,metalness:.1});
@@ -496,7 +493,7 @@
       list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:2.55,z:0.3,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:1.95,z:6.0,r:.6},{x:2.65,z:6.0,r:.5}/*escritorio/mesa biblioteca↔taller (esfera este recortada: jamba sur de la puerta al taller)*/,{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:1.8,z:7.9,r:.55},{x:2.65,z:7.9,r:.55}/*biblioteca pared norte (2 esferas: calzan el mueble largo y despejan el paso al taller)*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -670,8 +667,7 @@
     ['water_bottle.glb',6.2,.78,6.34,.24,0],
     // estante del observatorio (botiquín / raciones)
     ['first_aid_kit.glb',-2.5,1.73,-4.9,.3,.2],['can_broken.glb',-2.12,1.73,-4.9,.18,-.4],
-    // escritorio del observatorio (radio / brújula)
-    ['radio.glb',2.5,.78,.42,.34,1.6],['compass.glb',2.66,.78,.2,.2,0],
+    // (escritorio del observatorio removido: radio.glb y compass.glb/"globo" sacados junto con el terminal)
     // herramientas en el piso del taller
     ['axe.glb',7.2,0,5.95,.7,.7],['shovel.glb',7.18,0,8.05,1.0,-.5]
   ].forEach(p=>loadProp(p[0],p[1],p[2],p[3],p[4],p[5]));
