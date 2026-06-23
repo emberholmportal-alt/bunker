@@ -32,13 +32,14 @@
   // literas + cartel
   // (literas removidas: helper bunk() eliminado)
   // (literas removidas del observatorio)
-  const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.7),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signTex('REFUGIO 048','CAPACIDAD 100'))}));sign.position.set(-RX+.18,1.95,-2.6);sign.rotation.y=Math.PI/2;scene.add(sign);
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.7),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signTex('REFUGIO 048','CAPACIDAD 100'))}));sign.position.set(-RX+.18,1.95,-2.6);sign.rotation.y=Math.PI/2;scene.add(sign);sign.visible=false; // PIVOTE: cartel REFUGIO 048/CAPACIDAD 100 OCULTO (mismo texto viejo) para evaluar cámaras; se reconvierte a REFUGIO 404 en sub-paso 7
 
   // ---- TABLERO SPLIT-FLAP "HOLDERS" (montado en la pared, debajo del cartel REFUGIO 048) ----
   const HB_DIG=7,HB_FLIP=0.13,hbC=cv(1024,384),hbX=hbC.getContext('2d'),hbTex=new THREE.CanvasTexture(hbC);hbTex.anisotropy=4;
-  box(.10,.80,1.92,-RX+.13,1.16,-2.6,doorMat); // carcasa/bisel del tablero
-  const hbBoard=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.64),new THREE.MeshBasicMaterial({map:hbTex}));hbBoard.position.set(-RX+.20,1.16,-2.6);hbBoard.rotation.y=Math.PI/2;scene.add(hbBoard);
-  const hbGlow=new THREE.PointLight(0xffc24a,.5,3.2,2);hbGlow.position.set(-RX+.75,1.16,-2.6);scene.add(hbGlow);
+  box(.10,.80,1.92,-RX+.13,1.16,-2.6,doorMat).visible=false; // carcasa/bisel del tablero
+  const hbBoard=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.64),new THREE.MeshBasicMaterial({map:hbTex}));hbBoard.position.set(-RX+.20,1.16,-2.6);hbBoard.rotation.y=Math.PI/2;scene.add(hbBoard);hbBoard.visible=false;
+  const hbGlow=new THREE.PointLight(0xffc24a,.5,3.2,2);hbGlow.position.set(-RX+.75,1.16,-2.6);scene.add(hbGlow);hbGlow.visible=false;
+  // PIVOTE: split-flap de pared ("HOLDERS") OCULTO (texto viejo) para evaluar cámaras en limpio; se reconvierte a "DAYS ALONE" en el sub-paso 7
   // estado por dígito: cur=mostrado, nxt=destino, p=progreso de volteo (1=quieto)
   const hbCells=[];for(let i=0;i<HB_DIG;i++)hbCells.push({cur:'0',nxt:'0',p:1});let hbDirty=true;
   function hbGlyph(ch,cx,cy,cw,chh,top,col){hbX.save();hbX.beginPath();hbX.rect(cx,top?cy:cy+chh/2,cw,chh/2);hbX.clip();
@@ -247,9 +248,10 @@
 
   // ---- CRT ----
   const crtC=cv(512,256),crtX=crtC.getContext('2d'),crtTex=new THREE.CanvasTexture(crtC);
-  const crt=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.75),new THREE.MeshBasicMaterial({map:crtTex}));crt.position.set(1.7,1.5,RZ0+.18);scene.add(crt);
-  box(1.7,.95,.12,1.7,1.5,RZ0+.1,doorMat);
-  const crtGlow=new THREE.PointLight(0x44ff88,.5,3,2);crtGlow.position.set(1.7,1.5,RZ0+.7);scene.add(crtGlow);
+  const crt=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.75),new THREE.MeshBasicMaterial({map:crtTex}));crt.position.set(1.7,1.5,RZ0+.18);scene.add(crt);crt.visible=false;
+  box(1.7,.95,.12,1.7,1.5,RZ0+.1,doorMat).visible=false;
+  const crtGlow=new THREE.PointLight(0x44ff88,.5,3,2);crtGlow.position.set(1.7,1.5,RZ0+.7);scene.add(crtGlow);crtGlow.visible=false;
+  // PIVOTE: monitor CRT del observatorio ("REFUGIO 048 — ESTADO") OCULTO (texto viejo) para evaluar cámaras en limpio; se reconvierte en el sub-paso 7
   let crtAcc=0,alertMsg='',crtGlitch=0;
   function drawCRT(inside,outside,asim){const x=crtX;x.fillStyle='#02160c';x.fillRect(0,0,512,256);
     x.fillStyle='rgba(0,0,0,.25)';for(let i=0;i<256;i+=4)x.fillRect(0,i,512,2);
