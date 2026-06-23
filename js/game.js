@@ -3,6 +3,11 @@
   let holders=0,clock=FULL,speed=1,auto=false,running=true,ended=false,asim=.05;
   let shake=0,blackout=0,evT=7+Math.random()*6,prevInside=0,prevOutside=0,prevConsumed=0,coreSurge=0,flashA=0,flashCol='255,46,136',critT=22,critWarned=false;
   let look2portilla=0,enjSurge=0;
+  // PIVOTE live-stream: sim de supervivencia (eventos random, decay de stats/núcleo, holders, alarmas,
+  // tinte "locura") NEUTRALIZADA para evaluar las cámaras en limpio — metía alertas, sacudón de cámara,
+  // flashes y tinte rosa en las tomas. El robot NO depende de esto (corre en tickRobot). Reversible;
+  // el borrado profundo del modo jugable es el sub-paso 7.
+  const SURVIVAL=false;
   function showAlert(txt){const a=$('#alert');a.textContent=txt;a.classList.add('show');alertMsg=txt;setTimeout(()=>a.classList.remove('show'),1700);setTimeout(()=>{if(alertMsg===txt)alertMsg='';},2300);}
   function setFlash(col,a){flashCol=col;flashA=a;}
   // ---- feedback del slider HOLDERS (visual, no depende del audio) ----
@@ -254,7 +259,7 @@
     {p:V(1.95,2.2),r:1.2,label:T('z_radio'),cdM:.6,cd:0,fn:radioTune},
     {p:V(5.9,6.3),r:1.7,label:T('z_craft'),cdM:.3,cd:0,fn:openCraft}
   ];
-  const zoneRings=[];zones.forEach(z=>{const rg=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:z.fn?0x39ffaa:0xff3030,transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false}));rg.rotation.x=-Math.PI/2;rg.position.set(z.p.x,.015,z.p.z);scene.add(rg);zoneRings.push(rg);});
+  const zoneRings=[];zones.forEach(z=>{const rg=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:z.fn?0x39ffaa:0xff3030,transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false}));rg.rotation.x=-Math.PI/2;rg.position.set(z.p.x,.015,z.p.z);rg.visible=false;scene.add(rg);zoneRings.push(rg);}); // PIVOTE: rings de interacción OCULTOS (cosméticos del modo jugable); se eliminan de raíz en el sub-paso 7
   let activeZone=null,lastDisabled=null;const promptEl=$('#prompt'); // promptEl=null en el pivote (#prompt removido); updateZones queda definido pero sin llamar hasta la limpieza del sub-paso 7
   function updateZones(){let best=null,bd=999;for(const z of zones){const d=Math.hypot(camera.position.x-z.p.x,camera.position.z-z.p.z);if(d<z.r&&d<bd){bd=d;best=z;}}
     const dis=best?(!best.fn||best.cd>0):false;
@@ -310,7 +315,7 @@
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
     tickRobot(dt);radioTick(dt,t);mapAcc+=dt;if(mapAcc>.16){drawMapPlan(pos.x,pos.z,yaw);mapAcc=0;}
-    if(running){clock-=dt*speed;asim=Math.min(1,.05+(1-clock/FULL)*.95);
+    if(running&&SURVIVAL){clock-=dt*speed;asim=Math.min(1,.05+(1-clock/FULL)*.95);
       if(auto&&holders<400){holders=Math.min(400,holders+dt*6+dt*speed*.02);$('#holders').value=Math.round(holders);$('#hv').textContent=Math.round(holders);}
       evT-=dt;if(evT<=0){evT=10+Math.random()*9;fireEvent();}
       nucleo=Math.max(0,nucleo-dt*0.35);
@@ -404,10 +409,6 @@
     if(shake>0)shake-=dt*1.6;const sh=Math.max(0,shake);
     robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas)
     applySecurityCam(dt,t,mv,sh); // posa/corta la cámara según STREAM.zone y encuadra al robot
-    for(let i=0;i<zoneRings.length;i++){const z=zones[i],rg=zoneRings[i]; // rings de interacción: cosméticos, se retiran en el sub-paso 7
-      if(z.cd>0){const fr=1-z.cd/z.cdM;rg.material.color.setHex(0xff5a5a);rg.material.opacity=.1+fr*.26;}
-      else{rg.material.color.setHex(z.fn?0x39ffaa:0xff3030);rg.material.opacity=.18+(mv?Math.abs(Math.sin(t*2+i))*.18:.1);}}
-    for(const z of zones)if(z.cd>0)z.cd-=dt;
 
     if(composer)composer.render();else renderer.render(scene,camera);
     if(filmPass)filmPass.uniforms.time.value+=dt;

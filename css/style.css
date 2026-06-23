@@ -130,3 +130,5 @@
   #ticks{position:fixed;right:16px;top:150px;z-index:10;pointer-events:none;width:172px;height:0}
   #ticks .tick{position:absolute;right:6px;font-family:'Anton',sans-serif;font-size:18px;letter-spacing:1px;opacity:0;animation:tickUp 1s ease-out forwards;text-shadow:0 0 8px #000,0 0 4px #000;white-space:nowrap}
   @keyframes tickUp{0%{opacity:0;transform:translateY(8px)}18%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+  /* PIVOTE live-stream: HUD jugable OCULTO para evaluar las cámaras en limpio (panel HOLDERS, stats, recursos, mapa, hotbar, ticks, consolas). Removido de raíz en el sub-paso 7. */
+  #tag,#panel,#stats,#res,#map,#inv,#ticks,#craftui,#robotui{display:none!important}
