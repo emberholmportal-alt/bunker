@@ -277,6 +277,7 @@
   const dummy=new THREE.Object3D(),clk=new THREE.Clock();let statAcc=0;
   function loop(){requestAnimationFrame(loop);
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
+    streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
     tickRobot(dt);radioTick(dt,t);mapAcc+=dt;if(mapAcc>.16){drawMapPlan(pos.x,pos.z,yaw);mapAcc=0;}
     if(running){clock-=dt*speed;asim=Math.min(1,.05+(1-clock/FULL)*.95);
       if(auto&&holders<400){holders=Math.min(400,holders+dt*6+dt*speed*.02);$('#holders').value=Math.round(holders);$('#hv').textContent=Math.round(holders);}
