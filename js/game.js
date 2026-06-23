@@ -24,19 +24,9 @@
     else{showAlert(T('a_gen_overload'));coreSurge=1.4;setFlash('255,140,0',.4);rumble();stats.cordura=clamp(stats.cordura-12,0,100);stats.energia=clamp(stats.energia-6,0,100);}
     renderStats();}
 
-  // look-around
-  let yaw=0,pitch=0,drag=false,px=0,py=0;const cvEl=renderer.domElement;
-  function down(x,y){drag=true;px=x;py=y;$('#hint').style.opacity=0;look2portilla=0;}
-  function move(x,y){if(!drag)return;yaw-=(x-px)*.0026;pitch-=(y-py)*.0026;px=x;py=y;pitch=clamp(pitch,-.5,.55);}
-  function up(){drag=false;}
-  cvEl.addEventListener('mousedown',e=>down(e.clientX,e.clientY));addEventListener('mousemove',e=>move(e.clientX,e.clientY));addEventListener('mouseup',up);
-  cvEl.addEventListener('touchstart',e=>down(e.touches[0].clientX,e.touches[0].clientY),{passive:true});cvEl.addEventListener('touchmove',e=>move(e.touches[0].clientX,e.touches[0].clientY),{passive:true});cvEl.addEventListener('touchend',up);
-  const keys={};addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyF')torch.visible=!torch.visible;});addEventListener('keyup',e=>{keys[e.code]=false;});
-  let joyVec={x:0,y:0};if('ontouchstart' in window)document.body.classList.add('touch');
-  {const joy=$('#joy'),stick=$('#stick');
-   const jm=e=>{const tt=e.touches?e.touches[0]:e;const r=joy.getBoundingClientRect();let dx=(tt.clientX-(r.left+r.width/2))/(r.width/2),dy=(tt.clientY-(r.top+r.height/2))/(r.height/2);const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m;}joyVec={x:dx,y:dy};stick.style.transform=`translate(${dx*22}px,${dy*22}px)`;};
-   const je=()=>{joyVec={x:0,y:0};stick.style.transform='translate(0,0)';};
-   joy.addEventListener('touchstart',e=>{e.stopPropagation();jm(e);},{passive:true});joy.addEventListener('touchmove',e=>{e.stopPropagation();jm(e);},{passive:true});joy.addEventListener('touchend',e=>{e.stopPropagation();je();});}
+  // 1ª persona + control de movimiento del jugador REMOVIDOS en el pivote a live-stream
+  // (look-drag, WASD/flechas, joystick, linterna). La vista pasa a cámara de seguridad fija (abajo).
+  let yaw=0; // vestigial: el mapa (#map, se retira en el sub-paso 7) todavía lee yaw; ya no hay cámara de jugador
 
   // ---- RADIO (interferencia) ----
   let radioGain=null,radioOn=false,radioLED=null;
@@ -265,14 +255,55 @@
     {p:V(5.9,6.3),r:1.7,label:T('z_craft'),cdM:.3,cd:0,fn:openCraft}
   ];
   const zoneRings=[];zones.forEach(z=>{const rg=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:z.fn?0x39ffaa:0xff3030,transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false}));rg.rotation.x=-Math.PI/2;rg.position.set(z.p.x,.015,z.p.z);scene.add(rg);zoneRings.push(rg);});
-  const torch=new THREE.SpotLight(0xfff0d0,0,9,Math.PI/6,.5,1.5);torch.visible=false;scene.add(torch);scene.add(torch.target);
-  let activeZone=null,lastDisabled=null;const promptEl=$('#prompt');
+  let activeZone=null,lastDisabled=null;const promptEl=$('#prompt'); // promptEl=null en el pivote (#prompt removido); updateZones queda definido pero sin llamar hasta la limpieza del sub-paso 7
   function updateZones(){let best=null,bd=999;for(const z of zones){const d=Math.hypot(camera.position.x-z.p.x,camera.position.z-z.p.z);if(d<z.r&&d<bd){bd=d;best=z;}}
     const dis=best?(!best.fn||best.cd>0):false;
     if(best!==activeZone||dis!==lastDisabled){activeZone=best;lastDisabled=dis;
       if(best){promptEl.textContent=(!best.fn?'⛔ ':(best.cd>0?'… ':'▸ '))+best.label;promptEl.style.display='block';promptEl.classList.toggle('disabled',dis);}
       else promptEl.style.display='none';}}
-  promptEl.addEventListener('click',()=>{if(activeZone&&activeZone.fn&&activeZone.cd<=0){activeZone.fn();activeZone.cd=activeZone.cdM;}});
+
+  // ====== CÁMARA DE SEGURIDAD (pivote a live-stream) ======
+  // Poses fijas tipo CCTV, una por sala (esquina alta, apenas bajo el techo CH=2.65).
+  // La cámara LEE STREAM.zone y CORTA según ESE valor — NUNCA detecta la zona del robot por su
+  // cuenta. game.js reporta la sala del robot a STREAM (con histéresis); si la admin futura hace
+  // __REFUGIO.setZone('taller'), streamReportZone no la pisa y la cámara corta al taller igual.
+  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso']; // MISMO orden que AREAS
+  const CAMS={
+    observatorio:{pos:new THREE.Vector3( 2.20,2.40, 2.90),look:new THREE.Vector3( 0.00,1.10,-1.20)},
+    pasillo:     {pos:new THREE.Vector3( 0.95,2.35, 3.25),look:new THREE.Vector3( 0.00,1.10, 4.50)},
+    biblioteca:  {pos:new THREE.Vector3(-2.95,2.40, 5.45),look:new THREE.Vector3( 0.30,1.10, 7.00)},
+    cultivo:     {pos:new THREE.Vector3(-2.95,2.40, 8.55),look:new THREE.Vector3( 0.30,1.10,10.30)},
+    taller:      {pos:new THREE.Vector3( 6.85,2.40, 8.05),look:new THREE.Vector3( 4.60,1.10, 6.90)},
+    descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)}
+  };
+  // HISTÉRESIS: el robot se reporta en una sala sólo cuando entra a su "core" (AABB de AREAS
+  // encogido por HYST). En las puertas (fuera de todo core) se mantiene la sala actual => sin
+  // parpadeo de cortes al cruzar umbrales. Los cores no se solapan (los huecos de puerta son <0.3m).
+  const HYST=0.6;
+  let robotZone='observatorio'; // última sala CONFIRMADA del robot
+  function robotRoomReport(){
+    if(!robot.model)return;
+    const x=robot.model.position.x,z=robot.model.position.z;
+    for(let i=0;i<AREAS.length;i++){const a=AREAS[i];
+      if(x>=a.x0+HYST&&x<=a.x1-HYST&&z>=a.z0+HYST&&z<=a.z1-HYST){robotZone=ZONES[i];break;}}
+    streamReportZone(robotZone); // → STREAM (respeta override de admin vía streamDrive)
+  }
+  // Aplica la cámara activa leyendo STREAM.zone. Corte = snap de pose; encuadre = lookAt al robot
+  // (suave) si está en la sala activa; si no (admin forzó la zona) mira al centro fijo de la sala.
+  const _camLook=new THREE.Vector3().copy(CAMS.observatorio.look),_camTgt=new THREE.Vector3();
+  let _camZonePrev=null;
+  function applySecurityCam(dt,t,mv,sh){
+    const zone=STREAM.zone,cam=CAMS[zone]||CAMS.observatorio,zi=ZONES.indexOf(zone);
+    // pose fija de la sala (reuso el MISMO objeto camera, sólo le cambio la pose; no toco el composer)
+    let inRoom=false;
+    if(robot.model&&zi>=0){const a=AREAS[zi],p=robot.model.position;inRoom=(p.x>=a.x0&&p.x<=a.x1&&p.z>=a.z0&&p.z<=a.z1);}
+    if(inRoom)_camTgt.set(robot.model.position.x,0.95,robot.model.position.z); else _camTgt.copy(cam.look);
+    if(zone!==_camZonePrev){_camLook.copy(_camTgt);_camZonePrev=zone;} // CORTE: snap del encuadre, sin barrido
+    else _camLook.lerp(_camTgt,Math.min(1,dt*2.5));                    // seguimiento suave dentro de la sala
+    const j=(mv?0.0025:0)+sh*0.06; // micro-jitter "grabado" (+ sacudón si hubo evento, vía shake)
+    camera.position.set(cam.pos.x+(Math.random()-.5)*j,cam.pos.y+(Math.random()-.5)*j,cam.pos.z+(Math.random()-.5)*j);
+    camera.lookAt(_camLook.x+(Math.random()-.5)*j,_camLook.y+(Math.random()-.5)*j,_camLook.z+(Math.random()-.5)*j);
+  }
 
   const dummy=new THREE.Object3D(),clk=new THREE.Clock();let statAcc=0;
   function loop(){requestAnimationFrame(loop);
@@ -368,30 +399,15 @@
     // flash de evento
     if(flashA>0)flashA-=dt*1.4;const fe=$('#flash');fe.style.background='rgb('+flashCol+')';fe.style.opacity=clamp(flashA,0,.6).toFixed(2);
 
-    // MOVIMIENTO (WASD / joystick) + colisión + cámara
+    // CÁMARA DE SEGURIDAD (reemplaza 1ª persona + movimiento). El robot reporta su sala a STREAM;
+    // la cámara LEE STREAM.zone y corta. No detecta al robot para decidir la zona.
     if(shake>0)shake-=dt*1.6;const sh=Math.max(0,shake);
-    const fwd=new THREE.Vector3();camera.getWorldDirection(fwd);fwd.y=0;if(fwd.lengthSq()>0)fwd.normalize();
-    const rgt=new THREE.Vector3().crossVectors(fwd,new THREE.Vector3(0,1,0)).normalize();
-    const mvv=new THREE.Vector3();
-    if(keys['KeyW']||keys['ArrowUp'])mvv.add(fwd);if(keys['KeyS']||keys['ArrowDown'])mvv.sub(fwd);
-    if(keys['KeyD']||keys['ArrowRight'])mvv.add(rgt);if(keys['KeyA']||keys['ArrowLeft'])mvv.sub(rgt);
-    if(joyVec.x||joyVec.y){mvv.add(fwd.clone().multiplyScalar(-joyVec.y));mvv.add(rgt.clone().multiplyScalar(joyVec.x));}
-    const walking=mvv.lengthSq()>0;
-    const _ox=pos.x,_oz=pos.z;
-    if(walking){mvv.normalize().multiplyScalar(2.3*dt);pos.x+=mvv.x;pos.z+=mvv.z;}
-    if(!inArea(pos.x,pos.z)){if(inArea(pos.x,_oz))pos.z=_oz;else if(inArea(_ox,pos.z))pos.x=_ox;else{pos.x=_ox;pos.z=_oz;}}
-    for(const c of COLLIDERS){const cx=pos.x-c.x,cz=pos.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r&&cd>0.001){const k=c.r/cd;pos.x=c.x+cx*k;pos.z=c.z+cz*k;}}
-    if(look2portilla>0){look2portilla-=dt;const tdx=RX-pos.x,tdz=-2-pos.z,tyaw=Math.atan2(-tdx,-tdz);yaw+=((tyaw-yaw+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*3.2);}
-    const wb=(walking&&mv)?Math.sin(t*9)*.025:0,br=mv?Math.sin(t*1.1)*.006:0;
-    const sx=(Math.random()-.5)*.09*sh,sy=(Math.random()-.5)*.09*sh,sr=(Math.random()-.5)*.025*sh;
-    camera.position.set(pos.x+sx,EYEH+wb+br+sy,pos.z);camera.rotation.set(pitch+sr,yaw,0,'YXZ');
-    if(torch.visible){torch.intensity=2.6;torch.position.copy(camera.position);torch.target.position.set(camera.position.x+fwd.x,camera.position.y+fwd.y-.1,camera.position.z+fwd.z);}else torch.intensity=0;
-    for(let i=0;i<zoneRings.length;i++){const z=zones[i],rg=zoneRings[i];
+    robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas)
+    applySecurityCam(dt,t,mv,sh); // posa/corta la cámara según STREAM.zone y encuadra al robot
+    for(let i=0;i<zoneRings.length;i++){const z=zones[i],rg=zoneRings[i]; // rings de interacción: cosméticos, se retiran en el sub-paso 7
       if(z.cd>0){const fr=1-z.cd/z.cdM;rg.material.color.setHex(0xff5a5a);rg.material.opacity=.1+fr*.26;}
       else{rg.material.color.setHex(z.fn?0x39ffaa:0xff3030);rg.material.opacity=.18+(mv?Math.abs(Math.sin(t*2+i))*.18:.1);}}
     for(const z of zones)if(z.cd>0)z.cd-=dt;
-    updateZones();
-    if(activeZone&&activeZone.cd>0)promptEl.textContent='… '+activeZone.label+'  ('+Math.ceil(activeZone.cd)+'s)';
 
     if(composer)composer.render();else renderer.render(scene,camera);
     if(filmPass)filmPass.uniforms.time.value+=dt;
@@ -410,7 +426,7 @@
   function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;look2portilla=0;enjSurge=0;
     stats.hambre=stats.sed=stats.energia=stats.cordura=100;nucleo=80;
     for(const k in res)res[k]=0;res.fuel=6;res.food=5;res.water=5;res.med=2;res.chatarra=2;res.tela=1;res.semillas=1;
-    zones.forEach(z=>z.cd=0);if(torch)torch.visible=false;refugioLight.intensity=0;
+    zones.forEach(z=>z.cd=0);refugioLight.intensity=0;
     cracks.forEach(c=>c.opacity=0);crackIdx=0;resetRobot();renderStats();renderHotbar();renderRes();renderHoldout(0,0,0);
     $('#holders').value=0;$('#hv').textContent='0';$('#auto').classList.remove('on');
     const s=$('#holders');if(s)s.classList.add('cue');const h=$('#holdout');if(h)h.classList.add('cue');}
