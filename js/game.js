@@ -1,7 +1,7 @@
 // EL BÚNKER — lógica de juego: estado, slider HOLDERS, eventos, zonas, loop, robot, crafteo
   // ---- estado ----
   let holders=0,clock=FULL,speed=1,auto=false,running=true,ended=false,asim=.05;
-  let shake=0,blackout=0,evT=7+Math.random()*6,prevInside=0,prevOutside=0,prevConsumed=0,coreSurge=0,flashA=0,flashCol='255,46,136',critT=22,critWarned=false,decT=30+Math.random()*20,decisionOpen=false,wasRunning=true;
+  let shake=0,blackout=0,evT=7+Math.random()*6,prevInside=0,prevOutside=0,prevConsumed=0,coreSurge=0,flashA=0,flashCol='255,46,136',critT=22,critWarned=false;
   let look2portilla=0,enjSurge=0;
   function showAlert(txt){const a=$('#alert');a.textContent=txt;a.classList.add('show');alertMsg=txt;setTimeout(()=>a.classList.remove('show'),1700);setTimeout(()=>{if(alertMsg===txt)alertMsg='';},2300);}
   function setFlash(col,a){flashCol=col;flashA=a;}
@@ -281,17 +281,14 @@
     tickRobot(dt);radioTick(dt,t);mapAcc+=dt;if(mapAcc>.16){drawMapPlan(pos.x,pos.z,yaw);mapAcc=0;}
     if(running){clock-=dt*speed;asim=Math.min(1,.05+(1-clock/FULL)*.95);
       if(auto&&holders<400){holders=Math.min(400,holders+dt*6+dt*speed*.02);$('#holders').value=Math.round(holders);$('#hv').textContent=Math.round(holders);}
-      if(clock<=0){clock=0;conclude();}
       evT-=dt;if(evT<=0){evT=10+Math.random()*9;fireEvent();}
-      decT-=dt;if(decT<=0&&!decisionOpen){decT=45+Math.random()*40;openDecision();}
       nucleo=Math.max(0,nucleo-dt*0.35);
-      if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert(T('a_gen_dying'));}if(Math.random()<.025)alarm();if(critT<=0)loseGame('apagon');}
+      if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert(T('a_gen_dying'));}if(Math.random()<.025)alarm();}
       else{critT=22;critWarned=false;}
       // decay de stats (tiempo real)
       statAcc+=dt;if(statAcc>1){const d=statAcc;stats.hambre=clamp(stats.hambre-d*.6,0,100);stats.sed=clamp(stats.sed-d*.9,0,100);stats.energia=clamp(stats.energia-d*.5,0,100);
         let cd2=d*.35;if(stats.hambre<=0||stats.sed<=0||stats.energia<=0)cd2+=d*2.2;stats.cordura=clamp(stats.cordura-cd2,0,100);statAcc=0;renderStats();renderRes();
         ['hambre','sed','energia'].forEach(k=>{if(stats[k]<=0&&!ended)showAlert(({hambre:T('a_starvation'),sed:T('a_dehydration'),energia:T('a_exhaustion')})[k]);});}
-      if(stats.cordura<=0&&!ended)loseGame('conversion');
     }
     const inside=Math.min(Math.round(holders),CAP);
     const consumed=Math.floor(Math.max(0,holders-CAP)*Math.max(0,(asim-.6))/.4);
@@ -400,28 +397,6 @@
     if(filmPass)filmPass.uniforms.time.value+=dt;
   }
 
-  function conclude(){if(ended)return;ended=true;running=false;alarm();
-    const inside=Math.min(Math.round(holders),CAP),lost=Math.max(0,Math.round(holders)-CAP);const h=$('#eh'),s=$('#es');
-    if(inside>0){h.className='live';h.textContent=T('end_sealed');s.innerHTML=T('sub_sealed',inside,lost);}
-    else{h.className='dead';h.textContent=T('end_extinct');s.innerHTML=T('sub_extinct');}
-    $('#end').style.display='flex';}
-  function loseGame(tipo){if(ended)return;ended=true;running=false;alarm();const h=$('#eh'),s=$('#es');h.className='dead';
-    if(tipo==='apagon'){h.textContent=T('end_blackout');s.innerHTML=T('sub_blackout');}
-    else{h.textContent=T('end_converted');s.innerHTML=T('sub_converted');}
-    $('#end').style.display='flex';}
-  function openDecision(){
-    if(decisionOpen||ended||!running)return;decisionOpen=true;wasRunning=running;running=false;
-    const scn=['Alguien golpea la compuerta. Jura que no está infectado.','Una voz pide refugio por la radio. Hay un niño con ella.','Un desconocido suplica entrar antes del sellado.','Golpean tres veces. Después, silencio. Y de nuevo.'];
-    $('#dtext').textContent=scn[Math.floor(Math.random()*scn.length)];$('#decision').style.display='flex';alarm();
-  }
-  function closeDecision(){decisionOpen=false;$('#decision').style.display='none';running=wasRunning;}
-  function decideYes(){closeDecision();
-    if(Math.random()<.6){const g={food:1+Math.floor(Math.random()*2),water:1+Math.floor(Math.random()*2),chatarra:Math.floor(Math.random()*2)};let t=T('a_entered_brought');const nm={food:T('m_food'),water:T('m_water'),chatarra:T('m_scrap')};for(const k in g){if(g[k]>0){res[k]=Math.min(99,res[k]+g[k]);t+=' +'+g[k]+' '+nm[k];}}stats.cordura=clamp(stats.cordura+8,0,100);showAlert(t);renderRes();renderHotbar();renderStats();}
-    else{stats.cordura=clamp(stats.cordura-22,0,100);stats.energia=clamp(stats.energia-12,0,100);shake=1;setFlash('120,120,140',.4);rumble();alarm();gyroOn=3;if(crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}showAlert(T('a_was_infected'));renderStats();}
-  }
-  function decideNo(){closeDecision();stats.cordura=clamp(stats.cordura-6,0,100);showAlert(T('a_left_outside'));renderStats();}
-  $('#dyes').addEventListener('click',decideYes);$('#dno').addEventListener('click',decideNo);
-
   // controles
   $('#holders').addEventListener('input',e=>{holders=+e.target.value;$('#hv').textContent=holders;auto=false;$('#auto').classList.remove('on');clearHoldersCue();});
   $('#auto').addEventListener('click',e=>{auto=!auto;e.target.classList.toggle('on');clearHoldersCue();});
@@ -431,13 +406,13 @@
   $('#rclose').addEventListener('click',()=>{$('#robotui').style.display='none';});
   $('#cclose').addEventListener('click',()=>{$('#craftui').style.display='none';});
   $('#rsend').addEventListener('click',sendRobot);$('#rcharge').addEventListener('click',chargeRobot);$('#rrepair').addEventListener('click',repairRobot);
-  $('#reset').addEventListener('click',rst);$('#eb2').addEventListener('click',rst);
-  function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;decT=30+Math.random()*20;decisionOpen=false;look2portilla=0;enjSurge=0;
+  $('#reset').addEventListener('click',rst);
+  function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;look2portilla=0;enjSurge=0;
     stats.hambre=stats.sed=stats.energia=stats.cordura=100;nucleo=80;
     for(const k in res)res[k]=0;res.fuel=6;res.food=5;res.water=5;res.med=2;res.chatarra=2;res.tela=1;res.semillas=1;
     zones.forEach(z=>z.cd=0);if(torch)torch.visible=false;refugioLight.intensity=0;
     cracks.forEach(c=>c.opacity=0);crackIdx=0;resetRobot();renderStats();renderHotbar();renderRes();renderHoldout(0,0,0);
-    $('#holders').value=0;$('#hv').textContent='0';$('#auto').classList.remove('on');$('#decision').style.display='none';$('#end').style.display='none';
+    $('#holders').value=0;$('#hv').textContent='0';$('#auto').classList.remove('on');
     const s=$('#holders');if(s)s.classList.add('cue');const h=$('#holdout');if(h)h.classList.add('cue');}
   addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight);});
 

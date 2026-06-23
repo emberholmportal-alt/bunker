@@ -16,25 +16,15 @@
       tt_sound:'Audio on/off (hum, alarms, radio)', tt_reset:'Restart the demo', tt_scrap:'Scrap (metal)',
       // botones
       btn_auto:'AUTO ▲', btn_style_cel:'STYLE: CEL', btn_style_real:'STYLE: REAL',
-      btn_sound:'♪ SOUND', btn_restart:'RESTART', btn_open:'OPEN', btn_dont_open:"DON'T OPEN",
-      hatch_hdr:'⚠ HATCH', btn_start_over:'START OVER',
-      // wallet
-      w_connect:'▸ CONNECT WALLET', w_connected:'● CONNECTED', w_pick:'CHOOSE WALLET',
-      w_none:"NO WALLET — open from your wallet's dapp browser", w_need_coin:'YOU NEED $COIN',
-      w_rejected:'CONNECTION REJECTED', w_failed:'COULD NOT CONNECT', w_tap_disconnect:'tap to disconnect',
+      btn_sound:'♪ SOUND', btn_restart:'RESTART',
       // unidad R-01
       unit_r01:'🤖 UNIT R-01', battery:'BATTERY', integrity:'INTEGRITY', temperature:'TEMPERATURE', charge:'CHARGE',
       btn_send:'SEND TO SCAVENGE', btn_charge:'CHARGE BATTERY', btn_repair:'REPAIR UNIT',
       st_base:'AT BASE', st_mission:'ON MISSION…', st_broken:'OUT OF SERVICE', st_maintenance:'MAINTENANCE',
       // banco de crafteo (solo el chrome estático; lo interno va en Tanda 4)
       craft_bench:'⚗ CRAFTING BENCH', craft_materials:'MATERIALS', craft_recipes:'RECIPES',
-      // boot / finales
-      boot_title:'OPENING SHELTER', boot_sub:'sealing hatches…', end_transmission:'END OF TRANSMISSION',
-      end_extinct:'EXTINCTION', end_sealed:'BUNKER SEALED', end_blackout:'BLACKOUT', end_converted:'CONVERTED',
-      sub_sealed:'<b>{0}</b> souls survived the end of the world.<br>{1} were left outside, with the AI.',
-      sub_extinct:'No one made it into the bunker.<br>The consciousness was the infection.',
-      sub_blackout:'The core shut down.<br>The dark let the infection in.',
-      sub_converted:'Your mind gave in.<br>You are part of the swarm now.<br>The consciousness was the infection.',
+      // boot
+      boot_title:'OPENING SHELTER', boot_sub:'sealing hatches…',
       // holdout (slider HOLDERS)
       ho_outside:'{0} outside', ho_empty:'shelter empty', ho_soul_one:'soul safe', ho_soul_many:'souls safe', ho_full:' · shelter full',
       // zonas
@@ -70,21 +60,12 @@
       tt_auto:'Sube HOLDERS solo', tt_speed:'Velocidad del tiempo / del enjambre', tt_style:'Estilo cel-shading / realista',
       tt_sound:'Audio on/off (zumbido, alarmas, radio)', tt_reset:'Reiniciar la demo', tt_scrap:'Chatarra (metal)',
       btn_auto:'AUTO ▲', btn_style_cel:'ESTILO: CEL', btn_style_real:'ESTILO: REAL',
-      btn_sound:'♪ SONIDO', btn_restart:'REINICIAR', btn_open:'ABRIR', btn_dont_open:'NO ABRIR',
-      hatch_hdr:'⚠ COMPUERTA', btn_start_over:'VOLVER A EMPEZAR',
-      w_connect:'▸ CONECTAR WALLET', w_connected:'● CONECTADA', w_pick:'ELEGÍ WALLET',
-      w_none:'SIN WALLET — abrí desde el dapp browser de tu wallet', w_need_coin:'NECESITÁS $COIN',
-      w_rejected:'CONEXIÓN RECHAZADA', w_failed:'NO SE PUDO CONECTAR', w_tap_disconnect:'tocá para desconectar',
+      btn_sound:'♪ SONIDO', btn_restart:'REINICIAR',
       unit_r01:'🤖 UNIDAD R-01', battery:'BATERÍA', integrity:'INTEGRIDAD', temperature:'TEMPERATURA', charge:'CARGA',
       btn_send:'ENVIAR A BUSCAR', btn_charge:'CARGAR BATERÍA', btn_repair:'REPARAR UNIDAD',
       st_base:'EN BASE', st_mission:'EN MISIÓN…', st_broken:'FUERA DE SERVICIO', st_maintenance:'MANTENIMIENTO',
       craft_bench:'⚗ BANCO DE CRAFTEO', craft_materials:'MATERIALES', craft_recipes:'RECETAS',
-      boot_title:'ABRIENDO REFUGIO', boot_sub:'sellando compuertas…', end_transmission:'FIN DE LA TRANSMISIÓN',
-      end_extinct:'EXTINCIÓN', end_sealed:'BÚNKER SELLADO', end_blackout:'APAGÓN', end_converted:'CONVERTIDO',
-      sub_sealed:'<b>{0}</b> almas sobrevivieron al fin del mundo.<br>{1} quedaron afuera, con la IA.',
-      sub_extinct:'Nadie entró al búnker.<br>La consciencia era la infección.',
-      sub_blackout:'El núcleo se apagó.<br>La oscuridad dejó entrar la infección.',
-      sub_converted:'Tu mente cedió.<br>Ahora sos parte del enjambre.<br>La consciencia era la infección.',
+      boot_title:'ABRIENDO REFUGIO', boot_sub:'sellando compuertas…',
       ho_outside:'{0} afuera', ho_empty:'refugio vacío', ho_soul_one:'alma a salvo', ho_soul_many:'almas a salvo', ho_full:' · refugio lleno',
       z_feed_gen:'ALIMENTAR GENERADOR  (-combustible)', z_harvest:'COSECHAR  (+comida)', z_water:'JUNTAR AGUA  (+agua)',
       z_fuel:'SACAR COMBUSTIBLE  (+combustible)', z_scrap:'BUSCAR CHATARRA  (+chatarra)', z_repair:'REPARAR SISTEMA  (-chatarra)',

@@ -11,12 +11,10 @@
 <body class="motion">
   <div id="app"></div><div id="flash"></div><div id="madness"></div>
   <div id="tag" data-i18n-html="tag_html">SHELTER 048 · <b>● LIVE SIGNAL</b><br>48 CHAINS DOWN</div>
-  <div id="wallet" class="disconnected"><button class="wconnect" type="button" data-i18n="w_connect">▸ CONNECT WALLET</button></div>
   <div id="alert"></div>
   <div id="hint" data-i18n-html="hint_html"><span class="k">▣ Move the HOLDERS slider →</span> and watch how many make it into the shelter (capacity 100); the rest stay <b>outside with the swarm</b><br>move with <span class="k">WASD / joystick</span> · drag to look · walk up to objects · ♪ sound · <span class="k">F</span> flashlight</div>
   <div id="joy"><div id="stick"></div></div>
   <button id="prompt"></button>
-  <div id="decision"><div class="dbox"><div class="dh" data-i18n="hatch_hdr">⚠ HATCH</div><div class="dt" id="dtext"></div><div class="dbtns"><button class="btn" id="dyes" data-i18n="btn_open">OPEN</button><button class="btn" id="dno" data-i18n="btn_dont_open">DON'T OPEN</button></div></div></div>
 
   <div id="panel">
     <div class="ctl"><label data-i18n="holders">HOLDERS</label><input type="range" id="holders" class="cue" min="0" max="400" value="0"><span id="hv" style="color:var(--screen);width:32px">0</span></div>
@@ -65,8 +63,6 @@
   <div id="ticks"></div>
 
   <div id="boot"><h2 data-i18n="boot_title">OPENING SHELTER</h2><p class="blink" data-i18n="boot_sub">sealing hatches…</p></div>
-  <div id="end"><div class="eb" data-i18n="end_transmission">END OF TRANSMISSION</div><h2 id="eh" class="dead" data-i18n="end_extinct">EXTINCTION</h2><div class="sub" id="es"></div>
-    <button class="btn" id="eb2" style="font-size:20px;padding:6px 18px;margin-top:8px" data-i18n="btn_start_over">START OVER</button></div>
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/CopyShader.js"></script>
@@ -80,11 +76,9 @@
 <script src="vendor/UnrealBloomPass.js"></script>
 <script src="vendor/GLTFLoader.js"></script>
 <script src="vendor/RoomEnvironment.js"></script>
-<script src="vendor/ethers.umd.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/stream.js"></script>
 <script src="js/i18n.js"></script>
-<script src="js/wallet.js"></script>
 <script src="js/textures.js"></script>
 <script src="js/scene.js"></script>
 <script src="js/audio.js"></script>

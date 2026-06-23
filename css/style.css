@@ -15,17 +15,6 @@
   #hint{position:fixed;z-index:8;left:50%;top:46%;transform:translate(-50%,-50%);font-size:clamp(15px,2vw,20px);letter-spacing:2px;color:var(--ash);text-align:center;text-shadow:0 0 8px #000;pointer-events:none;transition:opacity .5s;line-height:1.5}
   #hint .k{color:var(--screen)}
   #tag{position:fixed;z-index:8;left:16px;top:13px;font-size:14px;letter-spacing:2px;color:var(--ash);text-shadow:0 0 6px #000;line-height:1.3}#tag b{color:var(--enj);text-shadow:0 0 8px var(--enj)}
-  #wallet{position:fixed;z-index:8;left:16px;top:54px;font-family:'VT323',monospace;background:rgba(6,9,7,.5);border:1px solid rgba(143,255,176,.28);border-left:3px solid var(--amber);padding:5px 9px 6px;min-width:148px;text-shadow:0 0 6px #000;line-height:1.2}
-  #wallet.disconnected{padding:0;border:0;background:transparent}
-  #wallet.connected{cursor:pointer}
-  #wallet .wconnect{font-family:'VT323',monospace;font-size:15px;letter-spacing:1px;color:var(--screen);background:rgba(6,9,7,.5);border:1px solid var(--screen);border-left:3px solid var(--screen);padding:6px 11px;cursor:pointer;text-shadow:0 0 8px var(--screen);box-shadow:0 0 12px rgba(143,255,176,.25);transition:.12s}
-  #wallet .wconnect:hover{color:#000;background:var(--screen);box-shadow:0 0 16px rgba(143,255,176,.5)}
-  #wallet .wh{font-size:11px;letter-spacing:2px;color:var(--amber);text-shadow:0 0 8px var(--amber)}
-  #wallet .waddr{font-size:14px;letter-spacing:1px;color:var(--screen);text-shadow:0 0 9px var(--screen)}
-  #wallet .wstat{font-size:10px;letter-spacing:1px;color:var(--screen);text-shadow:0 0 8px var(--screen);margin-top:1px}
-  #wallet .wpick{display:block;width:100%;text-align:left;font-family:'VT323',monospace;font-size:14px;color:var(--ash);background:transparent;border:1px solid rgba(143,255,176,.3);padding:3px 8px;margin-top:4px;cursor:pointer;transition:.12s}
-  #wallet .wpick:hover{color:var(--screen);border-color:var(--screen);box-shadow:0 0 8px rgba(143,255,176,.3)}
-  #wallet .wmsg{font-size:11px;letter-spacing:1px;color:var(--enj);text-shadow:0 0 8px var(--enj);margin-top:3px}
 
   /* controles demo (arriba derecha) */
   #panel{position:fixed;z-index:9;right:12px;top:12px;display:flex;flex-direction:column;align-items:flex-end;gap:7px;background:rgba(6,7,10,.55);padding:9px 11px;border:1px solid rgba(201,201,184,.2)}
@@ -95,11 +84,6 @@
   #boot{position:fixed;inset:0;z-index:30;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .7s}
   #boot h2{font-family:'Anton',sans-serif;font-size:clamp(26px,6vw,52px);letter-spacing:4px;color:var(--screen);text-shadow:0 0 24px rgba(143,255,176,.5)}
   #boot p{font-size:18px;letter-spacing:2px;color:var(--ash)}.blink{animation:bk2 1s steps(2) infinite}@keyframes bk2{50%{opacity:0}}
-  #end{position:fixed;inset:0;z-index:32;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;background:rgba(6,7,10,.94);padding:20px}
-  #end .eb{font-size:clamp(13px,1.6vw,18px);letter-spacing:4px;color:var(--ash)}
-  #end h2{font-family:'Anton',sans-serif;font-size:clamp(40px,11vw,116px);letter-spacing:5px;line-height:.85}
-  #end h2.live{color:var(--amber);text-shadow:0 0 30px rgba(255,176,0,.6)}#end h2.dead{color:var(--enj);text-shadow:0 0 30px var(--enj)}
-  #end .sub{font-size:clamp(16px,2.4vw,26px);letter-spacing:2px;color:#f3efe6}#end .sub b{color:var(--screen)}
   #joy{position:fixed;left:24px;bottom:24px;z-index:11;width:92px;height:92px;border-radius:50%;border:1px solid rgba(143,255,176,.4);background:rgba(6,7,10,.4);display:none}
   #stick{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:rgba(143,255,176,.5);box-shadow:0 0 12px var(--screen)}
   body.touch #joy{display:block}
@@ -114,6 +98,7 @@
   #res .nuc .nf{height:100%;width:80%;background:#39ffd0;box-shadow:0 0 10px #39ffd0;transition:width .2s,background .2s}
   #inv .slot .hlbl{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);font-size:11px;letter-spacing:1px;color:var(--ash);white-space:nowrap}
   #inv{bottom:24px}
+  /* popup glow-rosa: la lógica de decisión se removió en el pivote, pero el CSS se CONSERVA para reusar como telemetría en Fase 3 (CARGANDO, ENJAMBRE LIBERADO, ABEJAS: N) */
   #decision{position:fixed;inset:0;z-index:24;display:none;align-items:center;justify-content:center;background:rgba(6,7,10,.8);padding:20px}
   #decision .dbox{max-width:440px;border:1px solid var(--enj);background:rgba(10,8,12,.96);padding:22px;box-shadow:0 0 30px rgba(255,46,136,.3)}
   #decision .dh{font-family:'Anton',sans-serif;font-size:22px;letter-spacing:2px;color:var(--enj);text-shadow:0 0 12px var(--enj);margin-bottom:10px}
