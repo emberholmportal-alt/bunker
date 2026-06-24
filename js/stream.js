@@ -33,8 +33,11 @@
     bees: 0,              // abejas en cría
     beesReleased: 0,      // enjambres liberados (acumulado)
 
+    // --- sector de carga ---
+    charge: 0,            // nivel de carga del robot 0..100 (lo alimenta la rutina en F2; el medidor de la sala lo LEE)
+
     // --- override por campo: si un campo está forzado, el driver NO lo pisa ---
-    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false }
+    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false }
   };
 
   // El driver escribe un campo SOLO si nadie lo forzó desde afuera (admin).
@@ -83,5 +86,6 @@
     setDay: d => streamForce('day', d),
     setBees: n => streamForce('bees', n),
     setBeesReleased: n => streamForce('beesReleased', n),
+    setCharge: n => streamForce('charge', Math.max(0, Math.min(100, n))), // medidor del sector de carga (0..100)
     clock: streamClock, hourUTC: streamHourUTC
   };

@@ -125,6 +125,88 @@
   box(4.0,CH+.3,.3,-5.4,CH/2,5.5,concreteMat);box(4.0,CH+.3,.3,-5.4,CH/2,8.5,concreteMat);
   const dwLight=new THREE.PointLight(0xffc890,.95,7,2);dwLight.position.set(-5.4,CH-.35,7.0);scene.add(dwLight);
 
+  // ====== SECTOR DE CARGA (CAM 07 · CHARGING) — oeste del hub por la 'puerta EN OBRA' destapiada ======
+  // Sala x[-6.6,-3.2] z[-1.0,3.2]. El medidor LEE STREAM.charge (0..100); se alimenta con __REFUGIO.setCharge
+  // ahora y con la rutina del robot en F2. Estética cámara de seguridad: la riqueza viene de luces/glow, no de
+  // modelos pesados → 100% procedural (0 GLB, 0 peso de assets). 9 estructuras enganchadas + dock + medidor + blueprint.
+  let chargeFillG=null,chargeNumX=null,chargeNumTex=null,_chargeShown=-1,dockHaze=null,dockGlow=null,chargeLeds=[];
+  {
+    const W=3.4,D=4.2,cx=-4.9,cz=1.1; // ancho(x), prof(z), centro
+    // (1) caja de la sala: piso, techo y 3 muros (el muro este es el muro oeste del hub, ya con el hueco de puerta)
+    box(W,.3,D,cx,-.15,cz,floorMat);box(W,.3,D,cx,CH,cz,ceilMat);
+    box(.3,CH+.3,D,-6.6,CH/2,cz,concreteMat);               // muro oeste (fondo de la sala)
+    box(W,CH+.3,.3,cx,CH/2,-1.0,concreteMat);               // muro norte
+    box(W,CH+.3,.3,cx,CH/2,3.2,concreteMat);                // muro sur
+    // (2) marco + dintel de la puerta (hueco z[1.9,3.2] en x=-3.2) con tira cian de borde (señal "puerta activa")
+    const jambMat=new THREE.MeshStandardMaterial({color:0x2b3034,metalness:.8,roughness:.5,normalMap:metalN});
+    box(.34,.34,1.34,-3.2,CH-.17,2.55,jambMat);             // dintel arriba del hueco
+    box(.34,2.32,.16,-3.2,1.16,1.9,jambMat);                // jamba sur del hueco
+    {const s=new THREE.Mesh(new THREE.BoxGeometry(.04,2.2,.05),new THREE.MeshBasicMaterial({color:0x39ffd0}));s.position.set(-3.05,1.16,1.94);scene.add(s);}
+    // (3) DOCK DE CARGA (base + columna + brazo + pinza luminosa) contra el muro oeste, donde el robot se acopla
+    const steelD=new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.42,normalMap:metalN});
+    const dock=new THREE.Group();dock.position.set(-6.25,0,1.1);scene.add(dock);
+    dock.add(meshBox(.7,.18,.9,.05,.09,0,steelD));          // base
+    dock.add(meshBox(.34,1.7,.5,-.05,.85,0,steelD));        // columna/respaldo
+    const cradle=new THREE.Mesh(new THREE.CylinderGeometry(.16,.2,.12,16),steelD);cradle.position.set(.18,.34,0);dock.add(cradle); // cuna donde apoya el robot
+    const arm=meshBox(.5,.08,.08,.22,1.35,0,steelD);arm.rotation.z=-.12;dock.add(arm); // brazo cargador
+    const clampG=new THREE.Mesh(new THREE.SphereGeometry(.07,12,12),new THREE.MeshBasicMaterial({color:0x39ffd0}));clampG.position.set(.46,1.28,0);dock.add(clampG); // pinza con glow
+    // (4) LEDs del dock (cian + verde alternados) en la columna — vida visual barata
+    for(let i=0;i<6;i++){const c=i%2?0x39ff66:0x39ffd0;const l=new THREE.Mesh(new THREE.SphereGeometry(.022,8,8),new THREE.MeshBasicMaterial({color:c}));l.position.set(-.05+.18,.45+i*.18,.255);dock.add(l);chargeLeds.push(l);}
+    dock.children.forEach(c=>{if(c.isMesh&&!c.material.color)c.castShadow=true;});
+    dockGlow=new THREE.PointLight(0x39ffd0,1.1,3.2,2);dockGlow.position.set(-6.0,1.0,1.1);scene.add(dockGlow); // glow del acople
+    dockHaze=new THREE.Mesh(new THREE.SphereGeometry(.55,12,12),new THREE.MeshBasicMaterial({color:0x39ffd0,transparent:true,opacity:.12,depthWrite:false}));dockHaze.position.set(-6.0,.9,1.1);scene.add(dockHaze); // vapor/halo barato
+    // (5) MEDIDOR DE CARGA en el muro oeste — LEE STREAM.charge. Barra vertical que crece + lectura % en canvas.
+    const gx=-6.42,gz=2.0,gy0=.75,gH=.85;
+    box(.16,gH+.12,.12,gx,gy0+gH/2,gz,steelD);              // carcasa del medidor
+    box(.10,gH,.04,gx+.035,gy0+gH/2,gz,new THREE.MeshStandardMaterial({color:0x07120c,roughness:.6})); // fondo negro del display
+    chargeFillG=new THREE.Group();chargeFillG.position.set(gx+.05,gy0,gz);chargeFillG.scale.y=.001;scene.add(chargeFillG); // origen en la BASE → crece hacia arriba
+    {const fill=new THREE.Mesh(new THREE.BoxGeometry(.085,gH,.03),new THREE.MeshBasicMaterial({color:0x39ff88}));fill.position.set(0,gH/2,0);chargeFillG.add(fill);}
+    const gGlow=new THREE.PointLight(0x39ff88,.5,2.2,2);gGlow.position.set(gx+.2,gy0+gH/2,gz);scene.add(gGlow);
+    const ncv=cv(128,64);chargeNumX=ncv.getContext('2d');chargeNumTex=new THREE.CanvasTexture(ncv);chargeNumTex.anisotropy=4;
+    const num=new THREE.Mesh(new THREE.PlaneGeometry(.34,.17),new THREE.MeshBasicMaterial({map:chargeNumTex,transparent:true}));num.position.set(gx+.07,gy0+gH+.2,gz);num.rotation.y=Math.PI/2;scene.add(num); // lectura % mirando al este (a la sala)
+    // (6) BLUEPRINT R-01 (cianotipo) en el muro norte — diagrama técnico de la unidad, lenguaje visual del taller
+    const bc=cv(512,640),bx=bc.getContext('2d');
+    bx.fillStyle='#0a2230';bx.fillRect(0,0,512,640);
+    bx.strokeStyle='rgba(120,200,230,.18)';bx.lineWidth=1;for(let i=0;i<=512;i+=32){bx.beginPath();bx.moveTo(i,0);bx.lineTo(i,640);bx.stroke();}for(let j=0;j<=640;j+=32){bx.beginPath();bx.moveTo(0,j);bx.lineTo(512,j);bx.stroke();}
+    bx.strokeStyle='#bfe6f2';bx.lineWidth=3;bx.strokeRect(20,20,472,600);
+    bx.fillStyle='#bfe6f2';bx.font='bold 34px Anton, sans-serif';bx.fillText('UNIDAD R-01',40,72);
+    bx.font='16px VT323, monospace';bx.fillText('DIAGRAMA DE ACOPLE · REFUGIO 404',40,98);
+    // silueta del robot (cajas simples, líneas de cota)
+    bx.strokeStyle='#7fd6ec';bx.lineWidth=2.5;
+    bx.strokeRect(196,180,120,150);   // torso
+    bx.strokeRect(216,120,80,60);     // cabeza
+    bx.beginPath();bx.arc(236,148,9,0,7);bx.arc(276,148,9,0,7);bx.stroke(); // ópticos
+    bx.strokeRect(150,200,46,110);bx.strokeRect(316,200,46,110); // brazos
+    bx.strokeRect(206,330,40,120);bx.strokeRect(266,330,40,120); // piernas
+    bx.setLineDash([6,6]);bx.strokeStyle='#5fb8d6';bx.beginPath();bx.moveTo(120,180);bx.lineTo(120,330);bx.stroke();bx.setLineDash([]);
+    bx.fillStyle='#9fe0f2';bx.font='15px VT323, monospace';bx.fillText('1.7 m',74,260);
+    bx.font='17px VT323, monospace';bx.fillStyle='#bfe6f2';
+    bx.fillText('BATERÍA NÚCLEO ....... 88%',40,520);
+    bx.fillText('REQ. CARGA ........... dock · ~2 HS',40,548);
+    bx.fillText('CICLOS .............. 1.204',40,576);
+    bx.fillStyle='#39ff88';bx.fillText('ESTADO: OPERATIVO',40,604);
+    const bt=new THREE.CanvasTexture(bc);bt.anisotropy=4;
+    const bp=new THREE.Mesh(new THREE.PlaneGeometry(.95,1.19),new THREE.MeshBasicMaterial({map:bt}));bp.position.set(-4.2,1.5,-.84);scene.add(bp); // muro norte, mira al sur (a la sala)
+    box(1.05,1.29,.04,-4.2,1.5,-.92,steelD); // marco/respaldo del blueprint
+    // (7) tendido de caños/cables (conduit) — del dock suben al techo y corren por el muro oeste hacia el panel
+    const tubeMat=new THREE.MeshStandardMaterial({color:0x23272b,metalness:.4,roughness:.8});
+    function tube(x1,y1,z1,x2,y2,z2,r){const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2),len=a.distanceTo(b);const m=new THREE.Mesh(new THREE.CylinderGeometry(r||.04,r||.04,len,8),tubeMat);m.position.copy(a).lerp(b,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());m.castShadow=true;scene.add(m);return m;}
+    tube(-6.0,1.7,1.1,-6.0,CH-.05,1.1,.05);   // sube del dock al techo
+    tube(-6.42,1.6,2.0,-6.42,CH-.05,2.0,.04);  // sube del medidor al techo
+    tube(-6.0,CH-.1,1.1,-6.0,CH-.1,2.5,.045);  // corre por el techo (oeste) hacia el panel
+    tube(-6.42,CH-.1,2.0,-6.0,CH-.1,2.5,.04);
+    tube(-5.9,.18,1.1,-5.0,.12,1.1,.05);       // cable grueso por el piso (del dock hacia el centro)
+    // (8) panel eléctrico / transformador (muro oeste, esquina sur) con LED de estado
+    const pan=new THREE.Group();pan.position.set(-6.46,1.2,2.6);scene.add(pan);
+    pan.add(meshBox(.1,.7,.5,0,0,0,steelD));
+    for(const yy of[-.2,0,.2])pan.add(meshBox(.04,.1,.4,.06,yy,0,new THREE.MeshStandardMaterial({color:0x2a2e32,roughness:.7})));
+    {const pl=new THREE.Mesh(new THREE.SphereGeometry(.025,8,8),new THREE.MeshBasicMaterial({color:0x39ff66}));pl.position.set(.08,.28,.18);pan.add(pl);chargeLeds.push(pl);}
+    pan.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
+    // (9) luz ambiente de sala (fría y tenue: clima técnico de sala de máquinas) + relleno bajo
+    const rmLight=new THREE.PointLight(0x9fb0c8,.85,7,2);rmLight.position.set(cx,CH-.3,cz);scene.add(rmLight);
+    const rmFill=new THREE.PointLight(0x5a6e88,.4,6,2);rmFill.position.set(-4.0,1.4,2.4);scene.add(rmFill);
+  }
+
   // ---- materiales + helpers de props nuevos ----
   const _lockMat=new THREE.MeshStandardMaterial({color:0x4b5358,normalMap:metalN,roughness:.5,metalness:.85});
   const _whiteMat=new THREE.MeshStandardMaterial({color:0xcfd2cc,roughness:.6,metalness:.15});
@@ -239,7 +321,7 @@
     for(const pz of[5.75,7.55]){scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(.7,.95),new THREE.MeshStandardMaterial({map:tex(grime('#6a5a3a'),1),roughness:1,emissive:0x0d0c06})),-7.34,1.5,pz,0,Math.PI/2,0));}
     const restWarm=new THREE.PointLight(0xffb060,.5,5,2);restWarm.position.set(-5.4,1.9,6.6);scene.add(restWarm);
   }
-  const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25}];
+  const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05}];
   function inArea(x,z){for(const a of AREAS)if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return true;return false;}
   // ---- ZONAS DE INTERACCIÓN ----
   const V=(x,z)=>new THREE.Vector3(x,0,z);
@@ -268,14 +350,15 @@
   // La cámara LEE STREAM.zone y CORTA según ESE valor — NUNCA detecta la zona del robot por su
   // cuenta. game.js reporta la sala del robot a STREAM (con histéresis); si la admin futura hace
   // __REFUGIO.setZone('taller'), streamReportZone no la pisa y la cámara corta al taller igual.
-  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso']; // MISMO orden que AREAS
+  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso','carga']; // MISMO orden que AREAS
   const CAMS={
     observatorio:{pos:new THREE.Vector3( 2.20,2.40, 2.90),look:new THREE.Vector3( 0.00,1.10,-1.20)},
     pasillo:     {pos:new THREE.Vector3( 0.95,2.35, 3.25),look:new THREE.Vector3( 0.00,1.10, 4.50)},
     biblioteca:  {pos:new THREE.Vector3(-2.95,2.40, 5.45),look:new THREE.Vector3( 0.30,1.10, 7.00)},
     cultivo:     {pos:new THREE.Vector3( 3.10,2.55, 8.20),look:new THREE.Vector3( 0.00,0.90,10.30),fov:82}, // PLANO ABIERTO: esquina SE alta + gran angular -> entran los DOS racks de costado + robot chico en la sala
     taller:      {pos:new THREE.Vector3( 6.85,2.40, 8.05),look:new THREE.Vector3( 4.60,1.10, 6.90)},
-    descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)}
+    descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)},
+    carga:       {pos:new THREE.Vector3(-3.50,2.45, 2.90),look:new THREE.Vector3(-5.70,1.00, 1.00)} // esquina NE (junto a la puerta) mirando SO al dock; sala chica, FOV normal
   };
   // HISTÉRESIS: el robot se reporta en una sala sólo cuando entra a su "core" (AABB de AREAS
   // encogido por HYST). En las puertas (fuera de todo core) se mantiene la sala actual => sin
@@ -308,8 +391,8 @@
 
   // ====== OVERLAY DE CÁMARA (sub-paso 6) — LEE de STREAM (zone/now/day); NUNCA calcula nada por su
   // cuenta. Por eso __REFUGIO.setZone('taller') / setDay(120) se reflejan al toque. ======
-  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest'}; // nombre de sala vía i18n (todo el overlay en inglés)
-  const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06'}; // número de cámara FIJO por sala
+  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging'}; // nombre de sala vía i18n (todo el overlay en inglés)
+  const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07'}; // número de cámara FIJO por sala
   let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1;
   function updateOverlay(dt){
     const z=STREAM.zone;
@@ -385,6 +468,12 @@
     if(fabLight){fabLight.intensity=.4+(mv?Math.abs(Math.sin(t*1.4))*.5:.2);for(let i=0;i<fabLeds.length;i++)fabLeds[i].visible=(Math.sin(t*3+i*1.3)>0);}
     if(grindWheel&&mv)grindWheel.rotation.x+=dt*8;
     if(weldT>0){weldT-=dt;weldLight.intensity=Math.random()<.5?2.4:.4;if(audioOn&&Math.random()<.04)blip();}else{weldLight.intensity*=.7;if(mv&&Math.random()<.0025)weldT=.25+Math.random()*.45;}
+    // SECTOR DE CARGA: el medidor LEE STREAM.charge (no calcula). Barra crece + lectura % se redibuja al cambiar el entero.
+    if(chargeFillG){const c=Math.max(0,Math.min(100,STREAM.charge));chargeFillG.scale.y=Math.max(.001,c/100);
+      const ci=Math.round(c);if(ci!==_chargeShown&&chargeNumX){_chargeShown=ci;chargeNumX.clearRect(0,0,128,64);chargeNumX.fillStyle='#39ff88';chargeNumX.shadowColor='#39ff88';chargeNumX.shadowBlur=8;chargeNumX.font='44px VT323, monospace';chargeNumX.textAlign='center';chargeNumX.textBaseline='middle';chargeNumX.fillText(ci+'%',64,34);chargeNumTex.needsUpdate=true;}
+      if(dockGlow)dockGlow.intensity=.7+(c/100)*.8+(mv?Math.sin(t*2.4)*.12:0);}
+    if(dockHaze)dockHaze.material.opacity=.10+(mv?Math.abs(Math.sin(t*1.5))*.06:.03);
+    if(mv)for(let i=0;i<chargeLeds.length;i++)chargeLeds[i].visible=(Math.sin(t*2.6+i*1.1)>-.2);
 
     // enjambre
     if(enjSurge>0)enjSurge-=dt;const enjB=mv?(.5+.5*Math.sin(t*.5)):.5,_es=Math.max(0,enjSurge);
@@ -499,7 +588,7 @@
       list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -590,10 +679,13 @@
     {x:3.4,  z:6.85},  //6 TALd  puerta al taller (centro del hueco z[6.045,7.355], sesgo norte)
     {x:4.7,  z:7.2 },  //7 TALC  taller
     {x:-3.4, z:6.7 },  //8 DESd  puerta a descanso (centro del hueco)
-    {x:-4.7, z:6.8 }   //9 DESC  descanso
+    {x:-4.7, z:6.8 },  //9 DESC  descanso
+    {x:-2.0, z:1.4 },  //10 HUBW hub oeste (suaviza el camino a la puerta de carga)
+    {x:-3.2, z:2.5 },  //11 CARd puerta al sector de carga (centro del hueco z[1.9,3.2])
+    {x:-5.4, z:1.1 }   //12 CARC sector de carga: frente al dock (el robot se planta acá a cargar)
   ];
-  const ADJ=[[1],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8]];
-  const DEST=[0,2,3,4,7,9]; // nodos "centro de sala" donde el robot puede plantarse
+  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,12],[11]];
+  const DEST=[0,2,3,4,7,9,12]; // nodos "centro de sala" donde el robot puede plantarse
   function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
   function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
     for(let h=0;h<q.length;h++){const u=q[h];if(u===t)break;for(const v of ADJ[u])if(!seen[v]){seen[v]=true;prev[v]=u;q.push(v);}}

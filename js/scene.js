@@ -16,7 +16,7 @@
   function meshBox(w,h,d,x,y,z,m){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;return o;}
   function place(o,x,y,z,rx,ry,rz){o.position.set(x||0,y||0,z||0);if(rx!==undefined||ry!==undefined||rz!==undefined)o.rotation.set(rx||0,ry||0,rz||0);return o;}
   box(RX*2,.3,depth,0,-.15,midz,floorMat);box(RX*2,.3,depth,0,CH,midz,ceilMat);
-  box(.3,CH+.3,depth,-RX,CH/2,midz,concreteMat);box(.3,CH+.3,depth,RX,CH/2,midz,concreteMat);box(RX*2,CH+.3,.3,0,CH/2,RZ0,concreteMat);
+  box(.3,CH+.3,7.3,-RX,CH/2,-1.75,concreteMat);box(.3,CH+.3,depth,RX,CH/2,midz,concreteMat);box(RX*2,CH+.3,.3,0,CH/2,RZ0,concreteMat); // pared oeste acortada z[-5.4,1.9]: abre la puerta z[1.9,3.2] al SECTOR DE CARGA
   for(let i=0;i<5;i++)box(RX*2,.16,.16,0,CH-.18,RZ0+.6+i*((depth-1.2)/4),steelMat);
   function pipe(len,x,y,z){const o=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,len,12),rustMat);o.rotation.x=Math.PI/2;o.position.set(x,y,z);o.castShadow=true;scene.add(o);return o;}
   pipe(depth-.6,-RX+.35,CH-.32,midz);pipe(depth-.6,RX-.35,CH-.5,midz);pipe(2.5,-RX+.5,1.6,RZ0+.3);
@@ -235,15 +235,7 @@
   for(let s=0;s<3;s++)for(let b=0;b<8;b++){const bk=meshBox(.11,.24+Math.random()*.1,.22,-.52+b*.135,.58+s*.46,.06,new THREE.MeshStandardMaterial({color:bookCols[Math.floor(Math.random()*bookCols.length)],roughness:.9}));bk.rotation.z=(Math.random()-.5)*.06;lib.add(bk);}
   // lámpara de lectura cálida
   const readLight=new THREE.PointLight(0xffcf90,1.0,3,2);readLight.position.set(-1.4,1.6,2.6);scene.add(readLight);
-  // puerta EN OBRA (pared izquierda frontal)
-  const obra=new THREE.Group();obra.position.set(-RX+.16,1.0,2.5);obra.rotation.y=Math.PI/2;scene.add(obra);
-  const _plkMat=new THREE.MeshStandardMaterial({map:tex(grime('#6e5a36'),1),normalMap:_wn,roughness:.95});
-  obra.add(meshBox(1.06,2.02,.06,0,0,0,new THREE.MeshStandardMaterial({color:0x0a0a0a,roughness:1})));
-  obra.add(meshBox(1.2,.12,.12,0,1.0,.04,doorMat));obra.add(meshBox(1.2,.12,.12,0,-1.0,.04,doorMat));
-  obra.add(meshBox(.12,2.12,.12,-.57,0,.04,doorMat));obra.add(meshBox(.12,2.12,.12,.57,0,.04,doorMat));
-  obra.add(place(meshBox(1.25,.15,.05,0,0,.1,_plkMat),0,0,.1,0,0,.62));
-  obra.add(place(meshBox(1.25,.15,.05,0,0,.1,_plkMat),0,0,.1,0,0,-.62));
-  obra.add(place(new THREE.Mesh(new THREE.PlaneGeometry(.8,.4),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signWarn('EN OBRA'))})),0,0,.15));
+  // (puerta EN OBRA destapiada: el hueco z[1.9,3.2] abre al SECTOR DE CARGA; el marco y la sala se construyen en game.js)
 
   // (infección orgánica interior removida — visual limpia)
   // (colonias de infección interior removidas)

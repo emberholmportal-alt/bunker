@@ -50,7 +50,7 @@
       m_food:'food', m_water:'water', m_scrap:'scrap',
       // mapa
       map_title:'PLAN — SHELTER 048', room_observatory:'OBSERVATORY', room_library:'LIBRARY',
-      room_cultivo:'GROW', room_workshop:'WORKSHOP', room_rest:'REST', room_hallway:'HALLWAY',
+      room_cultivo:'GROW', room_workshop:'WORKSHOP', room_rest:'REST', room_hallway:'HALLWAY', room_charging:'CHARGING',
       // tag / hint (HTML)
       tag_html:'SHELTER 048 · <b>● LIVE SIGNAL</b><br>48 CHAINS DOWN',
       hint_html:'<span class="k">▣ Move the HOLDERS slider →</span> and watch how many make it into the shelter (capacity 100); the rest stay <b>outside with the swarm</b><br>move with <span class="k">WASD / joystick</span> · drag to look · walk up to objects · ♪ sound · <span class="k">F</span> flashlight'
@@ -88,7 +88,7 @@
       ft_seeds:'+1 semillas', ft_cables:'+1 cables', ft_enter:'+{0} entran', ft_full:'REFUGIO LLENO', ft_outside:'−{0} afuera',
       m_food:'comida', m_water:'agua', m_scrap:'chatarra',
       map_title:'PLANO — REFUGIO 048', room_observatory:'OBSERVATORIO', room_library:'BIBLIO',
-      room_cultivo:'CULTIVO', room_workshop:'TALLER', room_rest:'DESCANSO', room_hallway:'PASILLO',
+      room_cultivo:'CULTIVO', room_workshop:'TALLER', room_rest:'DESCANSO', room_hallway:'PASILLO', room_charging:'CHARGING',
       tag_html:'REFUGIO 048 · <b>● SEÑAL EN VIVO</b><br>48 CADENAS CAÍDAS',
       hint_html:'<span class="k">▣ Movés el slider HOLDERS →</span> y mirás cuántos entran al refugio (capacidad 100); el resto queda <b>afuera con el enjambre</b><br>movéte con <span class="k">WASD / joystick</span> · arrastrá para mirar · acercate a objetos · ♪ sonido · <span class="k">F</span> linterna'
     }
