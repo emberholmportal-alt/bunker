@@ -51,8 +51,8 @@ de marketing y mini-juego de supervivencia.
 - **No frameworks de UI.** La UI es DOM + CSS a mano. Mantener ese estilo.
 - El render 3D es **mayormente procedural** (texturas dibujadas en `<canvas>`, geometría
   generada por código). Assets binarios: el **GLB del robot** (`assets/robot.glb`), un set
-  de **props GLB CC0** (Quaternius Survival Pack, `assets/props/*.glb`, cargados con
-  `loadProp` en `game.js`) y `assets/miyako.glb` (reservado, sin usar todavía).
+  de **props GLB CC0** (Quaternius Survival/Nature packs, `assets/props/*.glb`, cargados con
+  `loadProp` en `game.js`).
 
 ## Anatomía del `index.html` (bloques grandes)
 

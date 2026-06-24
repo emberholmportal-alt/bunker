@@ -104,7 +104,7 @@
     {const sh=new THREE.Group();sh.position.set(4.4,0,8.15);for(const px of[-.62,.62])for(const pz of[-.13,.13])sh.add(meshBox(.05,1.6,.05,px,.8,pz,steelMat));for(const yy of[.42,.9,1.38])sh.add(meshBox(1.34,.04,.34,0,yy,0,steelMat));const binC=[0x3a6a4a,0x6a5a2a,0x2a4a6a,0x6a2a3a,0x4a4a52];for(let r=0;r<3;r++)for(let i=0;i<3;i++){const b=new THREE.Mesh(new THREE.BoxGeometry(.3,.2,.26),new THREE.MeshStandardMaterial({color:binC[(r*3+i)%5],roughness:.75,metalness:.1}));b.position.set(-.4+i*.4,.42+.48*r+.12,0);b.castShadow=true;sh.add(b);}sh.children.forEach(c=>c.castShadow=true);scene.add(sh);}
     // --- pila de chatarra (esquina) ---
     {const g=new THREE.Group();g.position.set(6.95,0,8.0);for(let i=0;i<11;i++){const s=new THREE.Mesh(new THREE.BoxGeometry(.12+Math.random()*.2,.06+Math.random()*.12,.12+Math.random()*.2),i%2?rustMat:steelMat);s.position.set((Math.random()-.5)*.5,.05+Math.random()*.28,(Math.random()-.5)*.5);s.rotation.set(Math.random(),Math.random(),Math.random());s.castShadow=true;g.add(s);}scene.add(g);}
-    // --- fabricadora (cámara sci-fi; futura cuna de M-01) ---
+    // --- fabricadora (cámara sci-fi del taller) ---
     const fab=new THREE.Group();fab.position.set(6.7,0,6.05);scene.add(fab);
     fab.add(meshBox(.74,.2,.54,0,.1,0,darkMetal));fab.add(meshBox(.74,.13,.54,0,1.52,0,darkMetal));
     for(const px of[-.31,.31])for(const pz of[-.21,.21])fab.add(meshBox(.05,1.3,.05,px,.82,pz,steelMat));
@@ -113,24 +113,7 @@
     for(let i=0;i<4;i++){const l=new THREE.Mesh(new THREE.SphereGeometry(.018,8,8),new THREE.MeshBasicMaterial({color:0x39ffd0}));l.position.set(-.11+i*.07,.62,.32);fab.add(l);fabLeds.push(l);}
     fabLight=new THREE.PointLight(0x39ffd0,.6,3,2);fabLight.position.set(0,.85,0);fab.add(fabLight);
     fab.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
-    // --- blueprint azul (cianotipo) de la unidad M-01 sobre la estantería ---
-    function blueprintTex(){const c=cv(512,340),x=c.getContext('2d');x.fillStyle='#0b2a5e';x.fillRect(0,0,512,340);
-      x.strokeStyle='rgba(120,170,255,.16)';x.lineWidth=1;for(let i=0;i<512;i+=24){x.beginPath();x.moveTo(i,0);x.lineTo(i,340);x.stroke();}for(let j=0;j<340;j+=24){x.beginPath();x.moveTo(0,j);x.lineTo(512,j);x.stroke();}
-      x.strokeStyle='rgba(200,225,255,.7)';x.lineWidth=3;x.strokeRect(10,10,492,320);
-      x.fillStyle='#dbe8ff';x.font='24px Anton, sans-serif';x.fillText('PROYECTO M-01 · MIYAKO',22,44);
-      x.font='13px VT323, monospace';x.fillStyle='rgba(205,225,255,.85)';x.fillText('UNIDAD ANDROIDE — ESTADO: INERTE',22,66);
-      x.strokeStyle='rgba(210,230,255,.9)';x.lineWidth=2;const cx=370,cy=185;
-      x.beginPath();x.arc(cx,cy-72,22,0,7);x.stroke();x.beginPath();x.moveTo(cx,cy-50);x.lineTo(cx,cy+38);x.stroke();
-      x.beginPath();x.moveTo(cx,cy-32);x.lineTo(cx-42,cy+8);x.moveTo(cx,cy-32);x.lineTo(cx+42,cy+8);x.stroke();
-      x.beginPath();x.moveTo(cx,cy+38);x.lineTo(cx-22,cy+108);x.moveTo(cx,cy+38);x.lineTo(cx+22,cy+108);x.stroke();
-      x.strokeStyle='rgba(150,190,255,.6)';x.lineWidth=1;x.beginPath();x.moveTo(cx+74,cy-94);x.lineTo(cx+74,cy+110);x.stroke();
-      x.fillStyle='rgba(205,225,255,.85)';x.font='12px VT323, monospace';x.fillText('1.62 m',cx+80,cy+8);
-      ['NÚCLEO: DAÑADO','SERVOS: 12 / 40 OK','CHASIS: 64%','MEMORIA: CORRUPTA','REQ: circuitos · placa · batería'].forEach((s,i)=>x.fillText('· '+s,22,112+i*22));
-      return c;}
-    const bp=new THREE.Mesh(new THREE.PlaneGeometry(1.25,.83),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(blueprintTex())}));
-    bp.position.set(4.4,1.92,8.33);bp.rotation.y=Math.PI;scene.add(bp);
-    box(1.33,.91,.04,4.4,1.92,8.39,doorMat);
-    const bpLight=new THREE.PointLight(0x5a9cff,.5,3,2);bpLight.position.set(4.4,1.9,8.0);scene.add(bpLight);
+    // (blueprint "PROYECTO M-01 · MIYAKO" removido junto con el modelo: Miyako no se usa por ahora)
     // --- luz de trabajo cálida sobre el banco (le da forma a los props) ---
     const workLamp=new THREE.SpotLight(0xffe2b4,2.1,5.5,Math.PI/4.5,.5,1.4);workLamp.position.set(5.9,2.35,6.2);workLamp.target.position.set(5.9,.78,6.4);workLamp.castShadow=!SMALL;if(!SMALL)workLamp.shadow.mapSize.set(1024,1024);scene.add(workLamp);scene.add(workLamp.target);
     const twFill=new THREE.PointLight(0xcdbfa6,.55,8,2);twFill.position.set(5.6,2.2,6.6);scene.add(twFill);
@@ -661,20 +644,7 @@
       scene.add(o);applyCel();
     },undefined,function(){});}catch(e){}
   }
-  // carga un personaje GLB escalando por ALTURA (para Miyako, inerte en la fabricadora)
-  function loadCharacter(file,x,y,z,height,rotY){
-    try{new THREE.GLTFLoader().load(file,function(g){
-      const o=g.scene;if(rotY)o.rotation.y=rotY;o.updateMatrixWorld(true);
-      let bb=new THREE.Box3().setFromObject(o),sz=bb.getSize(new THREE.Vector3());
-      o.scale.setScalar(height/(sz.y||1));o.updateMatrixWorld(true);
-      bb=new THREE.Box3().setFromObject(o);
-      o.position.set(x-(bb.min.x+bb.max.x)/2,y-bb.min.y,z-(bb.min.z+bb.max.z)/2);
-      o.traverse(m=>{if(m.isMesh){m.castShadow=true;if(m.material&&m.material.isMeshStandardMaterial){const tn=_toToon(m.material);celReg.push({m:m,toon:tn,std:m.material});}}});
-      scene.add(o);applyCel();
-    },undefined,function(){});}catch(e){}
-  }
-  // M-01 (Miyako): inerte dentro de la cámara de la fabricadora del taller
-  loadCharacter('assets/miyako.glb',6.7,0.2,6.05,1.08,-Math.PI/2);
+  // (unidad M-01/Miyako removida: modelo assets/miyako.glb + loader loadCharacter, no se usa por ahora)
   // colocaciones según necesidades del búnker
   [ // generador / combustible (observatorio, junto al generador)
     ['gas_can.glb',-1.15,0,-3.7,.42,.5],['propane_tank.glb',-1.5,0,-4.4,.72,-.3],['wood_log.glb',-1.0,0,-4.45,.5,1.2],
