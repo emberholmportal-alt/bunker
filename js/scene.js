@@ -35,7 +35,7 @@
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.7),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signTex('REFUGIO 048','CAPACIDAD 100'))}));sign.position.set(-RX+.18,1.95,-2.6);sign.rotation.y=Math.PI/2;scene.add(sign);sign.visible=false; // PIVOTE: cartel REFUGIO 048/CAPACIDAD 100 OCULTO (mismo texto viejo) para evaluar cámaras; se reconvierte a REFUGIO 404 en sub-paso 7
 
   // ---- TABLERO SPLIT-FLAP "HOLDERS" (montado en la pared, debajo del cartel REFUGIO 048) ----
-  const HB_DIG=8,HB_FLIP=0.13,hbC=cv(1024,384),hbX=hbC.getContext('2d'),hbTex=new THREE.CanvasTexture(hbC);hbTex.anisotropy=4; // 8 celdas = HH:MM:SS (cronómetro del LIVE)
+  const HB_DIG=13,HB_FLIP=0.13,hbC=cv(1024,384),hbX=hbC.getContext('2d'),hbTex=new THREE.CanvasTexture(hbC);hbTex.anisotropy=4; // 13 celdas = DDDD:HH:MM:SS (cronómetro del LIVE, no se topa)
   box(.10,.80,1.92,-RX+.13,1.16,-2.6,doorMat); // carcasa/bisel del tablero
   const hbBoard=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.64),new THREE.MeshBasicMaterial({map:hbTex}));hbBoard.position.set(-RX+.20,1.16,-2.6);hbBoard.rotation.y=Math.PI/2;scene.add(hbBoard);
   const hbGlow=new THREE.PointLight(0xffc24a,.5,3.2,2);hbGlow.position.set(-RX+.75,1.16,-2.6);scene.add(hbGlow);
@@ -43,7 +43,7 @@
   // estado por dígito: cur=mostrado, nxt=destino, p=progreso de volteo (1=quieto)
   const hbCells=[];for(let i=0;i<HB_DIG;i++)hbCells.push({cur:'0',nxt:'0',p:1});let hbDirty=true;
   function hbGlyph(ch,cx,cy,cw,chh,top,col){hbX.save();hbX.beginPath();hbX.rect(cx,top?cy:cy+chh/2,cw,chh/2);hbX.clip();
-    hbX.fillStyle=col;hbX.shadowColor=col;hbX.shadowBlur=14;hbX.font='150px Anton, sans-serif';hbX.textAlign='center';hbX.textBaseline='middle';hbX.fillText(ch,cx+cw/2,cy+chh/2+4);hbX.restore();}
+    hbX.fillStyle=col;hbX.shadowColor=col;hbX.shadowBlur=14;hbX.font=Math.round(cw*1.39)+'px Anton, sans-serif';hbX.textAlign='center';hbX.textBaseline='middle';hbX.fillText(ch,cx+cw/2,cy+chh/2+4);hbX.restore();} // fuente proporcional al ancho de celda (escala con la cantidad de placas)
   function hbDrawCell(cx,cy,cw,chh,old,nu,p,dim){const seam=cy+chh/2,col=dim?'rgba(120,150,120,.4)':'#ffc24a';
     hbX.fillStyle='#0b0f0c';hbX.fillRect(cx,cy,cw,chh);hbX.fillStyle='#14201a';hbX.fillRect(cx+2,cy+2,cw-4,chh/2-3);
     hbGlyph(nu,cx,cy,cw,chh,true,col);hbGlyph(p<.5?old:nu,cx,cy,cw,chh,false,col); // estáticos: arriba=nuevo, abajo=viejo
@@ -53,19 +53,19 @@
   function hbRedraw(){hbX.fillStyle='#06080a';hbX.fillRect(0,0,1024,384);
     hbX.fillStyle='#ffb000';hbX.shadowColor='#ffb000';hbX.shadowBlur=12;hbX.textAlign='center';hbX.textBaseline='alphabetic';hbX.font='48px Anton, sans-serif';hbX.fillText(T('uptime_hdr'),512,58);
     hbX.font='22px VT323, monospace';hbX.fillStyle='#8fffb0';hbX.shadowColor='#8fffb0';hbX.shadowBlur=6;hbX.fillText(T('uptime_sub'),512,86);hbX.shadowBlur=0;
-    const cw=108,gap=8,chh=210,top=120,total=HB_DIG*cw+(HB_DIG-1)*gap,x0=(1024-total)/2;
+    const cw=70,gap=4,chh=210,top=120,total=HB_DIG*cw+(HB_DIG-1)*gap,x0=(1024-total)/2;
     for(let i=0;i<HB_DIG;i++){const c=hbCells[i];hbDrawCell(x0+i*(cw+gap),top,cw,chh,c.cur,c.nxt,c.p,false);} // reloj: sin atenuar ceros a la izquierda
     hbTex.needsUpdate=true;}
   // Alimenta el tablero con el CRONÓMETRO DEL LIVE (ms transcurridos → HH:MM:SS). Mismo volteo de flap.
-  function updateUptimeBoard(ms,dt){let s=Math.max(0,Math.floor(ms/1000));const h=Math.min(99,Math.floor(s/3600)),m=Math.floor(s%3600/60),x=s%60;
-    const str=String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'); // 8 chars = HB_DIG (los ':' caen en celdas fijas que no voltean)
+  function updateUptimeBoard(ms,dt){let s=Math.max(0,Math.floor(ms/1000));const d=Math.min(9999,Math.floor(s/86400));s=s%86400;const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
+    const str=String(d).padStart(4,'0')+':'+String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(x).padStart(2,'0'); // DDDD:HH:MM:SS, 13 chars = HB_DIG (los ':' caen en celdas fijas que no voltean)
     let started=0,active=false;
     for(let i=0;i<HB_DIG;i++){const c=hbCells[i],want=str[i];
       if(c.p>=1){if(c.nxt!==want){c.cur=c.nxt;c.nxt=want;c.p=0;started++;}}
       if(c.p<1){c.p=Math.min(1,c.p+dt/HB_FLIP);if(c.p>=1)c.cur=c.nxt;active=true;}}
     if(started&&typeof flap==='function')flap(started);
     if(active||hbDirty){hbRedraw();hbDirty=false;}}
-  updateUptimeBoard(0,1); // primer render (00:00:00)
+  updateUptimeBoard(0,1); // primer render (0000:00:00:00)
 
   // cajas / barriles / sacos / generador / bidones
   const crateMat=new THREE.MeshStandardMaterial({map:tex(grime('#6e5a36'),1),normalMap:_wn,roughness:.92,metalness:.05});
