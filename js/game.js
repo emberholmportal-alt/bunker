@@ -321,12 +321,12 @@
 
   // ====== OVERLAY DE CÁMARA (sub-paso 6) — LEE de STREAM (zone/now/day); NUNCA calcula nada por su
   // cuenta. Por eso __REFUGIO.setZone('taller') / setDay(120) se reflejan al toque. ======
-  const ZONE_ES={observatorio:'OBSERVATORIO',pasillo:'PASILLO',biblioteca:'BIBLIOTECA',cultivo:'CULTIVO',taller:'TALLER',descanso:'DESCANSO'}; // nombres en ESPAÑOL por lore (no se traducen)
+  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest'}; // nombre de sala vía i18n (todo el overlay en inglés)
   const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06'}; // número de cámara FIJO por sala
   let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1;
   function updateOverlay(dt){
     const z=STREAM.zone;
-    if(z!==_ovZone){_ovZone=z;const e=$('#ch-cam');if(e)e.textContent=T('ov_cam')+' '+(ZONE_CAM[z]||'00')+' — '+(ZONE_ES[z]||(''+z).toUpperCase());} // CAM 0X — ZONA, cambia al cambiar STREAM.zone
+    if(z!==_ovZone){_ovZone=z;const e=$('#ch-cam');if(e)e.textContent=T('ov_cam')+' '+(ZONE_CAM[z]||'00')+' — '+(ZONE_I18N[z]?T(ZONE_I18N[z]):(''+z).toUpperCase());} // CAM 0X — ZONA (inglés vía i18n), cambia al cambiar STREAM.zone
     _ovAcc+=dt;if(_ovAcc<.25)return;_ovAcc=0;                  // timestamp/día ~4 veces/s (sin escribir DOM de más)
     const tm=streamClock();if(tm!==_ovTime){_ovTime=tm;const e=$('#ch-time');if(e)e.textContent=tm;} // HH:MM:SS UTC desde STREAM.now
     if(STREAM.day!==_ovDay){_ovDay=STREAM.day;const e=$('#ch-day');if(e)e.textContent=STREAM.day;}    // DAY N desde STREAM.day
