@@ -256,11 +256,11 @@
       led(-6.35,1.62,0.46,0x39ff66,true);led(-6.35,1.62,0.64,0xff3355,true);
       sign(hazTex('PELIGRO','RIESGO ELÉCTRICO'),.42,.21,-6.43,1.92,0.55,RYW);
       // (C) DUCTO DE VENTILACIÓN en el techo (corre E-O por el norte) + rejilla en un extremo + soportes
-      {const yD=2.40;scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(2.9,.28,.3),dark),{position:new THREE.Vector3(-4.85,yD,-0.7),castShadow:true}));
-        for(const sx of[-6.0,-5.0,-4.0,-3.6])scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(.06,.22,.36),steelD),{position:new THREE.Vector3(sx,yD+.22,-0.7)})); // flejes al techo
+      {const yD=2.40;box(2.9,.28,.3,-4.85,yD,-0.7,dark);
+        for(const sx of[-6.0,-5.0,-4.0,-3.6])box(.06,.22,.36,sx,yD+.22,-0.7,steelD); // flejes al techo
         sign(ventTex(),.42,.26,-3.42,yD,-0.7,RYW);}                               // rejilla del ducto (extremo este)
       // (D) BANDEJA DE CABLES en el techo (corre N-S por el muro oeste) + cables
-      scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(.2,.1,3.5),dark),{position:new THREE.Vector3(-6.3,2.5,1.0),castShadow:true}));
+      box(.2,.1,3.5,-6.3,2.5,1.0,dark);
       tube(-6.3,2.47,-0.7,-6.3,2.47,2.7,.03);tube(-6.24,2.47,-0.7,-6.24,2.47,2.7,.028);tube(-6.36,2.47,-0.5,-6.36,2.47,2.6,.025);
       // (E) CONDUITS conectando cajas con techo (sobre las paredes; nunca cruzan el piso central)
       tube(-5.7,2.04,-0.84,-5.7,2.4,-0.7,.035);   // gabinete norte → ducto
