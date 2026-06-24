@@ -12,7 +12,7 @@
   // KNOBS para la "deriva" futura (con los días: bajar GAP / subir SPIKE para que el búnker se
   // raye más). Arranque conservador y BIEN ESPACIADO; preferir subir después de verlo.
   const RGB_BASE=.0014, RGB_SPIKE=.006;   // aberración cromática: base + pico durante el glitch
-  const GRAIN_BASE=.26, GRAIN_SPIKE=.22;  // grano del film: base + pico durante el glitch
+  const GRAIN_BASE=.42, GRAIN_SPIKE=.22;  // grano del film: base + pico durante el glitch (2a pasada: base subida de .26 a .42)
   const GLITCH_GAP=18, GLITCH_VAR=20;     // próximo glitch en 18–38 s (raro, que sorprenda)
   const GLITCH_DUR=.16;                    // duración del glitch (s) — corto
   const GLITCH_JUMP=14;                    // salto horizontal máx del cuadro (px, ±7)

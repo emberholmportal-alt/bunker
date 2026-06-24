@@ -270,6 +270,6 @@
   try{composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));
     const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),SMALL?.12:.18,.45,.85);composer.addPass(bloom);
     rgbPass=new THREE.ShaderPass(THREE.RGBShiftShader);rgbPass.uniforms.amount.value=.0014;composer.addPass(rgbPass); // aberración cromática (base; game.js la spikea en el glitch)
-    const vigPass=new THREE.ShaderPass(THREE.VignetteShader);vigPass.uniforms.offset.value=.55;vigPass.uniforms.darkness.value=1.0;composer.addPass(vigPass); // viñeta CCTV sutil (esquinas ~15%, bordes ~7%)
-    filmPass=new THREE.ShaderPass(THREE.FilmShader);filmPass.uniforms.nIntensity.value=.26;filmPass.uniforms.sIntensity.value=.08;filmPass.uniforms.sCount.value=SMALL?320:480;filmPass.uniforms.grayscale.value=0;filmPass.renderToScreen=true;composer.addPass(filmPass); // grano + scanlines (un toque más; game.js sube el grano en el glitch)
+    const vigPass=new THREE.ShaderPass(THREE.VignetteShader);vigPass.uniforms.offset.value=.72;vigPass.uniforms.darkness.value=1.0;composer.addPass(vigPass); // viñeta CCTV marcada (esquinas ~26%, bordes ~13%) — túnel
+    filmPass=new THREE.ShaderPass(THREE.FilmShader);filmPass.uniforms.nIntensity.value=.42;filmPass.uniforms.sIntensity.value=.18;filmPass.uniforms.sCount.value=SMALL?320:480;filmPass.uniforms.grayscale.value=0;filmPass.renderToScreen=true;composer.addPass(filmPass); // grano + scanlines marcados (2a pasada; el grano real lo fija GRAIN_BASE en game.js)
   }catch(e){composer=null;rgbPass=null;filmPass=null;}
