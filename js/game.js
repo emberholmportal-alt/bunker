@@ -133,6 +133,7 @@
   // ahora y con la rutina del robot en F2. Estética cámara de seguridad: la riqueza viene de luces/glow, no de
   // modelos pesados → 100% procedural (0 GLB, 0 peso de assets). 9 estructuras enganchadas + dock + medidor + blueprint.
   let chargeFillG=null,chargeNumX=null,chargeNumTex=null,_chargeShown=-1,dockHaze=null,dockGlow=null,chargeLeds=[];
+  let diagRT=null,diagScene=null,diagCam=null,diagPivot=null; // pantalla de diagnóstico (render-to-texture del robot girando)
   {
     const W=3.4,D=4.2,cx=-4.9,cz=1.1; // ancho(x), prof(z), centro
     // (1) caja de la sala: piso, techo y 3 muros (el muro este es el muro oeste del hub, ya con el hueco de puerta)
@@ -167,35 +168,41 @@
     const gGlow=new THREE.PointLight(0x39ff88,.5,2.2,2);gGlow.position.set(gx+.2,gy0+gH/2,gz);scene.add(gGlow);
     const ncv=cv(128,64);chargeNumX=ncv.getContext('2d');chargeNumTex=new THREE.CanvasTexture(ncv);chargeNumTex.anisotropy=4;
     const num=new THREE.Mesh(new THREE.PlaneGeometry(.34,.17),new THREE.MeshBasicMaterial({map:chargeNumTex,transparent:true}));num.position.set(gx+.07,gy0+gH+.2,gz);num.rotation.y=Math.PI/2;scene.add(num); // lectura % mirando al este (a la sala)
-    // (6) BLUEPRINT R-01 (cianotipo) en el muro norte — diagrama técnico de la unidad, lenguaje visual del taller
-    const bc=cv(512,640),bx=bc.getContext('2d');
-    bx.fillStyle='#0a2230';bx.fillRect(0,0,512,640);
-    bx.strokeStyle='rgba(120,200,230,.18)';bx.lineWidth=1;for(let i=0;i<=512;i+=32){bx.beginPath();bx.moveTo(i,0);bx.lineTo(i,640);bx.stroke();}for(let j=0;j<=640;j+=32){bx.beginPath();bx.moveTo(0,j);bx.lineTo(512,j);bx.stroke();}
-    bx.strokeStyle='#bfe6f2';bx.lineWidth=3;bx.strokeRect(20,20,472,600);
-    bx.fillStyle='#bfe6f2';bx.font='bold 34px Anton, sans-serif';bx.fillText('UNIDAD R-01',40,72);
-    bx.font='16px VT323, monospace';bx.fillText('DIAGRAMA DE ACOPLE · REFUGIO 404',40,98);
-    // (el centro queda como rejilla de cianotipo: el "plano" es el MODELO 3D real, montado como holograma adelante)
-    bx.fillStyle='#9fe0f2';bx.font='15px VT323, monospace';bx.fillText('VISTA 3/4 · ESC 1:8',40,128);
-    bx.font='17px VT323, monospace';bx.fillStyle='#bfe6f2';
-    bx.fillText('BATERÍA NÚCLEO ....... 88%',40,520);
-    bx.fillText('REQ. CARGA ........... dock · ~2 HS',40,548);
-    bx.fillText('CICLOS .............. 1.204',40,576);
-    bx.fillStyle='#39ff88';bx.fillText('ESTADO: OPERATIVO',40,604);
-    const bt=new THREE.CanvasTexture(bc);bt.anisotropy=4;
-    const bp=new THREE.Mesh(new THREE.PlaneGeometry(.95,1.19),new THREE.MeshBasicMaterial({map:bt}));bp.position.set(-4.2,1.5,-.84);scene.add(bp); // muro norte, mira al sur (a la sala)
-    box(1.05,1.29,.04,-4.2,1.5,-.92,steelD); // marco/respaldo del blueprint
-    // MODELO REAL R-01 como holograma técnico dentro del marco: 2a instancia del MISMO GLB, SIN mixer → queda en pose
-    // bind, estática e independiente del robot vivo (no comparte esqueleto). Material wireframe cian aditivo = "plano holográfico".
+    // (6) PANTALLA DE DIAGNÓSTICO (muro norte): monitor de la estación que muestra el modelo R-01 girando.
+    // TÉCNICA: render-to-texture. Una mini-escena propia (robot + luces) se renderiza a un WebGLRenderTarget cada
+    // frame (en el loop, antes del composer) y esa textura va en el plano de la pantalla con MeshBasicMaterial
+    // (no la afecta la luz de la sala → se ve "encendida"). Centrado perfecto: el robot cuelga de un pivot en el
+    // centro de SU escena y la diagCam lo encuadra por esfera envolvente (invariante a la rotación → nunca toca bordes).
+    const RTS=SMALL?256:512;
+    diagRT=new THREE.WebGLRenderTarget(RTS,RTS,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat});
+    diagScene=new THREE.Scene();diagScene.background=new THREE.Color(0x04130c); // fondo CRT oscuro verdoso
+    diagCam=new THREE.PerspectiveCamera(32,1,.05,50);
+    // rejilla de fondo dentro de la pantalla (da profundidad y lenguaje "scanner")
+    {const gc=cv(256,256),gx2=gc.getContext('2d');gx2.fillStyle='#04130c';gx2.fillRect(0,0,256,256);gx2.strokeStyle='rgba(60,255,160,.16)';gx2.lineWidth=1;for(let i=0;i<=256;i+=24){gx2.beginPath();gx2.moveTo(i,0);gx2.lineTo(i,256);gx2.stroke();gx2.beginPath();gx2.moveTo(0,i);gx2.lineTo(256,i);gx2.stroke();}const gt=new THREE.CanvasTexture(gc);const gp=new THREE.Mesh(new THREE.PlaneGeometry(6,6),new THREE.MeshBasicMaterial({map:gt}));gp.position.set(0,0,-2.2);diagScene.add(gp);}
+    // luces de la mini-escena: key cian-verde + relleno frío + contraluz, para que el robot se LEA bien
+    {const k=new THREE.DirectionalLight(0xc8fff0,1.5);k.position.set(2,3,4);diagScene.add(k);const f=new THREE.DirectionalLight(0x6fd0ff,.6);f.position.set(-3,1,2);diagScene.add(f);const r=new THREE.DirectionalLight(0x39ff88,.7);r.position.set(0,2,-4);diagScene.add(r);diagScene.add(new THREE.AmbientLight(0x335544,.7));}
+    // 2a instancia del MISMO GLB (independiente del robot vivo, SIN mixer → pose bind estática que gira en bloque)
     try{new THREE.GLTFLoader().load('assets/robot.glb',function(g){
-      const bpr=g.scene,holoMat=()=>new THREE.MeshBasicMaterial({color:0x8fe9ff,wireframe:true,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false});
-      const b0=new THREE.Box3().setFromObject(bpr),s0=b0.getSize(new THREE.Vector3()),sc=.82/(Math.max(s0.x,s0.y,s0.z)||1);
-      bpr.scale.setScalar(sc);bpr.rotation.y=-Math.PI*.78; // 3/4 hacia la cámara (CAM 07 está en la esquina SE)
-      bpr.traverse(o=>{if(o.isMesh){o.castShadow=false;const m=holoMat();m.skinning=!!o.isSkinnedMesh;m.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);o.material=m;}});
-      const b1=new THREE.Box3().setFromObject(bpr); // ya con escala+rotación: recentro en el marco y apoyo la base
-      bpr.position.set(-4.2-(b1.min.x+b1.max.x)/2, 1.02-b1.min.y, -0.70-(b1.min.z+b1.max.z)/2);
-      scene.add(bpr);
-      const hl=new THREE.PointLight(0x39ffd0,.5,2.2,2);hl.position.set(-4.2,1.5,-.45);scene.add(hl); // contraluz del holograma
-    },undefined,function(){/* si no carga, queda la rejilla+specs como blueprint de respaldo */});}catch(e){}
+      const m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false;}});
+      const sph=new THREE.Box3().setFromObject(m).getBoundingSphere(new THREE.Sphere());
+      diagPivot=new THREE.Group();m.position.sub(sph.center);diagPivot.add(m);diagScene.add(diagPivot); // recentro: la esfera queda en el origen → gira sin desplazarse
+      const d=sph.radius/Math.sin(diagCam.fov*Math.PI/360)*1.18;                                       // distancia que encuadra la esfera + margen (1.18)
+      diagCam.position.set(0,sph.radius*.12,d);diagCam.lookAt(0,0,0);                                   // leve picado, mirando al centro
+    },undefined,function(){});}catch(e){}
+    // marco/bezel del monitor en la pared + plano de pantalla (RTT) + tira de specs (UI de la terminal)
+    box(.96,1.06,.07,-4.2,1.52,-.93,steelD);                                                            // carcasa del monitor (muro norte)
+    box(.86,.96,.02,-4.2,1.52,-.90,new THREE.MeshStandardMaterial({color:0x0a0f0c,roughness:.5}));      // marco interior negro
+    const screen=new THREE.Mesh(new THREE.PlaneGeometry(.74,.62),new THREE.MeshBasicMaterial({map:diagRT.texture}));screen.position.set(-4.2,1.66,-.885);scene.add(screen); // PANTALLA (textura del render-to-texture)
+    {const sc2=cv(512,180),sx=sc2.getContext('2d');sx.fillStyle='#06120c';sx.fillRect(0,0,512,180);
+      sx.fillStyle='#39ff88';sx.shadowColor='#39ff88';sx.shadowBlur=6;sx.font='20px VT323, monospace';sx.textBaseline='middle';
+      sx.fillText('UNIDAD R-01 · DIAGNÓSTICO',16,24);
+      sx.font='19px VT323, monospace';sx.fillStyle='#bff7d2';sx.shadowBlur=4;
+      sx.fillText('BATERÍA NÚCLEO ....... 88%',16,62);
+      sx.fillText('REQ. CARGA ........... dock · ~2 HS',16,92);
+      sx.fillStyle='#39ff88';sx.fillText('ESTADO: OPERATIVO',16,128);
+      const st=new THREE.CanvasTexture(sc2);st.anisotropy=4;
+      const strip=new THREE.Mesh(new THREE.PlaneGeometry(.74,.26),new THREE.MeshBasicMaterial({map:st}));strip.position.set(-4.2,1.24,-.885);scene.add(strip);}
+    const scrGlow=new THREE.PointLight(0x39ff88,.45,2,2);scrGlow.position.set(-4.2,1.5,-.5);scene.add(scrGlow); // resplandor del monitor sobre la sala
     // (7) tendido de caños/cables (conduit) — del dock suben al techo y corren por el muro oeste hacia el panel
     const tubeMat=new THREE.MeshStandardMaterial({color:0x23272b,metalness:.4,roughness:.8});
     function tube(x1,y1,z1,x2,y2,z2,r){const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2),len=a.distanceTo(b);const m=new THREE.Mesh(new THREE.CylinderGeometry(r||.04,r||.04,len,8),tubeMat);m.position.copy(a).lerp(b,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());m.castShadow=true;scene.add(m);return m;}
@@ -521,6 +528,10 @@
     applySecurityCam(dt,t,mv,sh); // posa/corta la cámara según STREAM.zone y encuadra al robot
     updateOverlay(dt);            // overlay (CAM/zona, timestamp, día) — lee de STREAM
 
+    // PANTALLA DE DIAGNÓSTICO: roto el robot y renderizo su mini-escena al render-target ANTES del composer.
+    // Restauro el target a null para no pisar el render principal. Barato (escena chica, RT 256/512).
+    // sólo cuando la cámara activa es la del sector de carga (única que ve el monitor): ahorra el pase de RTT el resto del tiempo
+    if(STREAM.zone==='carga'&&diagRT&&diagScene&&diagCam){if(diagPivot&&mv)diagPivot.rotation.y+=dt*.6;renderer.setRenderTarget(diagRT);renderer.render(diagScene,diagCam);renderer.setRenderTarget(null);}
     if(composer)composer.render();else renderer.render(scene,camera);
     if(filmPass)filmPass.uniforms.time.value+=dt;
   }
