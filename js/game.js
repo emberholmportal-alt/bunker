@@ -224,7 +224,7 @@
     const tankMat=new THREE.MeshStandardMaterial({color:0x2a6a9a,transparent:true,opacity:.82,roughness:.3,metalness:.1});
     {const tank=new THREE.Mesh(new THREE.CylinderGeometry(.4,.4,1.0,20),tankMat);tank.position.set(2.7,.55,10.7);tank.castShadow=true;scene.add(tank);const ring=new THREE.Mesh(new THREE.TorusGeometry(.41,.03,8,24),steelMat);ring.rotation.x=Math.PI/2;ring.position.set(2.7,1.0,10.7);scene.add(ring);const pipe=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,1.4,8),rustMat);pipe.position.set(2.3,1.2,10.5);pipe.rotation.z=.5;scene.add(pipe);}
     for(let k=0;k<3;k++){const y=.55+k*.62;box(.5,.04,1.3,2.9,y,9.6,steelMat);
-      for(let p=0;p<4;p++){const px=2.9,pz=9.1+p*.32;const stem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.02,.14,6),new THREE.MeshStandardMaterial({color:0x3a6b2a,roughness:.9}));stem.position.set(px,y+.11,pz);scene.add(stem);for(let lf=0;lf<5;lf++){const leaf=new THREE.Mesh(new THREE.SphereGeometry(.05,6,4),growMat);leaf.scale.set(1,.32,.55);leaf.position.set(px+(Math.random()-.5)*.1,y+.1+lf*.025,pz+(Math.random()-.5)*.1);leaf.rotation.set(Math.random(),Math.random()*6,Math.random());leaf.userData.noOut=true;leaf.castShadow=true;scene.add(leaf);}}
+      // (hojas-esfera removidas: los brotes GLB se distribuyen abajo con loadPlant)
       scene.add(place(new THREE.Mesh(new THREE.BoxGeometry(.46,.03,1.2),new THREE.MeshBasicMaterial({color:0xc83cff})),2.9,y+.5,9.6));}
     const grow2=new THREE.PointLight(0xb43cff,1.1,4.5,2);grow2.position.set(2.6,1.5,9.6);scene.add(grow2);
     {const tray=meshBox(.74,.08,.42,-2.6,.82,8.75,doorMat);tray.castShadow=true;scene.add(tray);for(let i=0;i<12;i++){const sp=new THREE.Mesh(new THREE.ConeGeometry(.02,.08,5),growMat);sp.position.set(-2.6-.28+(i%4)*.18,.92,8.75-.14+Math.floor(i/4)*.14);sp.userData.noOut=true;scene.add(sp);}}
@@ -660,6 +660,33 @@
     // herramientas en el piso del taller
     ['axe.glb',7.2,0,5.95,.7,.7],['shovel.glb',7.18,0,8.05,1.0,-.5]
   ].forEach(p=>loadProp(p[0],p[1],p[2],p[3],p[4],p[5]));
+
+  // ====== PLANTAS DEL CULTIVO (reemplazan las hojas-esfera de los racks) ======
+  // Carga cada GLB UNA sola vez y lo CLONA en cada posición (evita N descargas del mismo archivo).
+  // Escala chica de cultivo. Las repisas siguen bajo la luz magenta existente (no se toca).
+  function loadPlant(file,places){if(!places||!places.length)return;
+    try{new THREE.GLTFLoader().load('assets/props/'+file,function(g){
+      places.forEach(pl=>{const o=g.scene.clone(true);if(pl.rotY)o.rotation.y=pl.rotY;o.updateMatrixWorld(true);
+        let bb=new THREE.Box3().setFromObject(o),sz=bb.getSize(new THREE.Vector3());
+        o.scale.setScalar(pl.target/(Math.max(sz.x,sz.y,sz.z)||1));o.updateMatrixWorld(true);
+        bb=new THREE.Box3().setFromObject(o);
+        o.position.set(pl.x-(bb.min.x+bb.max.x)/2,pl.y-bb.min.y,pl.z-(bb.min.z+bb.max.z)/2);
+        o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;m.userData.noOut=true;
+          if(m.material&&m.material.isMeshStandardMaterial){const tn=_toToon(m.material);celReg.push({m:m,toon:tn,std:m.material});}}});
+        scene.add(o);});
+      applyCel();
+    },undefined,function(){});}catch(e){}
+  }
+  // 3 repisas (y=.55/1.17/1.79, +.02 al tope) x 3 z, en ambos racks. izq x=-2.9 z[9.65,10.95]; der x=2.9 z[8.95,10.25].
+  {const SY=[.57,1.19,1.81],byFile={'grass.glb':[],'clover.glb':[],'plant.glb':[],'flowers.glb':[]};
+   const PAT=['grass.glb','clover.glb','plant.glb','grass.glb','flowers.glb','plant.glb','clover.glb','flowers.glb','plant.glb']; // mayoría verde, ~2/9 flor
+   let idx=0;
+   [[-2.9,[9.95,10.30,10.65]],[2.9,[9.25,9.60,9.95]]].forEach(rk=>{const rx=rk[0],zs=rk[1];
+     SY.forEach(sy=>zs.forEach((pz,p)=>{const file=PAT[idx%PAT.length],jx=rx+((p%2)?.06:-.05),target=file==='flowers.glb'?.13:(file==='plant.glb'?.20:.15);
+       byFile[file].push({x:jx,y:sy,z:pz,target:target,rotY:idx*.7});idx++;}));});
+   for(const f in byFile)loadPlant(f,byFile[f]);
+   loadPlant('flower_bushes.glb',[{x:1.55,y:0,z:8.55,target:.42,rotY:.6}]); // arbusto florecido en el PISO (si en repisa queda raro). Quitable.
+  }
 
   buildCel();applyCel();renderHoldout(0,0,0);
   loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);

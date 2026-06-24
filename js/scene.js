@@ -200,7 +200,7 @@
   // ---- CULTIVO HIDROPÓNICO ----
   const growMat=new THREE.MeshStandardMaterial({color:0x2f7d3a,roughness:.8});
   for(let k=0;k<3;k++){const y=.55+k*.62;box(.5,.04,1.3,-2.9,y,10.3,steelMat);
-    for(let p=0;p<4;p++){const px=-2.9,pz=9.8+p*.3;const stem=new THREE.Mesh(new THREE.CylinderGeometry(.012,.02,.14,6),new THREE.MeshStandardMaterial({color:0x3a6b2a,roughness:.9}));stem.position.set(px,y+.11,pz);scene.add(stem);for(let lf=0;lf<6;lf++){const leaf=new THREE.Mesh(new THREE.SphereGeometry(.05,6,4),growMat);leaf.scale.set(1,.32,.55);leaf.position.set(px+(Math.random()-.5)*.1,y+.1+lf*.025,pz+(Math.random()-.5)*.1);leaf.rotation.set(Math.random(),Math.random()*6,Math.random());leaf.castShadow=true;scene.add(leaf);}}
+    // (hojas-esfera removidas: los brotes GLB se distribuyen en game.js, donde existe el loader)
     scene.add(place(new THREE.Mesh(new THREE.BoxGeometry(.46,.03,1.2),new THREE.MeshBasicMaterial({color:0xc83cff})),-2.9,y+.5,10.3));}
   const growLight=new THREE.PointLight(0xb43cff,1.3,4.5,2);growLight.position.set(-2.6,1.5,10.3);scene.add(growLight);
   box(.05,2.1,.05,-3.15,1.05,9.7,steelMat);box(.05,2.1,.05,-3.15,1.05,10.9,steelMat);
