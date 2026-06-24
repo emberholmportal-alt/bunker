@@ -16,7 +16,10 @@
   const GLITCH_GAP=18, GLITCH_VAR=20;     // próximo glitch en 18–38 s (raro, que sorprenda)
   const GLITCH_DUR=.16;                    // duración del glitch (s) — corto
   const GLITCH_JUMP=14;                    // salto horizontal máx del cuadro (px, ±7)
-  let glitchT=GLITCH_GAP+Math.random()*GLITCH_VAR, glitchA=0;
+  // pulso de CONMUTACIÓN de cámara (cuando STREAM.zone cambia): como una multiplexora CCTV saltando de canal.
+  // Un toque MÁS fuerte que el glitch ambiental, pero corto (~150-250ms): RGB-shift fuerte + estática + roll horizontal.
+  const CUT_DUR=.22, CUT_RGB=.015, CUT_GRAIN=.55, CUT_JUMP=44;
+  let glitchT=GLITCH_GAP+Math.random()*GLITCH_VAR, glitchA=0, cutA=0;
   function showAlert(txt){const a=$('#alert');a.textContent=txt;a.classList.add('show');alertMsg=txt;setTimeout(()=>a.classList.remove('show'),1700);setTimeout(()=>{if(alertMsg===txt)alertMsg='';},2300);}
   function setFlash(col,a){flashCol=col;flashA=a;}
   // ---- feedback del slider HOLDERS (visual, no depende del audio) ----
@@ -171,15 +174,8 @@
     bx.strokeStyle='#bfe6f2';bx.lineWidth=3;bx.strokeRect(20,20,472,600);
     bx.fillStyle='#bfe6f2';bx.font='bold 34px Anton, sans-serif';bx.fillText('UNIDAD R-01',40,72);
     bx.font='16px VT323, monospace';bx.fillText('DIAGRAMA DE ACOPLE · REFUGIO 404',40,98);
-    // silueta del robot (cajas simples, líneas de cota)
-    bx.strokeStyle='#7fd6ec';bx.lineWidth=2.5;
-    bx.strokeRect(196,180,120,150);   // torso
-    bx.strokeRect(216,120,80,60);     // cabeza
-    bx.beginPath();bx.arc(236,148,9,0,7);bx.arc(276,148,9,0,7);bx.stroke(); // ópticos
-    bx.strokeRect(150,200,46,110);bx.strokeRect(316,200,46,110); // brazos
-    bx.strokeRect(206,330,40,120);bx.strokeRect(266,330,40,120); // piernas
-    bx.setLineDash([6,6]);bx.strokeStyle='#5fb8d6';bx.beginPath();bx.moveTo(120,180);bx.lineTo(120,330);bx.stroke();bx.setLineDash([]);
-    bx.fillStyle='#9fe0f2';bx.font='15px VT323, monospace';bx.fillText('1.7 m',74,260);
+    // (el centro queda como rejilla de cianotipo: el "plano" es el MODELO 3D real, montado como holograma adelante)
+    bx.fillStyle='#9fe0f2';bx.font='15px VT323, monospace';bx.fillText('VISTA 3/4 · ESC 1:8',40,128);
     bx.font='17px VT323, monospace';bx.fillStyle='#bfe6f2';
     bx.fillText('BATERÍA NÚCLEO ....... 88%',40,520);
     bx.fillText('REQ. CARGA ........... dock · ~2 HS',40,548);
@@ -188,6 +184,18 @@
     const bt=new THREE.CanvasTexture(bc);bt.anisotropy=4;
     const bp=new THREE.Mesh(new THREE.PlaneGeometry(.95,1.19),new THREE.MeshBasicMaterial({map:bt}));bp.position.set(-4.2,1.5,-.84);scene.add(bp); // muro norte, mira al sur (a la sala)
     box(1.05,1.29,.04,-4.2,1.5,-.92,steelD); // marco/respaldo del blueprint
+    // MODELO REAL R-01 como holograma técnico dentro del marco: 2a instancia del MISMO GLB, SIN mixer → queda en pose
+    // bind, estática e independiente del robot vivo (no comparte esqueleto). Material wireframe cian aditivo = "plano holográfico".
+    try{new THREE.GLTFLoader().load('assets/robot.glb',function(g){
+      const bpr=g.scene,holoMat=()=>new THREE.MeshBasicMaterial({color:0x8fe9ff,wireframe:true,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false});
+      const b0=new THREE.Box3().setFromObject(bpr),s0=b0.getSize(new THREE.Vector3()),sc=.82/(Math.max(s0.x,s0.y,s0.z)||1);
+      bpr.scale.setScalar(sc);bpr.rotation.y=-Math.PI*.78; // 3/4 hacia la cámara (CAM 07 está en la esquina SE)
+      bpr.traverse(o=>{if(o.isMesh){o.castShadow=false;const m=holoMat();m.skinning=!!o.isSkinnedMesh;m.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);o.material=m;}});
+      const b1=new THREE.Box3().setFromObject(bpr); // ya con escala+rotación: recentro en el marco y apoyo la base
+      bpr.position.set(-4.2-(b1.min.x+b1.max.x)/2, 1.02-b1.min.y, -0.70-(b1.min.z+b1.max.z)/2);
+      scene.add(bpr);
+      const hl=new THREE.PointLight(0x39ffd0,.5,2.2,2);hl.position.set(-4.2,1.5,-.45);scene.add(hl); // contraluz del holograma
+    },undefined,function(){/* si no carga, queda la rejilla+specs como blueprint de respaldo */});}catch(e){}
     // (7) tendido de caños/cables (conduit) — del dock suben al techo y corren por el muro oeste hacia el panel
     const tubeMat=new THREE.MeshStandardMaterial({color:0x23272b,metalness:.4,roughness:.8});
     function tube(x1,y1,z1,x2,y2,z2,r){const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2),len=a.distanceTo(b);const m=new THREE.Mesh(new THREE.CylinderGeometry(r||.04,r||.04,len,8),tubeMat);m.position.copy(a).lerp(b,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());m.castShadow=true;scene.add(m);return m;}
@@ -195,7 +203,6 @@
     tube(-6.42,1.6,2.0,-6.42,CH-.05,2.0,.04);  // sube del medidor al techo
     tube(-6.0,CH-.1,1.1,-6.0,CH-.1,2.5,.045);  // corre por el techo (oeste) hacia el panel
     tube(-6.42,CH-.1,2.0,-6.0,CH-.1,2.5,.04);
-    tube(-5.9,.18,1.1,-5.0,.12,1.1,.05);       // cable grueso por el piso (del dock hacia el centro)
     // (8) panel eléctrico / transformador (muro oeste, esquina sur) con LED de estado
     const pan=new THREE.Group();pan.position.set(-6.46,1.2,2.6);scene.add(pan);
     pan.add(meshBox(.1,.7,.5,0,0,0,steelD));
@@ -382,7 +389,7 @@
     let inRoom=false;
     if(robot.model&&zi>=0){const a=AREAS[zi],p=robot.model.position;inRoom=(p.x>=a.x0&&p.x<=a.x1&&p.z>=a.z0&&p.z<=a.z1);}
     if(inRoom)_camTgt.set(robot.model.position.x,0.95,robot.model.position.z); else _camTgt.copy(cam.look);
-    if(zone!==_camZonePrev){_camLook.copy(_camTgt);if(_camZonePrev!==null)camClick();_camZonePrev=zone;camera.fov=cam.fov||62;camera.updateProjectionMatrix();} // CORTE real: encuadre + "chunk" CCTV + FOV por cámara (cultivo = gran angular). 1 por corte; no en jitter ni lookAt
+    if(zone!==_camZonePrev){_camLook.copy(_camTgt);if(_camZonePrev!==null){camClick();cutA=1;}_camZonePrev=zone;camera.fov=cam.fov||62;camera.updateProjectionMatrix();} // CORTE real: encuadre + "chunk" CCTV + pulso de glitch (cutA) + FOV por cámara. 1 por corte; no en jitter ni lookAt
     else _camLook.lerp(_camTgt,Math.min(1,dt*2.5));                    // seguimiento suave dentro de la sala (mismo corte → sin click)
     const j=(mv?0.0025:0)+sh*0.06; // micro-jitter "grabado" (+ sacudón si hubo evento, vía shake)
     camera.position.set(cam.pos.x+(Math.random()-.5)*j,cam.pos.y+(Math.random()-.5)*j,cam.pos.z+(Math.random()-.5)*j);
@@ -497,9 +504,11 @@
     glitchT-=dt;
     if(glitchT<=0){glitchA=1;glitchT=GLITCH_GAP+Math.random()*GLITCH_VAR;} // dispara y reprograma el próximo
     if(glitchA>0)glitchA=Math.max(0,glitchA-dt/GLITCH_DUR);                // decae rápido (GLITCH_DUR)
-    if(rgbPass)rgbPass.uniforms.amount.value=RGB_BASE+glitchA*RGB_SPIKE;
-    if(filmPass)filmPass.uniforms.nIntensity.value=GRAIN_BASE+glitchA*GRAIN_SPIKE;
-    if(glitchA>.45)renderer.domElement.style.transform='translateX('+((Math.random()-.5)*GLITCH_JUMP).toFixed(1)+'px)'; // salto horizontal breve
+    if(cutA>0)cutA=Math.max(0,cutA-dt/CUT_DUR);                            // pulso de conmutación de cámara (lo dispara el corte de zona)
+    if(rgbPass)rgbPass.uniforms.amount.value=RGB_BASE+glitchA*RGB_SPIKE+cutA*CUT_RGB;
+    if(filmPass)filmPass.uniforms.nIntensity.value=GRAIN_BASE+glitchA*GRAIN_SPIKE+cutA*CUT_GRAIN;
+    const _jmp=cutA>.15?CUT_JUMP*cutA:(glitchA>.45?GLITCH_JUMP:0);         // roll horizontal: el corte manda (más fuerte) sobre el ambiental
+    if(_jmp)renderer.domElement.style.transform='translateX('+((Math.random()-.5)*_jmp).toFixed(1)+'px)';
     else if(renderer.domElement.style.transform)renderer.domElement.style.transform=''; // se limpia una sola vez al terminar
 
     // flash de evento

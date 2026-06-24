@@ -177,11 +177,21 @@
   for(let i=0;i<PN;i++){pp[i*3]=RX+2+Math.random()*10;pp[i*3+1]=Math.random()*8;pp[i*3+2]=-7+Math.random()*9;psd.push(Math.random()*6.28);}
   pg.setAttribute('position',new THREE.BufferAttribute(pp,3));
   const parts=new THREE.Points(pg,new THREE.PointsMaterial({color:0xff2e88,size:.13,transparent:true,opacity:.85,blending:THREE.AdditiveBlending,depthWrite:false}));outG.add(parts);
-  // polvo ambiente
-  const DN=SMALL?40:90,dg=new THREE.BufferGeometry(),dp=new Float32Array(DN*3),dsd=[];
-  for(let i=0;i<DN;i++){dp[i*3]=(Math.random()-.5)*5;dp[i*3+1]=Math.random()*2.5;dp[i*3+2]=RZ0+Math.random()*depth;dsd.push(Math.random()*6.28);}
+  // polvo ambiente — repartido por TODAS las salas (no sólo el hub): atmósfera de búnker abandonado, sutil y barato
+  // (un solo sistema de Points = 1 draw call). Cajas ≈ AREAS de game.js (hub, pasillo, biblioteca, cultivo, taller, descanso, carga).
+  const DROOMS=[
+    {x0:-2.8,x1:2.8,z0:-4.9,z1:3.25},    // hub
+    {x0:-1.15,x1:1.15,z0:3.1,z1:5.35},   // pasillo
+    {x0:-3.25,x1:3.25,z0:5.05,z1:8.35},  // biblioteca
+    {x0:-3.25,x1:3.25,z0:8.05,z1:11.65}, // cultivo
+    {x0:3.15,x1:7.05,z0:5.75,z1:8.25},   // taller
+    {x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},  // descanso
+    {x0:-6.45,x1:-2.70,z0:-0.8,z1:3.05}  // sector de carga
+  ];
+  const DN=SMALL?70:150,dg=new THREE.BufferGeometry(),dp=new Float32Array(DN*3),dsd=[];
+  for(let i=0;i<DN;i++){const r=DROOMS[i%DROOMS.length];dp[i*3]=r.x0+Math.random()*(r.x1-r.x0);dp[i*3+1]=.2+Math.random()*2.2;dp[i*3+2]=r.z0+Math.random()*(r.z1-r.z0);dsd.push(Math.random()*6.28);}
   dg.setAttribute('position',new THREE.BufferAttribute(dp,3));
-  const dust=new THREE.Points(dg,new THREE.PointsMaterial({color:0xffe6b0,size:.025,transparent:true,opacity:.5,depthWrite:false}));scene.add(dust);
+  const dust=new THREE.Points(dg,new THREE.PointsMaterial({color:0xffe6b0,size:.025,transparent:true,opacity:.42,depthWrite:false}));scene.add(dust);
   // ESCOMBROS que caen (en temblor)
   const FN=70,fg=new THREE.BufferGeometry(),fp=new Float32Array(FN*3),fv=[];
   for(let i=0;i<FN;i++){fp[i*3]=(Math.random()-.5)*5.6;fp[i*3+1]=CH-.1;fp[i*3+2]=RZ0+.4+Math.random()*(depth-.8);fv.push(.8+Math.random());}
