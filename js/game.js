@@ -180,7 +180,7 @@
   _newSofa.add(meshBox(.62,.22,.16,-.36,.62,-.22,cushMat));_newSofa.add(meshBox(.62,.22,.16,.36,.62,-.22,cushMat));
   for(const px of[-.6,.6])for(const pz of[-.3,.3])_newSofa.add(meshBox(.06,.2,.06,px,.1,pz,steelMat));
   _newSofa.children.forEach(c=>c.castShadow=true);
-  bunkbed(-5.0,8.0,Math.PI);locker(-4.0,8.2,Math.PI);armchair(-6.6,5.9,Math.PI/2,0x3a4a5a);
+  locker(-4.0,8.2,Math.PI);armchair(-6.6,5.9,Math.PI/2,0x3a4a5a); // (litera removida: estaba atravesada en la pared norte del rest)
   scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.0,1.4),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.6,.02,6.8,-Math.PI/2,0,0));
   box(.34,.5,.34,-4.0,.25,7.0,_woodMat);
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-4.0).translateY(.55).translateZ(7.0));
@@ -226,7 +226,11 @@
     for(let k=0;k<3;k++){const y=.55+k*.62;box(.5,.04,1.3,2.9,y,9.6,steelMat);
       // (hojas-esfera removidas: los brotes GLB se distribuyen abajo con loadPlant)
       scene.add(place(new THREE.Mesh(new THREE.BoxGeometry(.46,.03,1.2),new THREE.MeshBasicMaterial({color:0xc83cff})),2.9,y+.5,9.6));}
-    const grow2=new THREE.PointLight(0xb43cff,1.1,4.5,2);grow2.position.set(2.6,1.5,9.6);scene.add(grow2);
+    const grow2=new THREE.PointLight(0xb43cff,0.9,4.5,2);grow2.position.set(2.6,1.5,9.6);scene.add(grow2); // magenta rack der (bajado 1.1->0.9)
+    // RELLENO NEUTRO sobre las repisas — para que el verde de las plantas se vea sin matar el clima magenta.
+    // Iterar acá: subir intensidad = más verde visible / bajar = más magenta dominante. Color hacia blanco-frío.
+    {const FILL_COL=0xeaf0ff, FILL_INT=0.55, FILL_RNG=3.4; // <-- balance verde vs magenta
+     [[-2.55,1.65,10.3],[2.55,1.65,9.6]].forEach(p=>{const f=new THREE.PointLight(FILL_COL,FILL_INT,FILL_RNG,2);f.position.set(p[0],p[1],p[2]);scene.add(f);});}
     {const tray=meshBox(.74,.08,.42,-2.6,.82,8.75,doorMat);tray.castShadow=true;scene.add(tray);for(let i=0;i<12;i++){const sp=new THREE.Mesh(new THREE.ConeGeometry(.02,.08,5),growMat);sp.position.set(-2.6-.28+(i%4)*.18,.92,8.75-.14+Math.floor(i/4)*.14);sp.userData.noOut=true;scene.add(sp);}}
     // --- DESCANSO: alfombra, estufa (glow), mesita con taza, posters ---
     scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.6),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.4,.02,6.6,-Math.PI/2,0,0));
@@ -269,7 +273,7 @@
     observatorio:{pos:new THREE.Vector3( 2.20,2.40, 2.90),look:new THREE.Vector3( 0.00,1.10,-1.20)},
     pasillo:     {pos:new THREE.Vector3( 0.95,2.35, 3.25),look:new THREE.Vector3( 0.00,1.10, 4.50)},
     biblioteca:  {pos:new THREE.Vector3(-2.95,2.40, 5.45),look:new THREE.Vector3( 0.30,1.10, 7.00)},
-    cultivo:     {pos:new THREE.Vector3(-2.95,2.40, 8.55),look:new THREE.Vector3( 0.30,1.10,10.30)},
+    cultivo:     {pos:new THREE.Vector3( 3.00,2.45, 8.25),look:new THREE.Vector3(-1.40,1.00, 9.90)}, // esquina SE mirando NO: encuadra el rack izq con plantas + el robot (antes apuntaba a la pared)
     taller:      {pos:new THREE.Vector3( 6.85,2.40, 8.05),look:new THREE.Vector3( 4.60,1.10, 6.90)},
     descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)}
   };
@@ -495,7 +499,7 @@
       list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-5.0,z:8.1,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -682,18 +686,20 @@
     },undefined,function(){});}catch(e){}
   }
   // 3 repisas (y=.55/1.17/1.79, +.02 al tope) x 3 z, en ambos racks. izq x=-2.9 z[9.65,10.95]; der x=2.9 z[8.95,10.25].
-  {const SY=[.57,1.19,1.81],byFile={'grass.glb':[],'clover.glb':[],'plant.glb':[],'flowers.glb':[]};
+  // escalas base de las plantas — SUBIR/BAJAR ACÁ para iterar (cada instancia varía ±18% sobre estas)
+  {const SC_GREEN=.32,SC_PLANT=.44,SC_FLOWER=.28,SC_BUSH=.55;
+   const SY=[.57,1.19,1.81],byFile={'grass.glb':[],'clover.glb':[],'plant.glb':[],'flowers.glb':[]};
    const PAT=['grass.glb','clover.glb','plant.glb','grass.glb','flowers.glb','plant.glb','clover.glb','flowers.glb','plant.glb']; // mayoría verde, ~2/9 flor
    let idx=0;
    [[-2.9,[9.95,10.30,10.65]],[2.9,[9.25,9.60,9.95]]].forEach(rk=>{const rx=rk[0],zs=rk[1];
-     SY.forEach(sy=>zs.forEach((pz,p)=>{const file=PAT[idx%PAT.length],base=file==='flowers.glb'?.13:(file==='plant.glb'?.20:.15);
+     SY.forEach(sy=>zs.forEach((pz,p)=>{const file=PAT[idx%PAT.length],base=file==='flowers.glb'?SC_FLOWER:(file==='plant.glb'?SC_PLANT:SC_GREEN);
        byFile[file].push({ // variación por instancia: escala ±18%, rotación Y libre, leve inclinación, jitter de posición
          x:rx+((p%2)?.06:-.05)+(Math.random()-.5)*.06, y:sy, z:pz+(Math.random()-.5)*.05,
          target:base*(.82+Math.random()*.36), rotY:Math.random()*Math.PI*2, tiltX:(Math.random()-.5)*.16, tiltZ:(Math.random()-.5)*.16});
        idx++;}));});
    for(const f in byFile)loadPlant(f,byFile[f]);
    // arbusto florecido en el PISO del cultivo (no en repisa, es arbusto). Quitable si no pega.
-   loadPlant('flower_bushes.glb',[{x:1.55,y:0,z:8.55,target:.42,rotY:Math.random()*Math.PI*2,tiltX:(Math.random()-.5)*.1,tiltZ:(Math.random()-.5)*.1}]);
+   loadPlant('flower_bushes.glb',[{x:1.55,y:0,z:8.55,target:SC_BUSH,rotY:Math.random()*Math.PI*2,tiltX:(Math.random()-.5)*.1,tiltZ:(Math.random()-.5)*.1}]);
   }
 
   buildCel();applyCel();renderHoldout(0,0,0);
