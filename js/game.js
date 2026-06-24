@@ -189,10 +189,13 @@
       const d=sph.radius/Math.sin(diagCam.fov*Math.PI/360)*1.18;                                       // distancia que encuadra la esfera + margen (1.18)
       diagCam.position.set(0,sph.radius*.12,d);diagCam.lookAt(0,0,0);                                   // leve picado, mirando al centro
     },undefined,function(){});}catch(e){}
-    // marco/bezel del monitor en la pared + plano de pantalla (RTT) + tira de specs (UI de la terminal)
-    box(.96,1.06,.07,-4.2,1.52,-.93,steelD);                                                            // carcasa del monitor (muro norte)
-    box(.86,.96,.02,-4.2,1.52,-.90,new THREE.MeshStandardMaterial({color:0x0a0f0c,roughness:.5}));      // marco interior negro
-    const screen=new THREE.Mesh(new THREE.PlaneGeometry(.74,.62),new THREE.MeshBasicMaterial({map:diagRT.texture}));screen.position.set(-4.2,1.66,-.885);scene.add(screen); // PANTALLA (textura del render-to-texture)
+    // marco/bezel del monitor + plano de pantalla (RTT) + tira de specs (UI de la terminal).
+    // UBICACIÓN: muro OESTE, al norte del dock, mirando al ESTE (+x) → CAM 07 lo encuadra JUNTO al dock y el medidor
+    // (antes estaba en el muro norte, a +38° del eje de la cámara = fuera de cuadro). rot.y=π/2 gira la normal +z→+x.
+    const RY=Math.PI/2, MZ=-0.1; // z del monitor en el muro oeste (al norte del dock, que está en z≈1.1)
+    box(.08,1.06,.96,-6.41,1.52,MZ,steelD);                                                              // carcasa del monitor (muro oeste)
+    box(.02,.96,.86,-6.36,1.52,MZ,new THREE.MeshStandardMaterial({color:0x0a0f0c,roughness:.5}));        // marco interior negro
+    const screen=new THREE.Mesh(new THREE.PlaneGeometry(.74,.62),new THREE.MeshBasicMaterial({map:diagRT.texture}));screen.position.set(-6.35,1.66,MZ);screen.rotation.y=RY;scene.add(screen); // PANTALLA (textura del render-to-texture), mira al este
     {const sc2=cv(512,180),sx=sc2.getContext('2d');sx.fillStyle='#06120c';sx.fillRect(0,0,512,180);
       sx.fillStyle='#39ff88';sx.shadowColor='#39ff88';sx.shadowBlur=6;sx.font='20px VT323, monospace';sx.textBaseline='middle';
       sx.fillText('UNIDAD R-01 · DIAGNÓSTICO',16,24);
@@ -201,8 +204,8 @@
       sx.fillText('REQ. CARGA ........... dock · ~2 HS',16,92);
       sx.fillStyle='#39ff88';sx.fillText('ESTADO: OPERATIVO',16,128);
       const st=new THREE.CanvasTexture(sc2);st.anisotropy=4;
-      const strip=new THREE.Mesh(new THREE.PlaneGeometry(.74,.26),new THREE.MeshBasicMaterial({map:st}));strip.position.set(-4.2,1.24,-.885);scene.add(strip);}
-    const scrGlow=new THREE.PointLight(0x39ff88,.45,2,2);scrGlow.position.set(-4.2,1.5,-.5);scene.add(scrGlow); // resplandor del monitor sobre la sala
+      const strip=new THREE.Mesh(new THREE.PlaneGeometry(.74,.26),new THREE.MeshBasicMaterial({map:st}));strip.position.set(-6.35,1.24,MZ);strip.rotation.y=RY;scene.add(strip);}
+    const scrGlow=new THREE.PointLight(0x39ff88,.45,2,2);scrGlow.position.set(-6.05,1.5,MZ);scene.add(scrGlow); // resplandor del monitor sobre la sala
     // (7) tendido de caños/cables (conduit) — del dock suben al techo y corren por el muro oeste hacia el panel
     const tubeMat=new THREE.MeshStandardMaterial({color:0x23272b,metalness:.4,roughness:.8});
     function tube(x1,y1,z1,x2,y2,z2,r){const a=new THREE.Vector3(x1,y1,z1),b=new THREE.Vector3(x2,y2,z2),len=a.distanceTo(b);const m=new THREE.Mesh(new THREE.CylinderGeometry(r||.04,r||.04,len,8),tubeMat);m.position.copy(a).lerp(b,.5);m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());m.castShadow=true;scene.add(m);return m;}
