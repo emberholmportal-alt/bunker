@@ -687,20 +687,35 @@
     },undefined,function(){});}catch(e){}
   }
   // 3 repisas (y=.55/1.17/1.79, +.02 al tope) x 3 z, en ambos racks. izq x=-2.9 z[9.65,10.95]; der x=2.9 z[8.95,10.25].
+  // Cada planta va EN UNA MACETA procedural acorde al tipo: redonda para brotes/planta, jardinera baja
+  // para el parche de flores. La base de la planta apoya en la tierra (no sobre el metal pelado).
   // escalas base de las plantas — SUBIR/BAJAR ACÁ para iterar (cada instancia varía ±18% sobre estas)
   {const SC_GREEN=.32,SC_PLANT=.44,SC_FLOWER=.28,SC_BUSH=.55;
+   const potMat=new THREE.MeshStandardMaterial({color:0x6e4a38,roughness:.92,metalness:.04}); // terracota
+   const soilMat=new THREE.MeshStandardMaterial({color:0x2a1d12,roughness:1}); // tierra
+   // maceta redonda (cónica) sobre la repisa; devuelve la Y (relativa a sy) de la superficie de tierra
+   function potRound(x,sy,z,r,h){const g=new THREE.Group();g.position.set(x,sy,z);
+     const body=new THREE.Mesh(new THREE.CylinderGeometry(r,r*.78,h,12),potMat);body.position.y=h/2;body.castShadow=body.receiveShadow=true;g.add(body);
+     const rim=new THREE.Mesh(new THREE.CylinderGeometry(r*1.07,r,h*.16,12),potMat);rim.position.y=h-h*.08;rim.castShadow=true;g.add(rim);
+     const soil=new THREE.Mesh(new THREE.CylinderGeometry(r*.92,r*.92,h*.16,12),soilMat);soil.position.y=h-h*.14;g.add(soil);
+     scene.add(g);return h-h*.10;}
+   // jardinera baja (caja) para el parche de flores
+   function potTrough(x,sy,z,w,d,h){const g=new THREE.Group();g.position.set(x,sy,z);
+     const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),potMat);body.position.y=h/2;body.castShadow=body.receiveShadow=true;g.add(body);
+     const soil=new THREE.Mesh(new THREE.BoxGeometry(w*.86,h*.32,d*.8),soilMat);soil.position.y=h-h*.18;g.add(soil);
+     scene.add(g);return h-h*.16;}
    const SY=[.57,1.19,1.81],byFile={'grass.glb':[],'clover.glb':[],'plant.glb':[],'flowers.glb':[]};
    const PAT=['grass.glb','clover.glb','plant.glb','grass.glb','flowers.glb','plant.glb','clover.glb','flowers.glb','plant.glb']; // mayoría verde, ~2/9 flor
    let idx=0;
    [[-2.9,[9.95,10.30,10.65]],[2.9,[9.25,9.60,9.95]]].forEach(rk=>{const rx=rk[0],zs=rk[1];
      SY.forEach(sy=>zs.forEach((pz,p)=>{const file=PAT[idx%PAT.length],base=file==='flowers.glb'?SC_FLOWER:(file==='plant.glb'?SC_PLANT:SC_GREEN);
-       byFile[file].push({ // variación por instancia: escala ±18%, rotación Y libre, jitter de posición (sin inclinación: base apoyada)
-         x:rx+((p%2)?.06:-.05)+(Math.random()-.5)*.06, y:sy, z:pz+(Math.random()-.5)*.05,
-         target:base*(.82+Math.random()*.36), rotY:Math.random()*Math.PI*2});
+       const x=rx+((p%2)?.06:-.05)+(Math.random()-.5)*.05, z=pz+(Math.random()-.5)*.04;
+       const soilY=(file==='flowers.glb')?potTrough(x,sy,z,.22,.13,.055):potRound(x,sy,z,base*.27,base*.30); // maceta acorde al tipo
+       byFile[file].push({x:x,y:sy+soilY-.012,z:z,target:base*(.82+Math.random()*.36),rotY:Math.random()*Math.PI*2}); // base apoyada (un toque hundida en la tierra)
        idx++;}));});
    for(const f in byFile)loadPlant(f,byFile[f]);
-   // arbusto florecido en el PISO del cultivo (no en repisa, es arbusto). Quitable si no pega.
-   loadPlant('flower_bushes.glb',[{x:1.55,y:0,z:8.55,target:SC_BUSH,rotY:Math.random()*Math.PI*2}]);
+   // arbusto florecido en el PISO del cultivo, en una maceta grande. Quitable si no pega.
+   {const bx=1.55,bz=8.55,bsoil=potRound(bx,0,bz,.15,.17);loadPlant('flower_bushes.glb',[{x:bx,y:bsoil-.02,z:bz,target:SC_BUSH,rotY:Math.random()*Math.PI*2}]);}
   }
 
   buildCel();applyCel();renderHoldout(0,0,0);
