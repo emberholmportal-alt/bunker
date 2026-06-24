@@ -222,6 +222,67 @@
     // (9) luz ambiente de sala (fría y tenue: clima técnico de sala de máquinas) + relleno bajo
     const rmLight=new THREE.PointLight(0x9fb0c8,.85,7,2);rmLight.position.set(cx,CH-.3,cz);scene.add(rmLight);
     const rmFill=new THREE.PointLight(0x5a6e88,.4,6,2);rmFill.position.set(-4.0,1.4,2.4);scene.add(rmFill);
+    // ====== DENSIDAD "SALA DE MÁQUINAS" — TODO procedural (box/cylinder/canvas+luces), decorativo SIN collider.
+    // Va en PAREDES / TECHO / RINCONES, NUNCA en la línea puerta→dock. El robot sólo transita
+    // door(z≈2.55) → CARC(-5.4,1.1) → dock, y se planta en CARC; el norte (z<0.6) y los rincones quedan libres de él.
+    {
+      const cab=new THREE.MeshStandardMaterial({color:0x2a2f34,metalness:.7,roughness:.55,normalMap:metalN});
+      const dark=new THREE.MeshStandardMaterial({color:0x1c2024,metalness:.5,roughness:.7});
+      const breaker=new THREE.MeshStandardMaterial({color:0x14181b,roughness:.8});
+      const led=(x,y,z,c,blink)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(.02,8,8),new THREE.MeshBasicMaterial({color:c}));m.position.set(x,y,z);scene.add(m);if(blink)chargeLeds.push(m);return m;};
+      const sign=(canvas,w,h,x,y,z,ry)=>{const t=new THREE.CanvasTexture(canvas);t.anisotropy=4;const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({map:t,transparent:true}));m.position.set(x,y,z);if(ry)m.rotation.y=ry;scene.add(m);return m;};
+      // --- texturas de señalética/rejilla (canvas) ---
+      const hazTex=(l1,l2)=>{const c=cv(256,128),x=c.getContext('2d');x.fillStyle='#15120a';x.fillRect(0,0,256,128);
+        for(const yy of[0,116]){x.fillStyle='#e3c200';x.fillRect(0,yy,256,12);x.fillStyle='#000';for(let s=-12;s<260;s+=20){x.beginPath();x.moveTo(s,yy);x.lineTo(s+10,yy);x.lineTo(s-2,yy+12);x.lineTo(s-12,yy+12);x.closePath();x.fill();}}
+        x.fillStyle='#e3c200';x.font='bold 30px Anton, sans-serif';x.textAlign='center';x.fillText(l1,128,60);
+        x.font='16px VT323, monospace';x.fillStyle='#c9d8b0';x.fillText(l2,128,88);return c;};
+      const ventTex=()=>{const c=cv(128,128),x=c.getContext('2d');x.fillStyle='#191d20';x.fillRect(0,0,128,128);x.strokeStyle='#070909';x.lineWidth=4;for(let yy=10;yy<124;yy+=13){x.beginPath();x.moveTo(8,yy);x.lineTo(120,yy);x.stroke();}x.strokeStyle='#3a4248';x.lineWidth=1;for(let yy=13;yy<124;yy+=13){x.beginPath();x.moveTo(8,yy);x.lineTo(120,yy);x.stroke();}x.strokeStyle='#2a3034';x.lineWidth=3;x.strokeRect(4,4,120,120);return c;};
+      const grilleTex=()=>{const c=cv(128,128),x=c.getContext('2d');x.fillStyle='#07090a';x.fillRect(0,0,128,128);x.strokeStyle='#222a2c';x.lineWidth=5;for(let i=4;i<=128;i+=15){x.beginPath();x.moveTo(i,0);x.lineTo(i,128);x.stroke();x.beginPath();x.moveTo(0,i);x.lineTo(128,i);x.stroke();}x.strokeStyle='#0d1011';x.lineWidth=2;x.strokeRect(2,2,124,124);return c;};
+      const RYW=Math.PI/2; // mira al ESTE (muro oeste)
+      // (A) GABINETE DE BREAKERS en el muro NORTE, rincón NO (lejos del paso del robot)
+      {const g=new THREE.Group();g.position.set(-5.7,0,-0.92);scene.add(g);
+        g.add(meshBox(.92,1.5,.16,0,1.28,0,cab));                                  // cuerpo
+        g.add(meshBox(.4,1.4,.02,-.23,1.28,.1,breaker));g.add(meshBox(.4,1.4,.02,.23,1.28,.1,breaker)); // dos puertas
+        for(let r=0;r<5;r++)for(let i=0;i<6;i++)g.add(meshBox(.05,.12,.015,-.34+i*.135,.85+r*.18,.11,dark)); // grilla de interruptores
+        g.add(meshBox(.04,.1,.02,-.23,1.95,.11,steelD));g.add(meshBox(.04,.1,.02,.23,1.95,.11,steelD));    // manijas
+        g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
+        led(-5.95,1.98,-0.80,0x39ff66,true);led(-5.78,1.98,-0.80,0xffaa00,true);led(-5.6,1.98,-0.80,0x39ff66,false);}
+      sign(hazTex('ALTA TENSIÓN','480V · NO ABRIR'),.5,.25,-5.7,2.18,-0.83,0);   // cartel sobre el gabinete
+      // (B) CAJA DE FUSIBLES + junction box en el muro OESTE, entre el monitor (z=-0.1) y el dock (z=1.1)
+      {const g=new THREE.Group();g.position.set(-6.45,1.5,0.55);g.rotation.y=RYW;scene.add(g);
+        g.add(meshBox(.34,.46,.16,0,0,0,cab));g.add(meshBox(.3,.42,.02,0,0,.09,breaker));
+        for(const px of[-.08,.08])g.add(meshBox(.05,.3,.02,px,0,.1,dark));
+        g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+      led(-6.35,1.62,0.46,0x39ff66,true);led(-6.35,1.62,0.64,0xff3355,true);
+      sign(hazTex('PELIGRO','RIESGO ELÉCTRICO'),.42,.21,-6.43,1.92,0.55,RYW);
+      // (C) DUCTO DE VENTILACIÓN en el techo (corre E-O por el norte) + rejilla en un extremo + soportes
+      {const yD=2.40;scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(2.9,.28,.3),dark),{position:new THREE.Vector3(-4.85,yD,-0.7),castShadow:true}));
+        for(const sx of[-6.0,-5.0,-4.0,-3.6])scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(.06,.22,.36),steelD),{position:new THREE.Vector3(sx,yD+.22,-0.7)})); // flejes al techo
+        sign(ventTex(),.42,.26,-3.42,yD,-0.7,RYW);}                               // rejilla del ducto (extremo este)
+      // (D) BANDEJA DE CABLES en el techo (corre N-S por el muro oeste) + cables
+      scene.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(.2,.1,3.5),dark),{position:new THREE.Vector3(-6.3,2.5,1.0),castShadow:true}));
+      tube(-6.3,2.47,-0.7,-6.3,2.47,2.7,.03);tube(-6.24,2.47,-0.7,-6.24,2.47,2.7,.028);tube(-6.36,2.47,-0.5,-6.36,2.47,2.6,.025);
+      // (E) CONDUITS conectando cajas con techo (sobre las paredes; nunca cruzan el piso central)
+      tube(-5.7,2.04,-0.84,-5.7,2.4,-0.7,.035);   // gabinete norte → ducto
+      tube(-6.42,1.7,0.55,-6.42,2.45,0.7,.03);    // caja oeste → bandeja
+      tube(-6.45,1.55,2.6,-6.45,2.45,2.6,.03);    // panel sur → techo
+      tube(-6.0,.2,-0.55,-6.0,.2,0.4,.04);        // cable bajo por el rincón NO (contra pared, fuera del paso)
+      // (F) RESPIRADERO de piso en el rincón NO (plano al ras, decorativo) + mancha de uso
+      {const gr=new THREE.Mesh(new THREE.PlaneGeometry(.7,.7),new THREE.MeshStandardMaterial({map:tex(grilleTex(),1),roughness:.9,metalness:.3}));gr.rotation.x=-Math.PI/2;gr.position.set(-5.9,.012,-0.45);scene.add(gr);}
+      {const st=new THREE.Mesh(new THREE.PlaneGeometry(1.0,1.0),new THREE.MeshBasicMaterial({map:tex(grime('#0a0d0a'),1),transparent:true,opacity:.5,depthWrite:false}));st.rotation.x=-Math.PI/2;st.position.set(-5.9,.014,1.0);scene.add(st);} // mancha bajo el dock
+      // (G) REJILLA DE VENTILACIÓN en el muro norte (panel ranurado) + cartel de tensión
+      sign(ventTex(),.55,.4,-3.9,1.25,-0.9,0);
+      // (H) PROPS DE RINCÓN (NO, contra la pared, sin collider — el robot nunca llega al norte de la sala)
+      {const g=new THREE.Group();g.position.set(-6.15,0,-0.6);scene.add(g);
+        g.add(meshBox(.42,.4,.4,0,.2,0,cab));g.add(meshBox(.4,.28,.38,.02,.55,-.02,dark)); // dos cajas apiladas (baterías/equipo)
+        g.add(meshBox(.06,.06,.5,0,.42,0,steelD));                                          // caño suelto encima
+        g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
+        led(-6.15,.62,-0.42,0x39ff66,true);}
+      // luz de estado tenue del rincón de máquinas (verde frío, sutil)
+      const mLed=new THREE.PointLight(0x39ff66,.3,2.2,2);mLed.position.set(-5.8,1.6,-0.55);scene.add(mLed);
+      // (I) UMBRAL de la puerta (placa metálica al ras en el hueco z[1.9,3.2]) — enmarca el paso y disimula el borde
+      {const th=new THREE.Mesh(new THREE.PlaneGeometry(.5,1.3),new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.45,normalMap:metalN}));th.rotation.x=-Math.PI/2;th.position.set(-3.2,.013,2.55);scene.add(th);}
+    }
   }
 
   // ---- materiales + helpers de props nuevos ----
@@ -703,11 +764,13 @@
     {x:4.7,  z:7.2 },  //7 TALC  taller
     {x:-3.4, z:6.7 },  //8 DESd  puerta a descanso (centro del hueco)
     {x:-4.7, z:6.8 },  //9 DESC  descanso
-    {x:-2.0, z:1.4 },  //10 HUBW hub oeste (suaviza el camino a la puerta de carga)
-    {x:-3.2, z:2.5 },  //11 CARd puerta al sector de carga (centro del hueco z[1.9,3.2])
-    {x:-5.4, z:1.1 }   //12 CARC sector de carga: frente al dock (el robot se planta acá a cargar)
+    {x:-2.75,z:2.55},  //10 HUBW hub oeste, ALINEADO con la puerta (z del hueco) → el cruce es perpendicular, sin clip del borde
+    {x:-3.2, z:2.55},  //11 CARd en el hueco de la puerta (z[1.9,3.2], centro 2.55)
+    {x:-5.4, z:1.1 },  //12 CARC sector de carga: frente al dock (el robot se planta acá a cargar)
+    {x:-3.95,z:2.55}   //13 CARi lado-sala de la puerta: el GIRO hacia el dock ocurre ACÁ (adentro), no en el umbral
   ];
-  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,12],[11]];
+  // cruce recto por la puerta: 10→11→13 colineales en z=2.55 (entra/sale derecho); el quiebre hacia el dock es 13→12, ya dentro
+  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,13],[13],[11,12]];
   const DEST=[0,2,3,4,7,9,12]; // nodos "centro de sala" donde el robot puede plantarse
   function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
   function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
