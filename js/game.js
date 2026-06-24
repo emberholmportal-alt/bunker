@@ -669,15 +669,16 @@
   // Carga cada GLB UNA sola vez y lo CLONA en cada posición. clone(true) COMPARTE geometría y
   // material (memoria) pero da a cada clon su PROPIO transform (g.scene es un wrapper identidad,
   // así que setear rotation/scale/position en el clon es seguro y aislado entre instancias).
-  // Cada instancia recibe rotación, escala e inclinación propias (variación natural, no copias pegadas).
+  // Cada instancia recibe rotación Y y escala propias (variación), SIN inclinación: erguidas, para que
+  // bb.min.y sea la base real y apoye exacto sobre la repisa (la inclinación corría la base a escala grande).
   // Las repisas siguen bajo la luz magenta existente (no se toca).
   function loadPlant(file,places){if(!places||!places.length)return;
     try{new THREE.GLTFLoader().load('assets/props/'+file,function(g){
       places.forEach(pl=>{const o=g.scene.clone(true); // clon con transform PROPIO (geom+material compartidos)
         o.updateMatrixWorld(true);let bb=new THREE.Box3().setFromObject(o),sz=bb.getSize(new THREE.Vector3());
         o.scale.setScalar((pl.target/(Math.max(sz.x,sz.y,sz.z)||1))); // escala (con jitter por instancia)
-        o.rotation.set(pl.tiltX||0,pl.rotY||0,pl.tiltZ||0);o.updateMatrixWorld(true); // rotación Y + leve inclinación propias
-        bb=new THREE.Box3().setFromObject(o); // base sobre la repisa, centrada en x/z tras rotar+escalar
+        o.rotation.y=pl.rotY||0;o.updateMatrixWorld(true); // SOLO rotación Y (erguida): no corre la base
+        bb=new THREE.Box3().setFromObject(o); // apoya el punto más bajo (base) en la repisa, centrado en x/z
         o.position.set(pl.x-(bb.min.x+bb.max.x)/2,pl.y-bb.min.y,pl.z-(bb.min.z+bb.max.z)/2);
         o.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;m.userData.noOut=true;
           if(m.material&&m.material.isMeshStandardMaterial){const tn=_toToon(m.material);celReg.push({m:m,toon:tn,std:m.material});}}}); // cada clon registrado en CEL/REAL
@@ -693,13 +694,13 @@
    let idx=0;
    [[-2.9,[9.95,10.30,10.65]],[2.9,[9.25,9.60,9.95]]].forEach(rk=>{const rx=rk[0],zs=rk[1];
      SY.forEach(sy=>zs.forEach((pz,p)=>{const file=PAT[idx%PAT.length],base=file==='flowers.glb'?SC_FLOWER:(file==='plant.glb'?SC_PLANT:SC_GREEN);
-       byFile[file].push({ // variación por instancia: escala ±18%, rotación Y libre, leve inclinación, jitter de posición
+       byFile[file].push({ // variación por instancia: escala ±18%, rotación Y libre, jitter de posición (sin inclinación: base apoyada)
          x:rx+((p%2)?.06:-.05)+(Math.random()-.5)*.06, y:sy, z:pz+(Math.random()-.5)*.05,
-         target:base*(.82+Math.random()*.36), rotY:Math.random()*Math.PI*2, tiltX:(Math.random()-.5)*.16, tiltZ:(Math.random()-.5)*.16});
+         target:base*(.82+Math.random()*.36), rotY:Math.random()*Math.PI*2});
        idx++;}));});
    for(const f in byFile)loadPlant(f,byFile[f]);
    // arbusto florecido en el PISO del cultivo (no en repisa, es arbusto). Quitable si no pega.
-   loadPlant('flower_bushes.glb',[{x:1.55,y:0,z:8.55,target:SC_BUSH,rotY:Math.random()*Math.PI*2,tiltX:(Math.random()-.5)*.1,tiltZ:(Math.random()-.5)*.1}]);
+   loadPlant('flower_bushes.glb',[{x:1.55,y:0,z:8.55,target:SC_BUSH,rotY:Math.random()*Math.PI*2}]);
   }
 
   buildCel();applyCel();renderHoldout(0,0,0);
