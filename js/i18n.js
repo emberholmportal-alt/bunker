@@ -27,6 +27,7 @@
       boot_title:'OPENING SHELTER', boot_sub:'sealing hatches…',
       // overlay de cámara (chrome SIEMPRE en inglés; los nombres de zona van en español por lore, en game.js)
       ov_rec:'● REC', ov_cam:'CAM', ov_day:'DAY', ov_live:'LIVE', ov_signal:'SIGNAL',
+      uptime_hdr:'TIME ALONE', uptime_sub:'· LIVE SINCE CONTACT LOST ·',
       // holdout (slider HOLDERS)
       ho_outside:'{0} outside', ho_empty:'shelter empty', ho_soul_one:'soul safe', ho_soul_many:'souls safe', ho_full:' · shelter full',
       // zonas
@@ -70,6 +71,7 @@
       boot_title:'ABRIENDO REFUGIO', boot_sub:'sellando compuertas…',
       // overlay de cámara: chrome en inglés a propósito (REC/CAM/DAY/LIVE/SIGNAL); zonas en español por lore
       ov_rec:'● REC', ov_cam:'CAM', ov_day:'DAY', ov_live:'LIVE', ov_signal:'SIGNAL',
+      uptime_hdr:'TIME ALONE', uptime_sub:'· LIVE SINCE CONTACT LOST ·',
       ho_outside:'{0} afuera', ho_empty:'refugio vacío', ho_soul_one:'alma a salvo', ho_soul_many:'almas a salvo', ho_full:' · refugio lleno',
       z_feed_gen:'ALIMENTAR GENERADOR  (-combustible)', z_harvest:'COSECHAR  (+comida)', z_water:'JUNTAR AGUA  (+agua)',
       z_fuel:'SACAR COMBUSTIBLE  (+combustible)', z_scrap:'BUSCAR CHATARRA  (+chatarra)', z_repair:'REPARAR SISTEMA  (-chatarra)',

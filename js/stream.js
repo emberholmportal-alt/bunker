@@ -56,6 +56,9 @@
   // Timestamp HH:MM:SS UTC para el overlay (corrección #4: horas y minutos corren en el overlay).
   function streamClock(){ const d = new Date(STREAM.now);
     return String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0')+':'+String(d.getUTCSeconds()).padStart(2,'0'); }
+  // Cronómetro del LIVE: ms transcurridos desde el inicio (now - LORE_EPOCH). MISMO origen que día/timestamp,
+  // así responde igual a la velocidad de testeo y a los overrides de consola. DISTINTO del reloj UTC del overlay.
+  function streamUptime(){ return Math.max(0, STREAM.now - LORE_EPOCH); }
 
   // --- API de OPERADOR / ADMIN (los primeros controles de operador; los hereda la admin) ---
   // Forzar un campo lo SACA del control del driver hasta streamRelease(campo).

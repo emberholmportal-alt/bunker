@@ -212,7 +212,7 @@
   for(const cz of[-3.6,-1.2,0.8,2.4]){const cb=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.5,6),new THREE.MeshStandardMaterial({color:0x141414,roughness:1}));cb.position.set(2.9,CH-.32,cz);cb.rotation.x=(Math.random()-.5)*.3;scene.add(cb);}
 
   // ---- colocaciones: BIBLIOTECA ----
-  armchair(2.3,6.7,Math.PI,0x3a4a3a);
+  // (sillón junto a la puerta del taller removido: no tenía collider y el robot lo atravesaba al entrar)
 
   // SALA C (CULTIVO) z[8.2,11.8]
   box(6.8,.3,3.6,0,-.15,10.0,floorMat);box(6.8,.3,3.6,0,CH,10.0,ceilMat);
@@ -358,7 +358,7 @@
     if(inside!==prevInside||outside!==prevOutside||consumed!==prevConsumed)renderHoldout(inside,outside,consumed);
     prevInside=inside;prevOutside=outside;prevConsumed=consumed;
     refugioLight.intensity=(inside/CAP)*1.2;
-    updateHoldersBoard(Math.round(holders),dt); // tablero split-flap en la pared
+    updateUptimeBoard(streamUptime(),dt); // contador de pared: cronómetro del LIVE (HH:MM:SS desde LORE_EPOCH), lee de STREAM
 
     crtAcc+=dt;if(crtAcc>.1){drawCRT(inside,outside,asim);crtAcc=0;}
     if(crtGlitch>0)crtGlitch-=dt*2;
