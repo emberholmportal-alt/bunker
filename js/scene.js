@@ -198,7 +198,7 @@
   const recLed=new THREE.Mesh(new THREE.SphereGeometry(.014,8,8),new THREE.MeshBasicMaterial({color:0xff0000}));recLed.position.set(.08,.06,-.1);cctvHead.add(recLed);
 
   // ---- CULTIVO HIDROPÓNICO ----
-  const growMat=new THREE.MeshStandardMaterial({color:0x2f7d3a,roughness:.8});
+  // (growMat removido: ya no quedan plantas procedurales en el cultivo, son GLB)
   for(let k=0;k<3;k++){const y=.55+k*.62;box(.5,.04,1.3,-2.9,y,10.3,steelMat);
     // (hojas-esfera removidas: los brotes GLB se distribuyen en game.js, donde existe el loader)
     scene.add(place(new THREE.Mesh(new THREE.BoxGeometry(.46,.03,1.2),new THREE.MeshBasicMaterial({color:0xc83cff})),-2.9,y+.5,10.3));}

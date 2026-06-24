@@ -231,7 +231,7 @@
     // Iterar acá: subir intensidad = más verde visible / bajar = más magenta dominante. Color hacia blanco-frío.
     {const FILL_COL=0xeaf0ff, FILL_INT=0.55, FILL_RNG=3.4; // <-- balance verde vs magenta
      [[-2.55,1.65,10.3],[2.55,1.65,9.6]].forEach(p=>{const f=new THREE.PointLight(FILL_COL,FILL_INT,FILL_RNG,2);f.position.set(p[0],p[1],p[2]);scene.add(f);});}
-    {const tray=meshBox(.74,.08,.42,-2.6,.82,8.75,doorMat);tray.castShadow=true;scene.add(tray);for(let i=0;i<12;i++){const sp=new THREE.Mesh(new THREE.ConeGeometry(.02,.08,5),growMat);sp.position.set(-2.6-.28+(i%4)*.18,.92,8.75-.14+Math.floor(i/4)*.14);sp.userData.noOut=true;scene.add(sp);}}
+    // (bandeja flotante de conos del cultivo viejo removida: era resto del cultivo procedural)
     // --- DESCANSO: alfombra, estufa (glow), mesita con taza, posters ---
     scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.6),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.4,.02,6.6,-Math.PI/2,0,0));
     {const heater=new THREE.Group();heater.position.set(-7.05,0,6.0);heater.add(meshBox(.4,.5,.22,0,.28,0,doorMat));for(let i=0;i<3;i++){const bar=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.32,8),new THREE.MeshStandardMaterial({color:0xff5520,emissive:0xff3300,emissiveIntensity:1.5}));bar.position.set(-.1+i*.1,.3,.1);bar.userData.noOut=true;heater.add(bar);}heater.children.forEach(c=>c.castShadow=true);scene.add(heater);const hglow=new THREE.PointLight(0xff5a20,.8,2.8,2);hglow.position.set(-6.95,.4,6.2);scene.add(hglow);}
@@ -273,7 +273,7 @@
     observatorio:{pos:new THREE.Vector3( 2.20,2.40, 2.90),look:new THREE.Vector3( 0.00,1.10,-1.20)},
     pasillo:     {pos:new THREE.Vector3( 0.95,2.35, 3.25),look:new THREE.Vector3( 0.00,1.10, 4.50)},
     biblioteca:  {pos:new THREE.Vector3(-2.95,2.40, 5.45),look:new THREE.Vector3( 0.30,1.10, 7.00)},
-    cultivo:     {pos:new THREE.Vector3( 3.00,2.45, 8.25),look:new THREE.Vector3(-1.40,1.00, 9.90)}, // esquina SE mirando NO: encuadra el rack izq con plantas + el robot (antes apuntaba a la pared)
+    cultivo:     {pos:new THREE.Vector3( 3.10,2.55, 8.20),look:new THREE.Vector3( 0.00,0.90,10.30),fov:82}, // PLANO ABIERTO: esquina SE alta + gran angular -> entran los DOS racks de costado + robot chico en la sala
     taller:      {pos:new THREE.Vector3( 6.85,2.40, 8.05),look:new THREE.Vector3( 4.60,1.10, 6.90)},
     descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)}
   };
@@ -299,7 +299,7 @@
     let inRoom=false;
     if(robot.model&&zi>=0){const a=AREAS[zi],p=robot.model.position;inRoom=(p.x>=a.x0&&p.x<=a.x1&&p.z>=a.z0&&p.z<=a.z1);}
     if(inRoom)_camTgt.set(robot.model.position.x,0.95,robot.model.position.z); else _camTgt.copy(cam.look);
-    if(zone!==_camZonePrev){_camLook.copy(_camTgt);if(_camZonePrev!==null)camClick();_camZonePrev=zone;} // CORTE real: snap del encuadre + "chunk" de conmutación CCTV (1 por corte; no en jitter ni lookAt; salvo el arranque)
+    if(zone!==_camZonePrev){_camLook.copy(_camTgt);if(_camZonePrev!==null)camClick();_camZonePrev=zone;camera.fov=cam.fov||62;camera.updateProjectionMatrix();} // CORTE real: encuadre + "chunk" CCTV + FOV por cámara (cultivo = gran angular). 1 por corte; no en jitter ni lookAt
     else _camLook.lerp(_camTgt,Math.min(1,dt*2.5));                    // seguimiento suave dentro de la sala (mismo corte → sin click)
     const j=(mv?0.0025:0)+sh*0.06; // micro-jitter "grabado" (+ sacudón si hubo evento, vía shake)
     camera.position.set(cam.pos.x+(Math.random()-.5)*j,cam.pos.y+(Math.random()-.5)*j,cam.pos.z+(Math.random()-.5)*j);
