@@ -269,6 +269,7 @@
   let composer=null,filmPass=null,rgbPass=null;
   try{composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));
     const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),SMALL?.12:.18,.45,.85);composer.addPass(bloom);
-    rgbPass=new THREE.ShaderPass(THREE.RGBShiftShader);rgbPass.uniforms.amount.value=.0013;composer.addPass(rgbPass);
-    filmPass=new THREE.ShaderPass(THREE.FilmShader);filmPass.uniforms.nIntensity.value=.22;filmPass.uniforms.sIntensity.value=.05;filmPass.uniforms.sCount.value=SMALL?320:480;filmPass.uniforms.grayscale.value=0;filmPass.renderToScreen=true;composer.addPass(filmPass);
+    rgbPass=new THREE.ShaderPass(THREE.RGBShiftShader);rgbPass.uniforms.amount.value=.0014;composer.addPass(rgbPass); // aberración cromática (base; game.js la spikea en el glitch)
+    const vigPass=new THREE.ShaderPass(THREE.VignetteShader);vigPass.uniforms.offset.value=.55;vigPass.uniforms.darkness.value=1.0;composer.addPass(vigPass); // viñeta CCTV sutil (esquinas ~15%, bordes ~7%)
+    filmPass=new THREE.ShaderPass(THREE.FilmShader);filmPass.uniforms.nIntensity.value=.26;filmPass.uniforms.sIntensity.value=.08;filmPass.uniforms.sCount.value=SMALL?320:480;filmPass.uniforms.grayscale.value=0;filmPass.renderToScreen=true;composer.addPass(filmPass); // grano + scanlines (un toque más; game.js sube el grano en el glitch)
   }catch(e){composer=null;rgbPass=null;filmPass=null;}

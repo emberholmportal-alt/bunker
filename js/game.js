@@ -8,6 +8,15 @@
   // flashes y tinte rosa en las tomas. El robot NO depende de esto (corre en tickRobot). Reversible;
   // el borrado profundo del modo jugable es el sub-paso 7.
   const SURVIVAL=false;
+  // FILTRO CCTV (sub-paso 5) — glitch ocasional sobre las bases del filtro. Estos consts son los
+  // KNOBS para la "deriva" futura (con los días: bajar GAP / subir SPIKE para que el búnker se
+  // raye más). Arranque conservador y BIEN ESPACIADO; preferir subir después de verlo.
+  const RGB_BASE=.0014, RGB_SPIKE=.006;   // aberración cromática: base + pico durante el glitch
+  const GRAIN_BASE=.26, GRAIN_SPIKE=.22;  // grano del film: base + pico durante el glitch
+  const GLITCH_GAP=18, GLITCH_VAR=20;     // próximo glitch en 18–38 s (raro, que sorprenda)
+  const GLITCH_DUR=.16;                    // duración del glitch (s) — corto
+  const GLITCH_JUMP=14;                    // salto horizontal máx del cuadro (px, ±7)
+  let glitchT=GLITCH_GAP+Math.random()*GLITCH_VAR, glitchA=0;
   function showAlert(txt){const a=$('#alert');a.textContent=txt;a.classList.add('show');alertMsg=txt;setTimeout(()=>a.classList.remove('show'),1700);setTimeout(()=>{if(alertMsg===txt)alertMsg='';},2300);}
   function setFlash(col,a){flashCol=col;flashA=a;}
   // ---- feedback del slider HOLDERS (visual, no depende del audio) ----
@@ -394,12 +403,15 @@
 
     // (sin infección interior)
 
-    // locura (cordura baja → imagen enferma)
-    const locura=clamp((100-stats.cordura)/100,0,1);
-    if(rgbPass)rgbPass.uniforms.amount.value=.0013+locura*.005;
-    if(filmPass)filmPass.uniforms.nIntensity.value=.22+locura*.35;
-    $('#madness').style.opacity=(locura*.28).toFixed(2);
-    if(whisperG&&actx)whisperG.gain.value=audioOn?locura*.10:0;
+    // FILTRO CCTV: glitch ocasional (raro y corto) sobre las bases del filtro. Reemplaza el viejo
+    // acople "locura" (survival, neutralizado). Spike de aberración cromática + grano + salto horizontal.
+    glitchT-=dt;
+    if(glitchT<=0){glitchA=1;glitchT=GLITCH_GAP+Math.random()*GLITCH_VAR;} // dispara y reprograma el próximo
+    if(glitchA>0)glitchA=Math.max(0,glitchA-dt/GLITCH_DUR);                // decae rápido (GLITCH_DUR)
+    if(rgbPass)rgbPass.uniforms.amount.value=RGB_BASE+glitchA*RGB_SPIKE;
+    if(filmPass)filmPass.uniforms.nIntensity.value=GRAIN_BASE+glitchA*GRAIN_SPIKE;
+    if(glitchA>.45)renderer.domElement.style.transform='translateX('+((Math.random()-.5)*GLITCH_JUMP).toFixed(1)+'px)'; // salto horizontal breve
+    else if(renderer.domElement.style.transform)renderer.domElement.style.transform=''; // se limpia una sola vez al terminar
 
     // flash de evento
     if(flashA>0)flashA-=dt*1.4;const fe=$('#flash');fe.style.background='rgb('+flashCol+')';fe.style.opacity=clamp(flashA,0,.6).toFixed(2);
