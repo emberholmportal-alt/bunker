@@ -312,8 +312,8 @@
     let inRoom=false;
     if(robot.model&&zi>=0){const a=AREAS[zi],p=robot.model.position;inRoom=(p.x>=a.x0&&p.x<=a.x1&&p.z>=a.z0&&p.z<=a.z1);}
     if(inRoom)_camTgt.set(robot.model.position.x,0.95,robot.model.position.z); else _camTgt.copy(cam.look);
-    if(zone!==_camZonePrev){_camLook.copy(_camTgt);_camZonePrev=zone;} // CORTE: snap del encuadre, sin barrido
-    else _camLook.lerp(_camTgt,Math.min(1,dt*2.5));                    // seguimiento suave dentro de la sala
+    if(zone!==_camZonePrev){_camLook.copy(_camTgt);if(_camZonePrev!==null)camClick();_camZonePrev=zone;} // CORTE real: snap del encuadre + "chunk" de conmutación CCTV (1 por corte; no en jitter ni lookAt; salvo el arranque)
+    else _camLook.lerp(_camTgt,Math.min(1,dt*2.5));                    // seguimiento suave dentro de la sala (mismo corte → sin click)
     const j=(mv?0.0025:0)+sh*0.06; // micro-jitter "grabado" (+ sacudón si hubo evento, vía shake)
     camera.position.set(cam.pos.x+(Math.random()-.5)*j,cam.pos.y+(Math.random()-.5)*j,cam.pos.z+(Math.random()-.5)*j);
     camera.lookAt(_camLook.x+(Math.random()-.5)*j,_camLook.y+(Math.random()-.5)*j,_camLook.z+(Math.random()-.5)*j);
