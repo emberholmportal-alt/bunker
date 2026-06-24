@@ -141,11 +141,11 @@
     box(.3,CH+.3,D,-6.6,CH/2,cz,concreteMat);               // muro oeste (fondo de la sala)
     box(W,CH+.3,.3,cx,CH/2,-1.0,concreteMat);               // muro norte
     box(W,CH+.3,.3,cx,CH/2,3.2,concreteMat);                // muro sur
-    // (2) marco + dintel de la puerta (hueco z[1.9,3.2] en x=-3.2) con tira cian de borde (señal "puerta activa")
+    // (2) marco + dintel de la puerta (hueco z[1.5,3.2]=1.7m en x=-3.2) con tira cian de borde (señal "puerta activa")
     const jambMat=new THREE.MeshStandardMaterial({color:0x2b3034,metalness:.8,roughness:.5,normalMap:metalN});
-    box(.34,.34,1.34,-3.2,CH-.17,2.55,jambMat);             // dintel arriba del hueco
-    box(.34,2.32,.16,-3.2,1.16,1.9,jambMat);                // jamba sur del hueco
-    {const s=new THREE.Mesh(new THREE.BoxGeometry(.04,2.2,.05),new THREE.MeshBasicMaterial({color:0x39ffd0}));s.position.set(-3.05,1.16,1.94);scene.add(s);}
+    box(.34,.34,1.74,-3.2,CH-.17,2.35,jambMat);             // dintel arriba del hueco (cubre el hueco ensanchado, centro 2.35)
+    box(.34,2.32,.16,-3.2,1.16,1.5,jambMat);                // jamba norte del hueco (borde z=1.5)
+    {const s=new THREE.Mesh(new THREE.BoxGeometry(.04,2.2,.05),new THREE.MeshBasicMaterial({color:0x39ffd0}));s.position.set(-3.05,1.16,1.54);scene.add(s);}
     // (3) DOCK DE CARGA (base + columna + brazo + pinza luminosa) contra el muro oeste, donde el robot se acopla
     const steelD=new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.42,normalMap:metalN});
     const dock=new THREE.Group();dock.position.set(-6.25,0,1.1);scene.add(dock);
@@ -224,7 +224,7 @@
     const rmFill=new THREE.PointLight(0x5a6e88,.4,6,2);rmFill.position.set(-4.0,1.4,2.4);scene.add(rmFill);
     // ====== DENSIDAD "SALA DE MÁQUINAS" — TODO procedural (box/cylinder/canvas+luces), decorativo SIN collider.
     // Va en PAREDES / TECHO / RINCONES, NUNCA en la línea puerta→dock. El robot sólo transita
-    // door(z≈2.55) → CARC(-5.4,1.1) → dock, y se planta en CARC; el norte (z<0.6) y los rincones quedan libres de él.
+    // door(z≈2.35) → CARC(-5.4,1.1) → dock, y se planta en CARC; el norte (z<0.6) y los rincones quedan libres de él.
     {
       const cab=new THREE.MeshStandardMaterial({color:0x2a2f34,metalness:.7,roughness:.55,normalMap:metalN});
       const dark=new THREE.MeshStandardMaterial({color:0x1c2024,metalness:.5,roughness:.7});
@@ -280,8 +280,8 @@
         led(-6.15,.62,-0.42,0x39ff66,true);}
       // luz de estado tenue del rincón de máquinas (verde frío, sutil)
       const mLed=new THREE.PointLight(0x39ff66,.3,2.2,2);mLed.position.set(-5.8,1.6,-0.55);scene.add(mLed);
-      // (I) UMBRAL de la puerta (placa metálica al ras en el hueco z[1.9,3.2]) — enmarca el paso y disimula el borde
-      {const th=new THREE.Mesh(new THREE.PlaneGeometry(.5,1.3),new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.45,normalMap:metalN}));th.rotation.x=-Math.PI/2;th.position.set(-3.2,.013,2.55);scene.add(th);}
+      // (I) UMBRAL de la puerta (placa metálica al ras en el hueco z[1.5,3.2]=1.7m) — enmarca el paso y disimula el borde
+      {const th=new THREE.Mesh(new THREE.PlaneGeometry(.5,1.7),new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.45,normalMap:metalN}));th.rotation.x=-Math.PI/2;th.position.set(-3.2,.013,2.35);scene.add(th);}
     }
   }
 
@@ -764,10 +764,10 @@
     {x:4.7,  z:7.2 },  //7 TALC  taller
     {x:-3.4, z:6.7 },  //8 DESd  puerta a descanso (centro del hueco)
     {x:-4.7, z:6.8 },  //9 DESC  descanso
-    {x:-2.75,z:2.55},  //10 HUBW hub oeste, ALINEADO con la puerta (z del hueco) → el cruce es perpendicular, sin clip del borde
-    {x:-3.2, z:2.55},  //11 CARd en el hueco de la puerta (z[1.9,3.2], centro 2.55)
+    {x:-2.75,z:2.35},  //10 HUBW hub oeste, ALINEADO con el centro del hueco (z=2.35) → cruce perpendicular por el medio
+    {x:-3.2, z:2.35},  //11 CARd en el hueco de la puerta (z[1.5,3.2]=1.7m, centro 2.35)
     {x:-5.4, z:1.1 },  //12 CARC sector de carga: frente al dock (el robot se planta acá a cargar)
-    {x:-3.95,z:2.55}   //13 CARi lado-sala de la puerta: el GIRO hacia el dock ocurre ACÁ (adentro), no en el umbral
+    {x:-3.95,z:2.35}   //13 CARi lado-sala de la puerta: el GIRO hacia el dock ocurre ACÁ (adentro), no en el umbral
   ];
   // cruce recto por la puerta: 10→11→13 colineales en z=2.55 (entra/sale derecho); el quiebre hacia el dock es 13→12, ya dentro
   const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,13],[13],[11,12]];

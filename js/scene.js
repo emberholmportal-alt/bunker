@@ -16,7 +16,7 @@
   function meshBox(w,h,d,x,y,z,m){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;return o;}
   function place(o,x,y,z,rx,ry,rz){o.position.set(x||0,y||0,z||0);if(rx!==undefined||ry!==undefined||rz!==undefined)o.rotation.set(rx||0,ry||0,rz||0);return o;}
   box(RX*2,.3,depth,0,-.15,midz,floorMat);box(RX*2,.3,depth,0,CH,midz,ceilMat);
-  box(.3,CH+.3,7.3,-RX,CH/2,-1.75,concreteMat);box(.3,CH+.3,depth,RX,CH/2,midz,concreteMat);box(RX*2,CH+.3,.3,0,CH/2,RZ0,concreteMat); // pared oeste acortada z[-5.4,1.9]: abre la puerta z[1.9,3.2] al SECTOR DE CARGA
+  box(.3,CH+.3,6.9,-RX,CH/2,-1.95,concreteMat);box(.3,CH+.3,depth,RX,CH/2,midz,concreteMat);box(RX*2,CH+.3,.3,0,CH/2,RZ0,concreteMat); // pared oeste acortada z[-5.4,1.5]: abre la puerta z[1.5,3.2] (1.7m) al SECTOR DE CARGA
   for(let i=0;i<5;i++)box(RX*2,.16,.16,0,CH-.18,RZ0+.6+i*((depth-1.2)/4),steelMat);
   function pipe(len,x,y,z){const o=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,len,12),rustMat);o.rotation.x=Math.PI/2;o.position.set(x,y,z);o.castShadow=true;scene.add(o);return o;}
   pipe(depth-.6,-RX+.35,CH-.32,midz);pipe(depth-.6,RX-.35,CH-.5,midz);pipe(2.5,-RX+.5,1.6,RZ0+.3);
