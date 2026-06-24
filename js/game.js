@@ -134,6 +134,10 @@
   // modelos pesados → 100% procedural (0 GLB, 0 peso de assets). 9 estructuras enganchadas + dock + medidor + blueprint.
   let chargeFillG=null,chargeNumX=null,chargeNumTex=null,_chargeShown=-1,dockHaze=null,dockGlow=null,chargeLeds=[];
   let diagRT=null,diagScene=null,diagCam=null,diagPivot=null; // pantalla de diagnóstico (render-to-texture del robot girando)
+  // ---- COLMENA (HIVE): enjambre de abejas (Points) + contadores. El enjambre LEE STREAM.bees; los contadores LEEN STREAM.beesReleased.
+  let beeSwarm=null,beeData=[],beeNumX=null,beeNumTex=null,_beesRelShown=-1,hiveGlow=null,hiveHaze=null;
+  const BEES_MAX=80, hiveC=new THREE.Vector3(0,1.3,14.4); // pool del enjambre y centro de órbita (frente a la colmena)
+  const DIAS_POR_ENJAMBRE=7; // F2: cada cuántos días el robot libera un enjambre. Sólo declarado; la rutina lo usará en Fase 2.
   {
     const W=3.4,D=4.2,cx=-4.9,cz=1.1; // ancho(x), prof(z), centro
     // (1) caja de la sala: piso, techo y 3 muros (el muro este es el muro oeste del hub, ya con el hueco de puerta)
@@ -360,12 +364,82 @@
   // SALA C (CULTIVO) z[8.2,11.8]
   box(6.8,.3,3.6,0,-.15,10.0,floorMat);box(6.8,.3,3.6,0,CH,10.0,ceilMat);
   box(.3,CH+.3,3.6,-3.4,CH/2,10.0,concreteMat);box(.3,CH+.3,3.6,3.4,CH/2,10.0,concreteMat);
-  box(6.8,CH+.3,.3,0,CH/2,11.8,concreteMat);
+  box(2.55,CH+.3,.3,-2.125,CH/2,11.8,concreteMat);box(2.55,CH+.3,.3,2.125,CH/2,11.8,concreteMat); // muro norte PARTIDO: abre el hueco x[-0.85,0.85]=1.7m a LA COLMENA
   const sbLight=new THREE.PointLight(0xa8c0e8,.9,8,2);sbLight.position.set(0,CH-.35,6.6);scene.add(sbLight);
   const scLight=new THREE.PointLight(0x9ab0d0,.6,7,2);scLight.position.set(1.4,CH-.35,10.2);scene.add(scLight);
   const paLight=new THREE.PointLight(0xbfd0e0,.5,4,2);paLight.position.set(0,CH-.3,4.2);scene.add(paLight);
   // (escritorio este removido — cuello al taller despejado)
   crate(2.7,.4,7.6,.8,.4);crate(2.0,.35,7.7,.7,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI);
+
+  // ====== SALA: LA COLMENA (CAM 08 · HIVE) — al norte del cultivo. Corazón vivo del búnker: tono cálido/contemplativo
+  // (ámbar/miel). 100% procedural salvo flowers.glb (ya en el repo). El enjambre y los contadores leen de STREAM. ======
+  {
+    const cz=13.6;                                              // centro z de la sala (x[-3.4,3.4] z[11.8,15.4])
+    // (1) caja de sala (el muro sur z=11.8 es el del cultivo, ya partido para el hueco)
+    box(6.8,.3,3.6,0,-.15,cz,floorMat);box(6.8,.3,3.6,0,CH,cz,ceilMat);
+    box(.3,CH+.3,3.6,-3.4,CH/2,cz,concreteMat);box(.3,CH+.3,3.6,3.4,CH/2,cz,concreteMat); // muros E/O
+    box(6.8,CH+.3,.3,0,CH/2,15.4,concreteMat);                  // muro norte
+    // (2) marco + dintel de la puerta (hueco x[-0.85,0.85] en z=11.8) con tira ÁMBAR cálida (paleta de colmena, no cian)
+    const jamb2=new THREE.MeshStandardMaterial({color:0x2b2820,metalness:.7,roughness:.55,normalMap:metalN});
+    box(1.9,.34,.34,0,CH-.17,11.8,jamb2);                       // dintel (cubre el hueco 1.7m)
+    box(.16,2.32,.34,-0.85,1.16,11.8,jamb2);box(.16,2.32,.34,0.85,1.16,11.8,jamb2); // jambas E/O
+    {const s=new THREE.Mesh(new THREE.BoxGeometry(.78,.04,.05),new THREE.MeshBasicMaterial({color:0xffb13a}));s.position.set(0,2.32,11.66);scene.add(s);} // tira ámbar superior del hueco
+    {const th=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.5),new THREE.MeshStandardMaterial({color:0x39342a,metalness:.7,roughness:.55,normalMap:metalN}));th.rotation.x=-Math.PI/2;th.position.set(0,.013,11.8);scene.add(th);} // umbral al ras
+    // ---- materiales cálidos de la colmena ----
+    const woodH=new THREE.MeshStandardMaterial({map:tex(grime('#6b4a24'),1),normalMap:_wn,roughness:.85,metalness:.05}); // madera de los cajones
+    const rimH=new THREE.MeshStandardMaterial({color:0x3a2c18,roughness:.7,metalness:.2});                                // juntas/rebordes
+    const techH=new THREE.MeshStandardMaterial({color:0x2a2f33,metalness:.8,roughness:.4,normalMap:metalN});              // base/mástil tech del búnker
+    const glassH=new THREE.MeshPhysicalMaterial({color:0xffb43a,transparent:true,opacity:.30,roughness:.15,metalness:0,transmission:.5,side:THREE.DoubleSide}); // incubadora de vidrio ámbar
+    // panal emisivo (canvas hex-grid) — celdas que brillan ámbar dentro de la incubadora
+    const combCv=cv(128,128),cx2=combCv.getContext('2d');cx2.fillStyle='#3a2400';cx2.fillRect(0,0,128,128);
+    for(let ry=0;ry<8;ry++)for(let cxi=0;cxi<8;cxi++){const ox=cxi*17+(ry%2?8:0),oy=ry*15+8;cx2.beginPath();for(let k=0;k<6;k++){const an=Math.PI/3*k+Math.PI/6,px=ox+Math.cos(an)*8,py=oy+Math.sin(an)*8;k?cx2.lineTo(px,py):cx2.moveTo(px,py);}cx2.closePath();cx2.fillStyle='#ffb43a';cx2.globalAlpha=.5+Math.random()*.5;cx2.fill();cx2.globalAlpha=1;cx2.strokeStyle='#7a4e10';cx2.stroke();}
+    const combMat=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(combCv)}); // emisivo "plano" (no lo apaga la luz)
+    // (3) LA COLMENA (centerpiece) — torre de cajones hexagonales apilados contra el muro norte, con incubadora central
+    const HX=0,HZ=14.55;                                        // base de la colmena (contra el muro norte z=15.4)
+    const hive=new THREE.Group();hive.position.set(HX,0,HZ);scene.add(hive);
+    const hex=(rt,rb,h,y,m)=>{const c=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,6),m);c.position.y=y;c.castShadow=true;hive.add(c);return c;};
+    hex(.82,.86,.18,.09,techH);                                 // plinto tech (base)
+    hex(.74,.76,.46,.41,woodH);hex(.78,.78,.05,.66,rimH);       // cajón 1 (madera) + reborde
+    // --- incubadora (cajón 2): vidrio ámbar + núcleo de panal emisivo + glow del "latido" ---
+    hex(.5,.5,.5,1.0,combMat);                                  // núcleo de panal emisivo (adentro)
+    hex(.72,.72,.6,1.0,glassH);                                 // cáscara de vidrio ámbar translúcido
+    hex(.78,.78,.05,1.32,rimH);
+    hex(.74,.76,.46,1.62,woodH);hex(.78,.78,.05,1.87,rimH);     // cajón 3 (madera) + reborde
+    {const roof=new THREE.Mesh(new THREE.CylinderGeometry(.2,.84,.3,6),techH);roof.position.y=2.05;roof.castShadow=true;hive.add(roof);} // techo/tapa hexagonal
+    {const mast=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.5,6),techH);mast.position.y=2.4;hive.add(mast);const sen=new THREE.Mesh(new THREE.SphereGeometry(.04,8,8),new THREE.MeshBasicMaterial({color:0xffd86a}));sen.position.y=2.66;hive.add(sen);} // mástil sensor (tech del búnker)
+    // (6) EL LATIDO: PointLight dorado parpadeante en la incubadora + haze cálido envolvente
+    hiveGlow=new THREE.PointLight(0xffb43a,1.2,6,2);hiveGlow.position.set(HX,1.0,HZ);scene.add(hiveGlow);
+    hiveHaze=new THREE.Mesh(new THREE.SphereGeometry(1.1,14,14),new THREE.MeshBasicMaterial({color:0xffb43a,transparent:true,opacity:.09,depthWrite:false}));hiveHaze.position.set(HX,1.2,HZ);scene.add(hiveHaze);
+    // (5) ENJAMBRE de abejas (Points): sprite redondo ámbar, órbita + ruido de darteo. Lee STREAM.bees en el loop.
+    const bcv=cv(32,32),bxg=bcv.getContext('2d'),grd=bxg.createRadialGradient(16,16,0,16,16,16);grd.addColorStop(0,'rgba(255,224,150,1)');grd.addColorStop(.45,'rgba(224,168,46,1)');grd.addColorStop(1,'rgba(110,70,8,0)');bxg.fillStyle=grd;bxg.fillRect(0,0,32,32);
+    const bg=new THREE.BufferGeometry(),bpos=new Float32Array(BEES_MAX*3);
+    for(let i=0;i<BEES_MAX;i++){beeData.push({r:.3+Math.random()*.7,a:Math.random()*6.28,w:(Math.random()<.5?-1:1)*(.5+Math.random()*.9),h:(Math.random()-.5)*1.0,nf:1.5+Math.random()*2.5,np:Math.random()*6.28,nf2:2+Math.random()*3,np2:Math.random()*6.28});bpos[i*3]=hiveC.x;bpos[i*3+1]=hiveC.y;bpos[i*3+2]=hiveC.z;}
+    bg.setAttribute('position',new THREE.BufferAttribute(bpos,3));
+    beeSwarm=new THREE.Points(bg,new THREE.PointsMaterial({map:new THREE.CanvasTexture(bcv),size:.075,transparent:true,depthWrite:false,sizeAttenuation:true,color:0xffffff}));
+    beeSwarm.frustumCulled=false;beeSwarm.geometry.setDrawRange(0,0);scene.add(beeSwarm);
+    // (7) ESTACIÓN APÍCOLA del robot (mesa + ahumador + marcos de panal apoyados) contra el muro OESTE (fuera del paso x=0)
+    {const g=new THREE.Group();g.position.set(-2.9,0,13.4);scene.add(g);
+      g.add(meshBox(.7,.06,1.1,0,.78,0,woodH));for(const pz of[-.48,.48])for(const px of[-.28,.28])g.add(meshBox(.06,.78,.06,px,.39,pz,rimH)); // mesa
+      const sm=new THREE.Mesh(new THREE.CylinderGeometry(.09,.11,.22,12),techH);sm.position.set(.12,.92,-.2);g.add(sm); // ahumador (cuerpo)
+      {const cone=new THREE.Mesh(new THREE.CylinderGeometry(.0,.09,.1,12),techH);cone.position.set(.12,1.08,-.2);g.add(cone);const sp=new THREE.Mesh(new THREE.CylinderGeometry(.02,.03,.12,8),techH);sp.position.set(.04,1.06,-.13);sp.rotation.z=.7;g.add(sp);} // tapa + pico
+      for(let i=0;i<3;i++){const fr=meshBox(.4,.5,.02,-.15,1.05,.1+i*.06,woodH);fr.rotation.z=.16;g.add(fr);} // marcos de panal apoyados
+      g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+    // (8) JARDINERA de flores (vínculo cultivo→abejas) — reusa flowers.glb (0 peso nuevo), contra el muro ESTE
+    {const px=2.7,pz=13.4;const pl=new THREE.Group();pl.position.set(px,0,pz);scene.add(pl);
+      pl.add(meshBox(.9,.34,.5,0,.17,0,woodH));pl.add(meshBox(.84,.06,.44,0,.36,0,new THREE.MeshStandardMaterial({color:0x2a1c0e,roughness:1}))); // cajón + tierra
+      pl.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
+      loadPlant('flowers.glb',[{x:px-.22,y:.36,z:pz,target:.34,rotY:0.6},{x:px+.2,y:.36,z:pz-.12,target:.3,rotY:2.1},{x:px,y:.36,z:pz+.14,target:.32,rotY:4.0}]);}
+    // (9) ATMÓSFERA + DISPLAYS: cartel + contador de pared "LIBERADAS" (lee STREAM.beesReleased) + luz ambiente cálida
+    {const sc=cv(256,128),sx=sc.getContext('2d');sx.fillStyle='#1c1206';sx.fillRect(0,0,256,128);sx.strokeStyle='#ffb13a';sx.lineWidth=3;sx.strokeRect(8,8,240,112);
+      sx.fillStyle='#ffd86a';sx.shadowColor='#ffb13a';sx.shadowBlur=8;sx.font='bold 30px Anton, sans-serif';sx.textAlign='center';sx.fillText('COLMENA',128,48);
+      sx.font='17px VT323, monospace';sx.fillStyle='#bff7d2';sx.shadowBlur=4;sx.fillText('PROYECTO REPOBLACIÓN',128,80);sx.fillStyle='#ffb13a';sx.fillText('REFUGIO 404', 128,104);
+      const st=new THREE.CanvasTexture(sc);st.anisotropy=4;const sgn=new THREE.Mesh(new THREE.PlaneGeometry(.8,.4),new THREE.MeshBasicMaterial({map:st,transparent:true}));sgn.position.set(-3.38,1.85,12.6);sgn.rotation.y=Math.PI/2;scene.add(sgn);}
+    {const bnv=cv(256,96);beeNumX=bnv.getContext('2d');beeNumTex=new THREE.CanvasTexture(bnv);beeNumTex.anisotropy=4;
+      box(.66,.5,.06,3.36,1.55,12.7,techH);                     // carcasa del display (muro este)
+      const bnum=new THREE.Mesh(new THREE.PlaneGeometry(.56,.4),new THREE.MeshBasicMaterial({map:beeNumTex,transparent:true}));bnum.position.set(3.31,1.55,12.7);bnum.rotation.y=-Math.PI/2;scene.add(bnum);}
+    const hl1=new THREE.PointLight(0xffcaa0,.7,8,2);hl1.position.set(0,CH-.3,13.0);scene.add(hl1);     // ambiente cálido de sala
+    const hl2=new THREE.PointLight(0xffd8a0,.45,5,2);hl2.position.set(0,1.6,12.4);scene.add(hl2);      // relleno bajo (hacia la puerta)
+  }
   // ====== DETALLE DE SALAS: biblioteca, cultivo, descanso + luces ======
   {
     const bookWood=new THREE.MeshStandardMaterial({map:tex(grime('#3a2c1c'),1),normalMap:_wn,roughness:.9,metalness:.05});
@@ -399,7 +473,7 @@
     for(const pz of[5.75,7.55]){scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(.7,.95),new THREE.MeshStandardMaterial({map:tex(grime('#6a5a3a'),1),roughness:1,emissive:0x0d0c06})),-7.34,1.5,pz,0,Math.PI/2,0));}
     const restWarm=new THREE.PointLight(0xffb060,.5,5,2);restWarm.position.set(-5.4,1.9,6.6);scene.add(restWarm);
   }
-  const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05}];
+  const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05},{x0:-3.25,x1:3.25,z0:11.55,z1:15.25}];
   function inArea(x,z){for(const a of AREAS)if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return true;return false;}
   // ---- ZONAS DE INTERACCIÓN ----
   const V=(x,z)=>new THREE.Vector3(x,0,z);
@@ -428,7 +502,7 @@
   // La cámara LEE STREAM.zone y CORTA según ESE valor — NUNCA detecta la zona del robot por su
   // cuenta. game.js reporta la sala del robot a STREAM (con histéresis); si la admin futura hace
   // __REFUGIO.setZone('taller'), streamReportZone no la pisa y la cámara corta al taller igual.
-  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso','carga']; // MISMO orden que AREAS
+  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso','carga','colmena']; // MISMO orden que AREAS
   const CAMS={
     observatorio:{pos:new THREE.Vector3( 2.20,2.40, 2.90),look:new THREE.Vector3( 0.00,1.10,-1.20)},
     pasillo:     {pos:new THREE.Vector3( 0.95,2.35, 3.25),look:new THREE.Vector3( 0.00,1.10, 4.50)},
@@ -436,7 +510,8 @@
     cultivo:     {pos:new THREE.Vector3( 3.10,2.55, 8.20),look:new THREE.Vector3( 0.00,0.90,10.30),fov:82}, // PLANO ABIERTO: esquina SE alta + gran angular -> entran los DOS racks de costado + robot chico en la sala
     taller:      {pos:new THREE.Vector3( 6.85,2.40, 8.05),look:new THREE.Vector3( 4.60,1.10, 6.90)},
     descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)},
-    carga:       {pos:new THREE.Vector3(-3.50,2.45, 2.90),look:new THREE.Vector3(-5.70,1.00, 1.00)} // esquina NE (junto a la puerta) mirando SO al dock; sala chica, FOV normal
+    carga:       {pos:new THREE.Vector3(-3.50,2.45, 2.90),look:new THREE.Vector3(-5.70,1.00, 1.00)}, // esquina NE (junto a la puerta) mirando SO al dock; sala chica, FOV normal
+    colmena:     {pos:new THREE.Vector3( 3.00,2.45,12.10),look:new THREE.Vector3( 0.00,1.10,14.40),fov:74} // esquina SE alta mirando NO a la colmena+robot+enjambre; gran angular para que entre el volumen del enjambre
   };
   // HISTÉRESIS: el robot se reporta en una sala sólo cuando entra a su "core" (AABB de AREAS
   // encogido por HYST). En las puertas (fuera de todo core) se mantiene la sala actual => sin
@@ -469,15 +544,16 @@
 
   // ====== OVERLAY DE CÁMARA (sub-paso 6) — LEE de STREAM (zone/now/day); NUNCA calcula nada por su
   // cuenta. Por eso __REFUGIO.setZone('taller') / setDay(120) se reflejan al toque. ======
-  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging'}; // nombre de sala vía i18n (todo el overlay en inglés)
-  const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07'}; // número de cámara FIJO por sala
-  let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1;
+  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging',colmena:'room_hive'}; // nombre de sala vía i18n (todo el overlay en inglés)
+  const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07',colmena:'08'}; // número de cámara FIJO por sala
+  let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1;
   function updateOverlay(dt){
     const z=STREAM.zone;
     if(z!==_ovZone){_ovZone=z;const e=$('#ch-cam');if(e)e.textContent=T('ov_cam')+' '+(ZONE_CAM[z]||'00')+' — '+(ZONE_I18N[z]?T(ZONE_I18N[z]):(''+z).toUpperCase());} // CAM 0X — ZONA (inglés vía i18n), cambia al cambiar STREAM.zone
     _ovAcc+=dt;if(_ovAcc<.25)return;_ovAcc=0;                  // timestamp/día ~4 veces/s (sin escribir DOM de más)
     const tm=streamClock();if(tm!==_ovTime){_ovTime=tm;const e=$('#ch-time');if(e)e.textContent=tm;} // HH:MM:SS UTC desde STREAM.now
     if(STREAM.day!==_ovDay){_ovDay=STREAM.day;const e=$('#ch-day');if(e)e.textContent=STREAM.day;}    // DAY N desde STREAM.day
+    if(STREAM.beesReleased!==_ovBees){_ovBees=STREAM.beesReleased;const e=$('#ch-bees');if(e)e.textContent=STREAM.beesReleased;} // BEES RELEASED N (telemetría, lee STREAM.beesReleased)
   }
 
   const dummy=new THREE.Object3D(),clk=new THREE.Clock();let statAcc=0;
@@ -552,6 +628,20 @@
       if(dockGlow)dockGlow.intensity=.7+(c/100)*.8+(mv?Math.sin(t*2.4)*.12:0);}
     if(dockHaze)dockHaze.material.opacity=.10+(mv?Math.abs(Math.sin(t*1.5))*.06:.03);
     if(mv)for(let i=0;i<chargeLeds.length;i++)chargeLeds[i].visible=(Math.sin(t*2.6+i*1.1)>-.2);
+    // COLMENA: el enjambre LEE STREAM.bees (cantidad visible) y orbita la colmena con ruido de darteo. El latido pulsa.
+    if(beeSwarm){const n=Math.max(0,Math.min(BEES_MAX,Math.round(STREAM.bees))),a=beeSwarm.geometry.attributes.position.array;
+      for(let i=0;i<n;i++){const d=beeData[i];if(mv)d.a+=d.w*dt;
+        a[i*3]  =hiveC.x+Math.cos(d.a)*d.r+(mv?Math.sin(t*d.nf+d.np)*.12:0);
+        a[i*3+1]=hiveC.y+d.h+(mv?Math.cos(t*d.nf2+d.np2)*.10+Math.sin(t*1.3+d.np)*.05:0);
+        a[i*3+2]=hiveC.z+Math.sin(d.a)*d.r+(mv?Math.cos(t*d.nf+d.np)*.12:0);}
+      beeSwarm.geometry.setDrawRange(0,n);beeSwarm.geometry.attributes.position.needsUpdate=true;}
+    if(hiveGlow)hiveGlow.intensity=1.0+(mv?Math.abs(Math.sin(t*1.1))*.55:.2);          // latido dorado
+    if(hiveHaze)hiveHaze.material.opacity=.07+(mv?Math.abs(Math.sin(t*0.9))*.05:.02);
+    // contador de pared "LIBERADAS" — LEE STREAM.beesReleased, se redibuja sólo al cambiar el entero
+    if(beeNumX){const r=Math.max(0,Math.round(STREAM.beesReleased));if(r!==_beesRelShown){_beesRelShown=r;beeNumX.clearRect(0,0,256,96);
+      beeNumX.fillStyle='#ffb13a';beeNumX.shadowColor='#ffb13a';beeNumX.shadowBlur=8;beeNumX.textAlign='center';
+      beeNumX.font='18px VT323, monospace';beeNumX.fillText('LIBERADAS',128,26);
+      beeNumX.font='52px VT323, monospace';beeNumX.fillText('✦ '+r,128,66);beeNumTex.needsUpdate=true;}}
 
     // enjambre
     if(enjSurge>0)enjSurge-=dt;const enjB=mv?(.5+.5*Math.sin(t*.5)):.5,_es=Math.max(0,enjSurge);
@@ -672,7 +762,7 @@
       list.appendChild(row);});
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0};
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -767,11 +857,13 @@
     {x:-2.75,z:2.35},  //10 HUBW hub oeste, ALINEADO con el centro del hueco (z=2.35) → cruce perpendicular por el medio
     {x:-3.2, z:2.35},  //11 CARd en el hueco de la puerta (z[1.5,3.2]=1.7m, centro 2.35)
     {x:-5.4, z:1.1 },  //12 CARC sector de carga: frente al dock (el robot se planta acá a cargar)
-    {x:-3.95,z:2.35}   //13 CARi lado-sala de la puerta: el GIRO hacia el dock ocurre ACÁ (adentro), no en el umbral
+    {x:-3.95,z:2.35},  //13 CARi lado-sala de la puerta: el GIRO hacia el dock ocurre ACÁ (adentro), no en el umbral
+    {x:0,    z:11.8},  //14 HIVd puerta a la colmena (centro del hueco x[-0.85,0.85] en z=11.8)
+    {x:0,    z:13.2}   //15 HIVC colmena: frente a la colmena (el robot se planta acá). Cruce recto por x=0: 4→14→15
   ];
-  // cruce recto por la puerta: 10→11→13 colineales en z=2.55 (entra/sale derecho); el quiebre hacia el dock es 13→12, ya dentro
-  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,13],[13],[11,12]];
-  const DEST=[0,2,3,4,7,9,12]; // nodos "centro de sala" donde el robot puede plantarse
+  // cruce recto por la puerta: 10→11→13 colineales en z=2.35 (carga); cultivo→colmena 4→14→15 colineales en x=0
+  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3,14],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,13],[13],[11,12],[4,15],[14]];
+  const DEST=[0,2,3,4,7,9,12,15]; // nodos "centro de sala" donde el robot puede plantarse
   function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
   function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
     for(let h=0;h<q.length;h++){const u=q[h];if(u===t)break;for(const v of ADJ[u])if(!seen[v]){seen[v]=true;prev[v]=u;q.push(v);}}
