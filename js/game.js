@@ -410,7 +410,7 @@
   // staging junto a la BLAST (norte): cajones/bidón/material como "suministros de cuando se selló el búnker"
   loadProp('wood_log.glb',1.3,0,-4.3,.4,.5);
   loadPlant('crate_metal.glb',[{x:-2.9,y:0,z:-1.4,target:.55,rotY:.2},{x:0.5,y:0,z:-4.6,target:.6,rotY:-.3},{x:1.15,y:0,z:-4.45,target:.5,rotY:.25}]); // cajones de suministros (oeste + esclusa)
-  loadPlant('barrel.glb',[{x:-2.95,y:0,z:-0.5,target:.7,rotY:0},{x:-0.1,y:0,z:-4.75,target:.7,rotY:.4}]);                                              // bidones (oeste + esclusa)
+  loadPlant('barrel.glb',[{x:-2.68,y:0,z:-0.5,target:.7,rotY:0},{x:-0.1,y:0,z:-4.75,target:.7,rotY:.4}]);                                              // bidones (oeste apoyado al ras del muro + esclusa)
   // ---- LÁMPARA INDUSTRIAL en cada sala (consistencia + lógica de búnker): clones del MISMO GLB (geometría compartida → ~0 peso).
   // Montadas al techo (sin collider, nunca bloquean la nav). Salto cultivo (luces de cultivo magenta) y colmena (glow ámbar). ----
   const LAMP_SPOTS=[[-0.3,-1.5],[0,4.3],[0,6.6],[5.4,7.0],[-5.4,7.0],[-4.9,1.1]]; // hub, pasillo, biblioteca, taller, descanso, carga
