@@ -187,7 +187,8 @@
     {x0:3.15,x1:7.05,z0:5.75,z1:8.25},   // taller
     {x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},  // descanso
     {x0:-6.45,x1:-2.70,z0:-0.8,z1:3.05}, // sector de carga
-    {x0:-3.25,x1:3.25,z0:11.8,z1:15.25}  // colmena (motas/polen flotando)
+    {x0:-3.25,x1:3.25,z0:11.8,z1:15.25}, // colmena (motas/polen flotando)
+    {x0:-7.2,x1:-3.4,z0:8.2,z1:11.8}     // fabricación (polvo técnico)
   ];
   const DN=SMALL?70:150,dg=new THREE.BufferGeometry(),dp=new Float32Array(DN*3),dsd=[];
   for(let i=0;i<DN;i++){const r=DROOMS[i%DROOMS.length];dp[i*3]=r.x0+Math.random()*(r.x1-r.x0);dp[i*3+1]=.2+Math.random()*2.2;dp[i*3+2]=r.z0+Math.random()*(r.z1-r.z0);dsd.push(Math.random()*6.28);}

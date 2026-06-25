@@ -36,8 +36,11 @@
     // --- sector de carga ---
     charge: 0,            // nivel de carga del robot 0..100 (lo alimenta la rutina en F2; el medidor de la sala lo LEE)
 
+    // --- sala de fabricación (impresoras 3D) ---
+    print: 0,             // progreso de la pieza en impresión 0..100 (auto-cicla en F1; lo manejará la rutina en F2; la pieza lo LEE)
+
     // --- override por campo: si un campo está forzado, el driver NO lo pisa ---
-    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false }
+    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false }
   };
 
   // El driver escribe un campo SOLO si nadie lo forzó desde afuera (admin).
@@ -87,5 +90,6 @@
     setBees: n => streamForce('bees', n),
     setBeesReleased: n => streamForce('beesReleased', n),
     setCharge: n => streamForce('charge', Math.max(0, Math.min(100, n))), // medidor del sector de carga (0..100)
+    setPrint: n => streamForce('print', Math.max(0, Math.min(100, n))),   // progreso de impresión de la sala de fabricación (0..100)
     clock: streamClock, hourUTC: streamHourUTC
   };
