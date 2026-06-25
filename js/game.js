@@ -346,7 +346,8 @@
     cj.add(meshBox(.44,.04,.72,0,.74,0,sofaMat));                                           // tapa
     cj.children.forEach(c=>c.castShadow=true);}
   locker(-4.0,8.2,Math.PI);armchair(-6.6,5.9,Math.PI/2,0x3a4a5a); // (litera removida: estaba atravesada en la pared norte del rest)
-  scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.0,1.4),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.6,.02,6.8,-Math.PI/2,0,0));
+  // alfombra: UNA sola, chica y sobria (las dos grandes rojas-marrón dominaban el primer plano de CAM 06). Corrida al centro-NE, fuera del foreground.
+  scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(1.3,.9),new THREE.MeshStandardMaterial({map:tex(grime('#443a30'),1),roughness:1})),-5.0,.02,7.2,-Math.PI/2,0,0));
   // mesita+lámpara: estaba en (-4.0,7.0), JUSTO en el hueco de la puerta del descanso (z[6.045,7.355]) → corrida al rincón NO, fuera del paso
   box(.34,.5,.34,-6.95,.25,8.0,_woodMat);
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-6.95).translateY(.55).translateZ(8.0));
@@ -504,7 +505,7 @@
      [[-2.55,1.65,10.3],[2.55,1.65,9.6]].forEach(p=>{const f=new THREE.PointLight(FILL_COL,FILL_INT,FILL_RNG,2);f.position.set(p[0],p[1],p[2]);scene.add(f);});}
     // (bandeja flotante de conos del cultivo viejo removida: era resto del cultivo procedural)
     // --- DESCANSO: alfombra, estufa (glow), mesita con taza, posters ---
-    scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.2,1.6),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.4,.02,6.6,-Math.PI/2,0,0));
+    // (2ª alfombra grande removida: dominaba CAM 06; quedó una sola alfombra chica y sobria, colocada en las colocaciones del descanso)
     {const heater=new THREE.Group();heater.position.set(-7.05,0,6.0);heater.add(meshBox(.4,.5,.22,0,.28,0,doorMat));for(let i=0;i<3;i++){const bar=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.32,8),new THREE.MeshStandardMaterial({color:0xff5520,emissive:0xff3300,emissiveIntensity:1.5}));bar.position.set(-.1+i*.1,.3,.1);bar.userData.noOut=true;heater.add(bar);}heater.children.forEach(c=>c.castShadow=true);scene.add(heater);const hglow=new THREE.PointLight(0xff5a20,.8,2.8,2);hglow.position.set(-6.95,.4,6.2);scene.add(hglow);}
     {const st=meshBox(.4,.5,.4,-4.2,.25,5.9,_woodMat);st.castShadow=true;scene.add(st);const mugMat=new THREE.MeshStandardMaterial({color:0xcfcabc,roughness:.7});const mug=new THREE.Mesh(new THREE.CylinderGeometry(.045,.04,.08,12),mugMat);mug.position.set(-4.2,.54,5.9);mug.castShadow=true;scene.add(mug);const hd=new THREE.Mesh(new THREE.TorusGeometry(.03,.01,6,12),mugMat);hd.position.set(-4.13,.54,5.9);scene.add(hd);}
     for(const pz of[5.75,7.55]){scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(.7,.95),new THREE.MeshStandardMaterial({map:tex(grime('#6a5a3a'),1),roughness:1,emissive:0x0d0c06})),-7.34,1.5,pz,0,Math.PI/2,0));}
