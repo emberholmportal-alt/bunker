@@ -406,7 +406,7 @@
   const scLight=new THREE.PointLight(0x9ab0d0,.6,7,2);scLight.position.set(1.4,CH-.35,10.2);scene.add(scLight);
   const paLight=new THREE.PointLight(0xbfd0e0,.5,4,2);paLight.position.set(0,CH-.3,4.2);scene.add(paLight);
   // (escritorio este removido — cuello al taller despejado)
-  crate(2.75,.28,7.8,.6,.4);crate(1.95,.26,7.8,.55,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI); // cajas achicadas + corridas al norte (fuera del cuello BIBE→TALd); colliders agregados que coinciden con el tamaño
+  crate(2.75,.28,7.6,.6,.4);crate(1.95,.26,7.65,.55,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI); // cajas apoyadas contra el muro norte (cara z=8.05) sin atravesarlo, al norte del cuello BIBE→TALd; colliders matchean el tamaño
 
   // ====== SALA: LA COLMENA (CAM 08 · HIVE) — al norte del cultivo. Corazón vivo del búnker: tono cálido/contemplativo
   // (ámbar/miel). 100% procedural salvo flowers.glb (ya en el repo). El enjambre y los contadores leen de STREAM. ======
@@ -820,7 +820,7 @@
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false};
   const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.8,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.8,r:.33}/*cajas frente al taller*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
