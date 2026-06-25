@@ -400,6 +400,22 @@
   ventGrille(3.18,1.85,0.6,-Math.PI/2);
   box(.08,.08,3.2,3.13,2.2,0.6,doorMat);box(.08,.08,2.0,-3.13,2.25,-1.0,doorMat);
   for(const cz of[-3.6,-1.2,0.8,2.4]){const cb=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.5,6),new THREE.MeshStandardMaterial({color:0x141414,roughness:1}));cb.position.set(2.9,CH-.32,cz);cb.rotation.x=(Math.random()-.5)*.3;scene.add(cb);}
+  // ---- PROPS GLB del OBSERVATORIO (esclusa/entrada al exterior): equipo de entrada-salida, suministros, monitoreo. REUSADOS (0 peso
+  // nuevo), decorativos SIN collider, contra la PARED OESTE y staged junto a la compuerta BLAST (norte). Fuera de las líneas de nav. ----
+  // pared OESTE (izquierda en CAM 01): estación de suministros + monitoreo
+  loadProp('shelf_small.glb',-3.0,0,-2.3,.7,0);                       // estante (muro oeste)
+  loadProp('radio.glb',-2.62,0,-2.55,.24,.5);                        // equipo de monitoreo del exterior
+  loadProp('toolbox.glb',-2.9,0,0.35,.42,.3);                        // herramientas (muro oeste)
+  loadProp('gas_can.glb',-2.9,0,1.05,.35,-.2);                       // bidón (muro oeste)
+  // staging junto a la BLAST (norte): cajones/bidón/material como "suministros de cuando se selló el búnker"
+  loadProp('wood_log.glb',1.3,0,-4.3,.4,.5);
+  loadPlant('crate_metal.glb',[{x:-2.9,y:0,z:-1.4,target:.55,rotY:.2},{x:0.5,y:0,z:-4.6,target:.6,rotY:-.3},{x:1.15,y:0,z:-4.45,target:.5,rotY:.25}]); // cajones de suministros (oeste + esclusa)
+  loadPlant('barrel.glb',[{x:-2.95,y:0,z:-0.5,target:.7,rotY:0},{x:-0.1,y:0,z:-4.75,target:.7,rotY:.4}]);                                              // bidones (oeste + esclusa)
+  // ---- LÁMPARA INDUSTRIAL en cada sala (consistencia + lógica de búnker): clones del MISMO GLB (geometría compartida → ~0 peso).
+  // Montadas al techo (sin collider, nunca bloquean la nav). Salto cultivo (luces de cultivo magenta) y colmena (glow ámbar). ----
+  const LAMP_SPOTS=[[-0.3,-1.5],[0,4.3],[0,6.6],[5.4,7.0],[-5.4,7.0],[-4.9,1.1]]; // hub, pasillo, biblioteca, taller, descanso, carga
+  loadPlant('lamp_industrial.glb',LAMP_SPOTS.map(s=>({x:s[0],y:1.95,z:s[1],target:.5,rotY:0})));
+  for(const s of LAMP_SPOTS){const cord=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.24,6),new THREE.MeshStandardMaterial({color:0x14181b,roughness:.8}));cord.position.set(s[0],2.53,s[1]);scene.add(cord);} // cable al techo
 
   // ---- colocaciones: BIBLIOTECA ----
   // (sillón junto a la puerta del taller removido: no tenía collider y el robot lo atravesaba al entrar)
