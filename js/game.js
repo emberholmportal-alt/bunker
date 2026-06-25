@@ -826,18 +826,18 @@
   // Son DELTAS en RADIANES desde la pose de REPOSO de cada hueso (0 = brazo al costado, como viene). Se SUMAN al reposo y
   // sobrescriben el mixer de Idle cada frame, SÓLO cuando el robot está en el escritorio (atDesk). Cadena por brazo:
   // Shoulder → UpperArm → LowerArm(+mano). x=pitch (adelante/atrás), y=yaw (afuera/adentro), z=roll. Ajustar mirando Render.
-  // *** MODO TEST DE DIAGNÓSTICO ***: todo en 0 salvo el BRAZO DERECHO (UPPERARM_R), con un valor exagerado en X y Z a la vez
-  // (así swinguea sí o sí, sea cual sea el eje de "swing"). En Render: el brazo DERECHO debe moverse grotescamente, el izquierdo
-  // queda al costado. Si se mueve => la mecánica anda y es pura calibración. Después volvemos a los valores reales de pose.
+  // POSE REAL DE TECLEO (1ª pasada, calibrando). Eje X = swing confirmado (Y=twist, evitar). Simétrica los dos brazos:
+  // upper-arm con leve inclinación adelante/abajo, el grueso de la flexión en el CODO (LowerArm) para llevar las manos al
+  // teclado. Si en Render los brazos van para arriba/atrás en vez de abajo/adelante → invertir el signo de X (mismo en ambos).
   const ADMIN_POSE={
-    // ---- brazo IZQUIERDO (.L) — en 0 para el test (queda en reposo) ----
+    // ---- brazo IZQUIERDO (.L) ----
     SHOULDER_L:{x: 0.00, y: 0.00, z: 0.00},
-    UPPERARM_L:{x: 0.00, y: 0.00, z: 0.00},
-    LOWERARM_L:{x: 0.00, y: 0.00, z: 0.00},
-    // ---- brazo DERECHO (.R) — TEST exagerado aislado ----
+    UPPERARM_L:{x: 0.35, y: 0.00, z: 0.00},   // leve adelante/abajo
+    LOWERARM_L:{x: 1.20, y: 0.00, z: 0.00},   // flexión del codo → antebrazo/mano hacia el teclado
+    // ---- brazo DERECHO (.R) — espejo (mismo signo de X; Z/Y se mirrorearían si hicieran falta) ----
     SHOULDER_R:{x: 0.00, y: 0.00, z: 0.00},
-    UPPERARM_R:{x:-1.50, y: 0.00, z:-1.50},   // TEST: -1.5 rad (~86°) en X y Z a la vez
-    LOWERARM_R:{x: 0.00, y: 0.00, z: 0.00}
+    UPPERARM_R:{x: 0.35, y: 0.00, z: 0.00},
+    LOWERARM_R:{x: 1.20, y: 0.00, z: 0.00}
   };
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo; 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
