@@ -873,6 +873,12 @@
   $('#auto').addEventListener('click',e=>{auto=!auto;e.target.classList.toggle('on');clearHoldersCue();});
   document.querySelectorAll('[data-spd]').forEach(b=>b.addEventListener('click',e=>{speed=+e.target.dataset.spd;document.querySelectorAll('[data-spd]').forEach(x=>x.classList.remove('on'));e.target.classList.add('on');}));
   $('#snd').addEventListener('click',e=>{if(!audioOn){startAudio();e.target.classList.add('on');}else{stopAudio();e.target.classList.remove('on');}});
+  // AUTOPLAY: el 1er click/tecla/touch EN LA PÁGINA desbloquea el audio (gesto de usuario confiable, lo que la consola no garantiza).
+  // De un solo uso. Excluye el botón ♪ SONIDO (se maneja solo) para no pisar su toggle. camClick/flap/etc ya están gateados por audioOn.
+  function _audioRm(){window.removeEventListener('pointerdown',_audioUnlock);window.removeEventListener('keydown',_audioUnlock);}
+  function _audioUnlock(e){if(e&&e.target&&e.target.closest&&e.target.closest('#snd'))return; // el botón SONIDO arranca el audio por su cuenta
+    startAudio();const b=$('#snd');if(b)b.classList.add('on');_audioRm();}
+  window.addEventListener('pointerdown',_audioUnlock);window.addEventListener('keydown',_audioUnlock);
   $('#cel').addEventListener('click',()=>{celOn=!celOn;applyCel();});
   $('#rclose').addEventListener('click',()=>{$('#robotui').style.display='none';});
   $('#cclose').addEventListener('click',()=>{$('#craftui').style.display='none';});
