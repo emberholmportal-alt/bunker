@@ -821,6 +821,22 @@
   }
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false};
   const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
+  // ===== POSE "TECLEO" del robot en el escritorio (action='admin') — TODOS los ángulos para calibrar, en un solo lugar.
+  // Son DELTAS en RADIANES desde la pose de REPOSO de cada hueso (0 = brazo al costado, como viene). Se SUMAN al reposo y
+  // sobrescriben el mixer de Idle cada frame, SÓLO cuando el robot está en el escritorio (atDesk). Cadena por brazo:
+  // Shoulder → UpperArm → LowerArm(+mano). x=pitch (adelante/atrás), y=yaw (afuera/adentro), z=roll. Ajustar mirando Render.
+  const ADMIN_POSE={
+    // ---- brazo IZQUIERDO (.L) ----
+    SHOULDER_L:{x: 0.00, y: 0.00, z: 0.00},
+    UPPERARM_L:{x:-1.00, y: 0.10, z: 0.15},   // baja y adelanta el brazo hacia el escritorio
+    LOWERARM_L:{x:-1.10, y: 0.00, z: 0.00},   // dobla el codo: antebrazo/mano sobre el teclado
+    // ---- brazo DERECHO (.R) ----
+    SHOULDER_R:{x: 0.00, y: 0.00, z: 0.00},
+    UPPERARM_R:{x:-1.00, y:-0.10, z:-0.15},
+    LOWERARM_R:{x:-1.10, y: 0.00, z: 0.00}
+  };
+  const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo; 0 = ESTÁTICO (calibramos la pose primero)
+  const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
   const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/];
   let robotUiAcc=0;
   (function loadRobot(){
@@ -834,6 +850,11 @@
         scene.add(robot.model);
         robot.mixer=new THREE.AnimationMixer(robot.model);
         g.animations.forEach(c=>{robot.act[c.name]=robot.mixer.clipAction(c);});
+        // huesos de los brazos para la pose de tecleo (cadena que deforma: Shoulder→UpperArm→LowerArm). Capturo el REPOSO (bind) ahora,
+        // antes de que el mixer mueva nada, para usarlo de base de los deltas de ADMIN_POSE.
+        const gb=n=>robot.model.getObjectByName(n);
+        robot.armBones={sL:gb('Shoulder.L'),uL:gb('UpperArm.L'),lL:gb('LowerArm.L'),sR:gb('Shoulder.R'),uR:gb('UpperArm.R'),lR:gb('LowerArm.R')};
+        if(robot.armBones.uL&&robot.armBones.uR){const R={};for(const k in robot.armBones)R[k]=robot.armBones[k].rotation.clone();robot.armRest=R;}else robot.armBones=null;
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
@@ -937,8 +958,19 @@
     if(!p.length){robot.wanderT=1;return;}
     robot.path=p;robot.pi=0;robot.dest=t;setWP();robot.moving=true;
   }
+  // POSE DE TECLEO: sobrescribe las rotaciones de los huesos de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
+  // Deltas de ADMIN_POSE sumados al reposo capturado. Sólo se llama cuando el robot está en el escritorio (atDesk).
+  function applyAdminPose(t){const B=robot.armBones,R=robot.armRest,P=ADMIN_POSE;if(!B||!R)return;
+    const b=ADMIN_TYPING_BOB,bL=b?Math.sin(t*ADMIN_TYPING_SPD)*b:0,bR=b?Math.sin(t*ADMIN_TYPING_SPD+Math.PI)*b:0; // codos alternados (tecleo)
+    B.sL.rotation.set(R.sL.x+P.SHOULDER_L.x, R.sL.y+P.SHOULDER_L.y, R.sL.z+P.SHOULDER_L.z);
+    B.uL.rotation.set(R.uL.x+P.UPPERARM_L.x, R.uL.y+P.UPPERARM_L.y, R.uL.z+P.UPPERARM_L.z);
+    B.lL.rotation.set(R.lL.x+P.LOWERARM_L.x+bL, R.lL.y+P.LOWERARM_L.y, R.lL.z+P.LOWERARM_L.z);
+    B.sR.rotation.set(R.sR.x+P.SHOULDER_R.x, R.sR.y+P.SHOULDER_R.y, R.sR.z+P.SHOULDER_R.z);
+    B.uR.rotation.set(R.uR.x+P.UPPERARM_R.x, R.uR.y+P.UPPERARM_R.y, R.uR.z+P.UPPERARM_R.z);
+    B.lR.rotation.set(R.lR.x+P.LOWERARM_R.x+bR, R.lR.y+P.LOWERARM_R.y, R.lR.z+P.LOWERARM_R.z);}
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
+    if(robot.atDesk)applyAdminPose(clk.elapsedTime); // pose de tecleo en el escritorio (después del mixer)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
     if(robot.status==='mission'){robot.mT-=dt*speed;robot.temp=clamp(robot.temp+dt*1.2,0,100);if(robot.mT<=0)robotReturn();return;}
