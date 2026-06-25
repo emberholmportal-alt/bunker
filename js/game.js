@@ -349,8 +349,9 @@
   // alfombra: UNA sola, chica y sobria (las dos grandes rojas-marrón dominaban el primer plano de CAM 06). Corrida al centro-NE, fuera del foreground.
   scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(1.3,.9),new THREE.MeshStandardMaterial({map:tex(grime('#443a30'),1),roughness:1})),-5.0,.02,7.2,-Math.PI/2,0,0));
   // mesita+lámpara: estaba en (-4.0,7.0), JUSTO en el hueco de la puerta del descanso (z[6.045,7.355]) → corrida al rincón NO, fuera del paso
-  box(.34,.5,.34,-6.95,.25,8.0,_woodMat);
-  scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-6.95).translateY(.55).translateZ(8.0));
+  // mesita+lámpara: movida al NE (entre el escritorio y el locker, contra el muro norte) para liberar el muro oeste donde va la silla
+  box(.34,.5,.34,-4.6,.25,8.0,_woodMat);
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-4.6).translateY(.55).translateZ(8.0));
 
   // ====== ESTACIÓN DE CÓMPUTO (muro NORTE del descanso, mitad oeste) — el robot se sienta a "administrar el búnker".
   // 100% procedural (escritorio + monitor CRT + teclado + silla). La pantalla es un dashboard CRT por canvas (lee STREAM). ======
@@ -376,7 +377,7 @@
     scene.add(meshBox(.07,.03,.11,DKX+.34,.795,7.95,darkP));    // mouse
     {const tw=new THREE.Group();tw.position.set(DKX+.86,0,8.1);scene.add(tw);tw.add(meshBox(.2,.5,.46,0,.25,0,plastic));for(let i=0;i<2;i++)tw.add(meshBox(.12,.012,.012,0,.34-i*.05,.235,darkP));const pw=new THREE.Mesh(new THREE.SphereGeometry(.012,8,8),new THREE.MeshBasicMaterial({color:0x39ff66}));pw.position.set(.05,.42,.235);tw.add(pw);tw.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});} // torre/CPU al costado
     // --- silla de oficina (el robot se sienta acá: asiento + respaldo + poste + base de 5 patas con ruedas) ---
-    {const ch=new THREE.Group();ch.position.set(DKX+.82,0,7.72);ch.rotation.y=-0.5;scene.add(ch);  // CORRIDA al costado (el robot se para a operar, no se sienta): silla rodada y en ángulo
+    {const ch=new THREE.Group();ch.position.set(-6.98,0,7.75);ch.rotation.y=0.8;scene.add(ch);  // silla decorativa (el robot se para, no se sienta): contra el muro OESTE, gap libre entre cajonero (z7.35) y muro norte; no estorba ni cruza nada
       ch.add(meshBox(.44,.08,.42,0,.46,0,darkP));                                                 // asiento
       ch.add(meshBox(.44,.5,.08,0,.74,-.19,darkP));                                               // respaldo
       ch.add(new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.4,8),steelD2).translateY(.24));   // poste
@@ -850,11 +851,12 @@
         scene.add(robot.model);
         robot.mixer=new THREE.AnimationMixer(robot.model);
         g.animations.forEach(c=>{robot.act[c.name]=robot.mixer.clipAction(c);});
-        // huesos de los brazos para la pose de tecleo (cadena que deforma: Shoulder→UpperArm→LowerArm). Capturo el REPOSO (bind) ahora,
-        // antes de que el mixer mueva nada, para usarlo de base de los deltas de ADMIN_POSE.
-        const gb=n=>robot.model.getObjectByName(n);
-        robot.armBones={sL:gb('Shoulder.L'),uL:gb('UpperArm.L'),lL:gb('LowerArm.L'),sR:gb('Shoulder.R'),uR:gb('UpperArm.R'),lR:gb('LowerArm.R')};
-        if(robot.armBones.uL&&robot.armBones.uR){const R={};for(const k in robot.armBones)R[k]=robot.armBones[k].rotation.clone();robot.armRest=R;}else robot.armBones=null;
+        // huesos de los brazos para la pose de tecleo. OJO: GLTFLoader sanitiza los nombres (saca los puntos): "Shoulder.L"
+        // se carga como "ShoulderL". Por eso busco por nombre NORMALIZADO (sin puntuación) y tomo el primero (la cadena que deforma).
+        const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+        const findB=tn=>{let r=null;robot.model.traverse(o=>{if(!r&&norm(o.name)===tn)r=o;});return r;};
+        robot.armBones={sL:findB('shoulderl'),uL:findB('upperarml'),lL:findB('lowerarml'),sR:findB('shoulderr'),uR:findB('upperarmr'),lR:findB('lowerarmr')};
+        if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={};for(const k in robot.armBones)R[k]=robot.armBones[k].rotation.clone();robot.armRest=R;}else robot.armBones=null;
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
