@@ -339,17 +339,17 @@
     g.children.forEach(c=>c.castShadow=true);scene.add(g);return g;}
 
   // ---- colocaciones: DESCANSO ----
-  const _newSofa=new THREE.Group();_newSofa.position.set(-6.7,0,7.0);_newSofa.rotation.y=Math.PI/2;scene.add(_newSofa);
-  _newSofa.add(meshBox(1.5,.3,.74,0,.32,0,sofaMat));_newSofa.add(meshBox(1.5,.52,.16,0,.62,-.29,sofaMat));
-  _newSofa.add(meshBox(.16,.42,.74,-.67,.5,0,sofaMat));_newSofa.add(meshBox(.16,.42,.74,.67,.5,0,sofaMat));
-  _newSofa.add(meshBox(.66,.16,.62,-.36,.46,.03,cushMat));_newSofa.add(meshBox(.66,.16,.62,.36,.46,.03,cushMat));
-  _newSofa.add(meshBox(.62,.22,.16,-.36,.62,-.22,cushMat));_newSofa.add(meshBox(.62,.22,.16,.36,.62,-.22,cushMat));
-  for(const px of[-.6,.6])for(const pz of[-.3,.3])_newSofa.add(meshBox(.06,.2,.06,px,.1,pz,steelMat));
-  _newSofa.children.forEach(c=>c.castShadow=true);
+  // (el sofá voluminoso dominaba la toma de CAM 06 → reemplazado por un cajonero chico contra el muro oeste)
+  {const cj=new THREE.Group();cj.position.set(-7.12,0,7.0);scene.add(cj);                 // cajonero (chest of drawers), perfil bajo
+    cj.add(meshBox(.42,.72,.7,0,.36,0,sofaMat));                                            // cuerpo
+    for(let i=0;i<3;i++){cj.add(meshBox(.04,.18,.6,.21,.18+i*.22,0,cushMat));const h=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.1,8),steelMat);h.rotation.z=Math.PI/2;h.position.set(.235,.18+i*.22,0);cj.add(h);} // cajones + tiradores
+    cj.add(meshBox(.44,.04,.72,0,.74,0,sofaMat));                                           // tapa
+    cj.children.forEach(c=>c.castShadow=true);}
   locker(-4.0,8.2,Math.PI);armchair(-6.6,5.9,Math.PI/2,0x3a4a5a); // (litera removida: estaba atravesada en la pared norte del rest)
   scene.add(place(new THREE.Mesh(new THREE.PlaneGeometry(2.0,1.4),new THREE.MeshStandardMaterial({map:tex(grime('#5a3a3a'),1),roughness:1})),-5.6,.02,6.8,-Math.PI/2,0,0));
-  box(.34,.5,.34,-4.0,.25,7.0,_woodMat);
-  scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-4.0).translateY(.55).translateZ(7.0));
+  // mesita+lámpara: estaba en (-4.0,7.0), JUSTO en el hueco de la puerta del descanso (z[6.045,7.355]) → corrida al rincón NO, fuera del paso
+  box(.34,.5,.34,-6.95,.25,8.0,_woodMat);
+  scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-6.95).translateY(.55).translateZ(8.0));
 
   // ====== ESTACIÓN DE CÓMPUTO (muro NORTE del descanso, mitad oeste) — el robot se sienta a "administrar el búnker".
   // 100% procedural (escritorio + monitor CRT + teclado + silla). La pantalla es un dashboard CRT por canvas (lee STREAM). ======
@@ -375,7 +375,7 @@
     scene.add(meshBox(.07,.03,.11,DKX+.34,.795,7.95,darkP));    // mouse
     {const tw=new THREE.Group();tw.position.set(DKX+.86,0,8.1);scene.add(tw);tw.add(meshBox(.2,.5,.46,0,.25,0,plastic));for(let i=0;i<2;i++)tw.add(meshBox(.12,.012,.012,0,.34-i*.05,.235,darkP));const pw=new THREE.Mesh(new THREE.SphereGeometry(.012,8,8),new THREE.MeshBasicMaterial({color:0x39ff66}));pw.position.set(.05,.42,.235);tw.add(pw);tw.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});} // torre/CPU al costado
     // --- silla de oficina (el robot se sienta acá: asiento + respaldo + poste + base de 5 patas con ruedas) ---
-    {const ch=new THREE.Group();ch.position.set(DKX,0,7.55);scene.add(ch);                       // frente al escritorio, mirando al norte
+    {const ch=new THREE.Group();ch.position.set(DKX+.82,0,7.72);ch.rotation.y=-0.5;scene.add(ch);  // CORRIDA al costado (el robot se para a operar, no se sienta): silla rodada y en ángulo
       ch.add(meshBox(.44,.08,.42,0,.46,0,darkP));                                                 // asiento
       ch.add(meshBox(.44,.5,.08,0,.74,-.19,darkP));                                               // respaldo
       ch.add(new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.4,8),steelD2).translateY(.24));   // poste
@@ -406,7 +406,7 @@
   const scLight=new THREE.PointLight(0x9ab0d0,.6,7,2);scLight.position.set(1.4,CH-.35,10.2);scene.add(scLight);
   const paLight=new THREE.PointLight(0xbfd0e0,.5,4,2);paLight.position.set(0,CH-.3,4.2);scene.add(paLight);
   // (escritorio este removido — cuello al taller despejado)
-  crate(2.7,.4,7.6,.8,.4);crate(2.0,.35,7.7,.7,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI);
+  crate(2.75,.28,7.8,.6,.4);crate(1.95,.26,7.8,.55,-.3);shelf(-2.6,11.3,Math.PI);shelf(2.6,11.3,Math.PI); // cajas achicadas + corridas al norte (fuera del cuello BIBE→TALd); colliders agregados que coinciden con el tamaño
 
   // ====== SALA: LA COLMENA (CAM 08 · HIVE) — al norte del cultivo. Corazón vivo del búnker: tono cálido/contemplativo
   // (ámbar/miel). 100% procedural salvo flowers.glb (ya en el repo). El enjambre y los contadores leen de STREAM. ======
@@ -818,10 +818,9 @@
       row.querySelector('.mk').onclick=()=>doCraft(rc.id);
       list.appendChild(row);});
   }
-  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,sitting:false,standT:0};
-  const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se SIENTA acá a administrar)
-  const SIT_LIFT=0.0;     // CALIBRACIÓN: subir/bajar al robot sentado para que calce en la silla (a ojo, como las macetas)
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/];
+  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false};
+  const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.8,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.8,r:.33}/*cajas frente al taller*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -842,7 +841,7 @@
   })();
   function setRobotAnim(name){if(!robot.mixer||!robot.act[name])return;const nx=robot.act[name];if(nx===robot.cur)return;if(robot.cur)robot.cur.fadeOut(0.3);nx.reset().fadeIn(0.3).play();robot.cur=nx;}
   // R-01 reacciona a lo que pasa con el HOLDERS (queda quieto haciendo el gesto un rato)
-  function robotReact(name,dur){if(!robot.model||robot.status!=='idle'||robot.sitting||robot.standT>0)return;setRobotAnim(name);robot.moving=false;robot.wanderT=Math.max(robot.wanderT,dur||2.4);}
+  function robotReact(name,dur){if(!robot.model||robot.status!=='idle'||robot.atDesk)return;setRobotAnim(name);robot.moving=false;robot.wanderT=Math.max(robot.wanderT,dur||2.4);}
   function renderRobot(){
     const bc=robot.bat<25?'#ff4040':(robot.bat<55?'#ffaa00':'#39ff66'),hc=robot.hp<25?'#ff4040':(robot.hp<55?'#ffaa00':'#7ad0ee'),tc=robot.temp>85?'#ff4040':(robot.temp>65?'#ffaa00':'#ff9a5a');
     const set=(id,v,c)=>{const e=$('#'+id);if(e){e.style.width=Math.max(0,Math.min(100,v))+'%';if(c)e.style.background=c;}};
@@ -898,7 +897,7 @@
     if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';setRobotAnim('Idle');}
     renderRes();renderRobot();showAlert(T('a_unit_repaired'));
   }
-  function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.path=null;robot.wanderT=1.5;robot.sitting=false;robot.standT=0;streamReportAction('idle');if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
+  function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.path=null;robot.wanderT=1.5;robot.atDesk=false;streamReportAction('idle');if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
   // ---- NAVEGACIÓN R-01: grafo de waypoints (árbol) que cruza por el CENTRO de cada puerta ----
   // Cada arista queda dentro de una sala (contención por AREAS, sin colisión de paredes) y los
   // nodos de puerta están centrados en el hueco. BIBC es el nodo central (biblioteca) que ramifica.
@@ -955,18 +954,16 @@
           if(d<(last?0.25:0.5)){
             if(!last){robot.pi++;setWP();}
             else{robot.moving=false;robot.path=null;
-              if(robot.dest===NODE_DESK){ // ESTACIÓN DE CÓMPUTO: el robot se SIENTA a administrar el búnker
-                robot.sitting=true;robot.model.rotation.y=0;robot.model.position.y=SIT_LIFT; // mira al norte (+z) a la pantalla; SIT_LIFT calibra la altura en la silla
-                setRobotAnim('Sitting');streamReportAction('admin');robot.wanderT=10+Math.random()*8; // queda sentado un rato
+              if(robot.dest===NODE_DESK){ // ESTACIÓN DE CÓMPUTO: el robot se PARA frente a la pantalla a administrar (pose como el dock)
+                robot.atDesk=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction('admin');robot.wanderT=10+Math.random()*8; // mira al norte (+z) a la pantalla; queda un rato
               }else{robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}}
           }
           else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;
             if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
             robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
-        }else if(robot.standT>0){robot.standT-=dt;if(robot.standT<=0){robot.standT=0;robotWander();}} // beat de "pararse" (Standing) antes de caminar
-          else{robot.wanderT-=dt;if(robot.wanderT<=0){
-            if(robot.sitting){robot.sitting=false;robot.model.position.y=0;streamReportAction('idle');setRobotAnim('Standing');robot.standT=1.1;} // se LEVANTA: Standing → (luego Walking en robotWander)
-            else robotWander();}}
+        }else{robot.wanderT-=dt;if(robot.wanderT<=0){
+            if(robot.atDesk){robot.atDesk=false;streamReportAction('idle');} // deja la estación: vuelve action a 'idle' antes de deambular
+            robotWander();}}
       }
       robotUiAcc+=dt;if(robotUiAcc>0.5){renderRobot();robotUiAcc=0;}
     }
