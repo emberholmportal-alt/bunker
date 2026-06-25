@@ -830,10 +830,10 @@
   // upper-arm con leve inclinación adelante/abajo, el grueso de la flexión en el CODO (LowerArm) para llevar las manos al
   // teclado. Si en Render los brazos van para arriba/atrás en vez de abajo/adelante → invertir el signo de X (mismo en ambos).
   const ADMIN_POSE={
-    // ---- brazo IZQUIERDO (.L) ----
+    // ---- brazo IZQUIERDO (.L) — rig ESPEJADO: X invertido respecto del derecho para que vaya igual hacia adelante ----
     SHOULDER_L:{x: 0.00, y: 0.00, z: 0.00},
-    UPPERARM_L:{x: 0.35, y: 0.00, z: 0.00},   // leve adelante/abajo
-    LOWERARM_L:{x: 1.20, y: 0.00, z: 0.00},   // flexión del codo → antebrazo/mano hacia el teclado
+    UPPERARM_L:{x:-0.35, y: 0.00, z: 0.00},   // leve adelante/abajo (X invertido por el espejo)
+    LOWERARM_L:{x:-1.20, y: 0.00, z: 0.00},   // flexión del codo → antebrazo/mano hacia el teclado (X invertido)
     // ---- brazo DERECHO (.R) — espejo (mismo signo de X; Z/Y se mirrorearían si hicieran falta) ----
     SHOULDER_R:{x: 0.00, y: 0.00, z: 0.00},
     UPPERARM_R:{x: 0.35, y: 0.00, z: 0.00},
