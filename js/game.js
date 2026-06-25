@@ -138,6 +138,8 @@
   let beeSwarm=null,beeData=[],beeNumX=null,beeNumTex=null,_beesRelShown=-1,hiveGlow=null,hiveHaze=null;
   const BEES_MAX=80, hiveC=new THREE.Vector3(0,1.3,14.4); // pool del enjambre y centro de órbita (frente a la colmena)
   const DIAS_POR_ENJAMBRE=7; // F2: cada cuántos días el robot libera un enjambre. Sólo declarado; la rutina lo usará en Fase 2.
+  // ---- ESTACIÓN DE CÓMPUTO (descanso): dashboard CRT por canvas (read-only de STREAM) ----
+  let adminX=null,adminTex=null,adminAcc=0,_adminLog=[];
   {
     const W=3.4,D=4.2,cx=-4.9,cz=1.1; // ancho(x), prof(z), centro
     // (1) caja de la sala: piso, techo y 3 muros (el muro este es el muro oeste del hub, ya con el hueco de puerta)
@@ -349,6 +351,41 @@
   box(.34,.5,.34,-4.0,.25,7.0,_woodMat);
   scene.add(new THREE.Mesh(new THREE.SphereGeometry(.06,10,10),new THREE.MeshBasicMaterial({color:0xffe2b0})).translateX(-4.0).translateY(.55).translateZ(7.0));
 
+  // ====== ESTACIÓN DE CÓMPUTO (muro NORTE del descanso, mitad oeste) — el robot se sienta a "administrar el búnker".
+  // 100% procedural (escritorio + monitor CRT + teclado + silla). La pantalla es un dashboard CRT por canvas (lee STREAM). ======
+  {
+    const DKX=-5.8;                                             // x del escritorio (entre el sofá al O y el locker al E)
+    const deskW=new THREE.MeshStandardMaterial({map:tex(grime('#4a3a26'),1),normalMap:_wn,roughness:.85,metalness:.05}); // madera
+    const plastic=new THREE.MeshStandardMaterial({color:0xb8b4a4,roughness:.7,metalness:.05});                          // beige de PC retro
+    const darkP=new THREE.MeshStandardMaterial({color:0x1a1d20,roughness:.6,metalness:.3});
+    const steelD2=new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.42,normalMap:metalN});
+    // --- escritorio (contra el muro norte z=8.5) ---
+    box(1.4,.06,.55,DKX,.76,8.12,deskW);                       // tablero
+    for(const px of[-.64,.64])for(const pz of[-.22,.22])box(.06,.74,.06,DKX+px,.38,8.12+pz,steelD2); // patas
+    box(1.34,.4,.04,DKX,.5,8.36,deskW);                        // panel trasero (contra la pared)
+    // --- monitor CRT (cuerpo profundo beige + bisel + pantalla mirando al SUR, hacia el robot) ---
+    box(.5,.42,.44,DKX,1.02,8.22,plastic);                     // carcasa (bulto profundo de CRT)
+    box(.46,.38,.02,DKX,1.02,7.985,darkP);                     // marco negro del frente
+    {const scv=cv(512,384);adminX=scv.getContext('2d');adminTex=new THREE.CanvasTexture(scv);adminTex.anisotropy=4;
+      const scr=new THREE.Mesh(new THREE.PlaneGeometry(.4,.3),new THREE.MeshBasicMaterial({map:adminTex}));scr.position.set(DKX,1.04,7.975);scr.rotation.y=Math.PI;scene.add(scr);} // PANTALLA (canvas), mira al sur (-z) → robot y CAM 06
+    box(.2,.06,.18,DKX,.8,8.22,plastic);                       // pie del monitor sobre el escritorio
+    const scrGlowD=new THREE.PointLight(0x39ff88,.5,2.4,2);scrGlowD.position.set(DKX,1.05,7.7);scene.add(scrGlowD); // resplandor verde CRT
+    // --- teclado + mouse + torre ---
+    {const kb=meshBox(.42,.03,.15,DKX,.795,7.92,darkP);kb.castShadow=true;scene.add(kb);for(let r=0;r<3;r++)for(let c=0;c<9;c++)scene.add(meshBox(.03,.012,.025,DKX-.18+c*.045,.815,7.88+r*.04,plastic));} // teclas
+    scene.add(meshBox(.07,.03,.11,DKX+.34,.795,7.95,darkP));    // mouse
+    {const tw=new THREE.Group();tw.position.set(DKX+.86,0,8.1);scene.add(tw);tw.add(meshBox(.2,.5,.46,0,.25,0,plastic));for(let i=0;i<2;i++)tw.add(meshBox(.12,.012,.012,0,.34-i*.05,.235,darkP));const pw=new THREE.Mesh(new THREE.SphereGeometry(.012,8,8),new THREE.MeshBasicMaterial({color:0x39ff66}));pw.position.set(.05,.42,.235);tw.add(pw);tw.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});} // torre/CPU al costado
+    // --- silla de oficina (el robot se sienta acá: asiento + respaldo + poste + base de 5 patas con ruedas) ---
+    {const ch=new THREE.Group();ch.position.set(DKX,0,7.55);scene.add(ch);                       // frente al escritorio, mirando al norte
+      ch.add(meshBox(.44,.08,.42,0,.46,0,darkP));                                                 // asiento
+      ch.add(meshBox(.44,.5,.08,0,.74,-.19,darkP));                                               // respaldo
+      ch.add(new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.4,8),steelD2).translateY(.24));   // poste
+      for(let i=0;i<5;i++){const a=i/5*Math.PI*2;const leg=new THREE.Mesh(new THREE.BoxGeometry(.28,.04,.05),steelD2);leg.position.set(Math.cos(a)*.14,.06,Math.sin(a)*.14);leg.rotation.y=-a;ch.add(leg);const wh=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.03,8),darkP);wh.rotation.z=Math.PI/2;wh.position.set(Math.cos(a)*.28,.03,Math.sin(a)*.28);ch.add(wh);}
+      ch.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+    // --- cartelito de pared + lámpara de escritorio (clima de "puesto de trabajo") ---
+    {const sc=cv(256,64),sx=sc.getContext('2d');sx.fillStyle='#0a140c';sx.fillRect(0,0,256,64);sx.strokeStyle='#39ff88';sx.lineWidth=2;sx.strokeRect(4,4,248,56);sx.fillStyle='#8fffb0';sx.shadowColor='#39ff88';sx.shadowBlur=6;sx.font='20px VT323, monospace';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('CONTROL · REFUGIO 404',128,34);
+      const t=new THREE.CanvasTexture(sc);t.anisotropy=4;const sg=new THREE.Mesh(new THREE.PlaneGeometry(.55,.14),new THREE.MeshBasicMaterial({map:t,transparent:true}));sg.position.set(DKX,1.55,8.46);scene.add(sg);}
+  }
+
   // ---- colocaciones: OBSERVATORIO (detalle pro) ----
   armchair(-1.2,2.7,Math.PI,0x4a3f30);
   // (terminal/observatorio deskTerm removido — cuello al taller despejado)
@@ -557,6 +594,22 @@
   }
 
   const dummy=new THREE.Object3D(),clk=new THREE.Clock();let statAcc=0;
+  // DASHBOARD CRT de la estación de cómputo: panel de administración read-only de STREAM (charge/bees/beesReleased/day/uptime/zone).
+  function drawAdmin(){if(!adminX)return;const x=adminX,p2=n=>String(n).padStart(2,'0');
+    x.fillStyle='#04140a';x.fillRect(0,0,512,384);x.strokeStyle='#1f6b3a';x.lineWidth=2;x.strokeRect(8,8,496,368);
+    x.textBaseline='middle';x.textAlign='left';x.fillStyle='#8fffb0';x.shadowColor='#39ff88';x.shadowBlur=6;
+    x.font='25px Anton, sans-serif';x.fillText('REFUGIO 404 · SYSTEMS / ADMIN',22,32);x.shadowBlur=0;
+    x.strokeStyle='#143f24';x.beginPath();x.moveTo(16,50);x.lineTo(496,50);x.stroke();
+    const up=Math.floor(streamUptime()/1000),dd=Math.floor(up/86400),hh=Math.floor(up%86400/3600),mm=Math.floor(up%3600/60),ss=up%60;
+    x.font='20px VT323, monospace';x.fillStyle='#bff7d2';x.fillText('UPTIME  '+String(dd).padStart(4,'0')+':'+p2(hh)+':'+p2(mm)+':'+p2(ss),22,74);x.fillText('DAY '+STREAM.day,372,74);
+    const bar=(label,val,max,y,col)=>{x.fillStyle='#7fbf95';x.fillText(label,22,y);const bw=230,fx=160,f=Math.max(0,Math.min(1,val/max));x.strokeStyle='#1f6b3a';x.strokeRect(fx,y-8,bw,14);x.fillStyle=col;x.fillRect(fx+1,y-7,(bw-2)*f,12);x.fillStyle='#dfffe9';x.fillText(''+val,fx+bw+12,y);};
+    bar('POWER',Math.round(Math.max(0,Math.min(100,STREAM.charge))),100,106,'#39ff88');
+    bar('HIVE',Math.round(STREAM.bees),80,132,'#ffb13a');
+    x.fillStyle='#7fbf95';x.fillText('RELEASED',22,158);x.fillStyle='#ffd86a';x.fillText('✦ '+Math.round(STREAM.beesReleased),160,158);
+    x.fillStyle='#7fbf95';x.fillText('ACTIVE CAM',22,184);x.fillStyle='#8fffb0';x.fillText((ZONE_CAM[STREAM.zone]||'00')+' · '+(''+STREAM.zone).toUpperCase(),160,184);
+    x.fillStyle='#7fbf95';x.fillText('SYSTEMS',22,210);for(let i=0;i<10;i++){x.fillStyle=i<9?'#39ff88':'#1f6b3a';x.fillRect(160+i*15,204,11,12);}x.fillStyle='#8fffb0';x.fillText('NOMINAL',330,210);
+    x.strokeStyle='#143f24';x.strokeRect(16,228,480,140);x.font='17px VT323, monospace';x.fillStyle='#6fcf8a';
+    for(let i=0;i<_adminLog.length;i++)x.fillText(_adminLog[i],26,248+i*18);}
   function loop(){requestAnimationFrame(loop);
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
@@ -585,6 +638,10 @@
     updateUptimeBoard(streamUptime(),dt); // contador de pared: cronómetro del LIVE (HH:MM:SS desde LORE_EPOCH), lee de STREAM
 
     crtAcc+=dt;if(crtAcc>.1){drawCRT(inside,outside,asim);crtAcc=0;}
+    // dashboard de la estación de cómputo (sólo cuando la cámara activa es la del descanso, ~3/s): alimenta el log y redibuja
+    if(STREAM.zone==='descanso'&&adminX){adminAcc+=dt;if(adminAcc>.33){adminAcc=0;
+      if(Math.random()<.5){const M=['sys: nominal','hatch: sealed','swarm: incubating…','power: stable','cams: 08 online','env: scrubbers ok','net: link lost · standalone','core: heartbeat ok'];_adminLog.push(streamClock()+'  '+M[Math.floor(Math.random()*M.length)]);if(_adminLog.length>6)_adminLog.shift();}
+      drawAdmin();adminTex.needsUpdate=true;}}
     if(crtGlitch>0)crtGlitch-=dt*2;
     crtGlow.intensity=.4+(mv?Math.sin(t*3)*.06:0);
 
@@ -761,7 +818,9 @@
       row.querySelector('.mk').onclick=()=>doCraft(rc.id);
       list.appendChild(row);});
   }
-  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0};
+  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,sitting:false,standT:0};
+  const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se SIENTA acá a administrar)
+  const SIT_LIFT=0.0;     // CALIBRACIÓN: subir/bajar al robot sentado para que calce en la silla (a ojo, como las macetas)
   const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-6.7,z:7.0,r:.7},{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/];
   let robotUiAcc=0;
   (function loadRobot(){
@@ -783,7 +842,7 @@
   })();
   function setRobotAnim(name){if(!robot.mixer||!robot.act[name])return;const nx=robot.act[name];if(nx===robot.cur)return;if(robot.cur)robot.cur.fadeOut(0.3);nx.reset().fadeIn(0.3).play();robot.cur=nx;}
   // R-01 reacciona a lo que pasa con el HOLDERS (queda quieto haciendo el gesto un rato)
-  function robotReact(name,dur){if(!robot.model||robot.status!=='idle')return;setRobotAnim(name);robot.moving=false;robot.wanderT=Math.max(robot.wanderT,dur||2.4);}
+  function robotReact(name,dur){if(!robot.model||robot.status!=='idle'||robot.sitting||robot.standT>0)return;setRobotAnim(name);robot.moving=false;robot.wanderT=Math.max(robot.wanderT,dur||2.4);}
   function renderRobot(){
     const bc=robot.bat<25?'#ff4040':(robot.bat<55?'#ffaa00':'#39ff66'),hc=robot.hp<25?'#ff4040':(robot.hp<55?'#ffaa00':'#7ad0ee'),tc=robot.temp>85?'#ff4040':(robot.temp>65?'#ffaa00':'#ff9a5a');
     const set=(id,v,c)=>{const e=$('#'+id);if(e){e.style.width=Math.max(0,Math.min(100,v))+'%';if(c)e.style.background=c;}};
@@ -839,7 +898,7 @@
     if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';setRobotAnim('Idle');}
     renderRes();renderRobot();showAlert(T('a_unit_repaired'));
   }
-  function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.path=null;robot.wanderT=1.5;if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
+  function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.path=null;robot.wanderT=1.5;robot.sitting=false;robot.standT=0;streamReportAction('idle');if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
   // ---- NAVEGACIÓN R-01: grafo de waypoints (árbol) que cruza por el CENTRO de cada puerta ----
   // Cada arista queda dentro de una sala (contención por AREAS, sin colisión de paredes) y los
   // nodos de puerta están centrados en el hueco. BIBC es el nodo central (biblioteca) que ramifica.
@@ -859,11 +918,12 @@
     {x:-5.4, z:1.1 },  //12 CARC sector de carga: frente al dock (el robot se planta acá a cargar)
     {x:-3.95,z:2.35},  //13 CARi lado-sala de la puerta: el GIRO hacia el dock ocurre ACÁ (adentro), no en el umbral
     {x:0,    z:11.8},  //14 HIVd puerta a la colmena (centro del hueco x[-0.85,0.85] en z=11.8)
-    {x:0,    z:13.2}   //15 HIVC colmena: frente a la colmena (el robot se planta acá). Cruce recto por x=0: 4→14→15
+    {x:0,    z:13.2},  //15 HIVC colmena: frente a la colmena (el robot se planta acá). Cruce recto por x=0: 4→14→15
+    {x:-5.8, z:7.55}   //16 DESK estación de cómputo (descanso): el robot se SIENTA acá a administrar (cuelga de DESC)
   ];
   // cruce recto por la puerta: 10→11→13 colineales en z=2.35 (carga); cultivo→colmena 4→14→15 colineales en x=0
-  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3,14],[3,6],[5,7],[6],[3,9],[8],[0,11],[10,13],[13],[11,12],[4,15],[14]];
-  const DEST=[0,2,3,4,7,9,12,15]; // nodos "centro de sala" donde el robot puede plantarse
+  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3,14],[3,6],[5,7],[6],[3,9],[8,16],[0,11],[10,13],[13],[11,12],[4,15],[14],[9]];
+  const DEST=[0,2,3,4,7,9,12,15,16]; // nodos "centro de sala" donde el robot puede plantarse (16=estación de cómputo)
   function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
   function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
     for(let h=0;h<q.length;h++){const u=q[h];if(u===t)break;for(const v of ADJ[u])if(!seen[v]){seen[v]=true;prev[v]=u;q.push(v);}}
@@ -894,12 +954,19 @@
           const last=!robot.path||robot.pi>=robot.path.length-1;
           if(d<(last?0.25:0.5)){
             if(!last){robot.pi++;setWP();}
-            else{robot.moving=false;robot.path=null;robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}
+            else{robot.moving=false;robot.path=null;
+              if(robot.dest===NODE_DESK){ // ESTACIÓN DE CÓMPUTO: el robot se SIENTA a administrar el búnker
+                robot.sitting=true;robot.model.rotation.y=0;robot.model.position.y=SIT_LIFT; // mira al norte (+z) a la pantalla; SIT_LIFT calibra la altura en la silla
+                setRobotAnim('Sitting');streamReportAction('admin');robot.wanderT=10+Math.random()*8; // queda sentado un rato
+              }else{robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}}
           }
           else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;
             if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
             robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
-        }else{robot.wanderT-=dt;if(robot.wanderT<=0)robotWander();}
+        }else if(robot.standT>0){robot.standT-=dt;if(robot.standT<=0){robot.standT=0;robotWander();}} // beat de "pararse" (Standing) antes de caminar
+          else{robot.wanderT-=dt;if(robot.wanderT<=0){
+            if(robot.sitting){robot.sitting=false;robot.model.position.y=0;streamReportAction('idle');setRobotAnim('Standing');robot.standT=1.1;} // se LEVANTA: Standing → (luego Walking en robotWander)
+            else robotWander();}}
       }
       robotUiAcc+=dt;if(robotUiAcc>0.5){renderRobot();robotUiAcc=0;}
     }
