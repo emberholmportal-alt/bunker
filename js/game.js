@@ -580,6 +580,21 @@
     fabRoomLight=new THREE.PointLight(0xaab8c8,.75,7,2);fabRoomLight.position.set(FX,CH-.3,FZ);scene.add(fabRoomLight); // luz fría tenue (sala técnica)
     const fabFill=new THREE.PointLight(0x6a7e90,.4,6,2);fabFill.position.set(-4.2,1.5,9.4);scene.add(fabFill);
   }
+  // ---- PROPS GLB de la sala de fabricación (livianos; decorativos SIN collider; contra paredes/rincones/banco/estante,
+  // fuera del paso puerta→impresora). NUEVOS: toolbox/crate_metal/shelf_small (CC0), barrel/lamp_industrial (CC-BY). + reusados CC0. ----
+  loadProp('toolbox.glb',-6.0,0,8.6,.42,.3);                          // caja de herramientas (muro sur)
+  loadProp('shelf_small.glb',-4.3,0,8.6,.7,0);                        // estante chico (muro sur, este)
+  loadPlant('crate_metal.glb',[{x:-7.0,y:0,z:8.7,target:.55,rotY:.2},{x:-3.85,y:0,z:11.3,target:.5,rotY:-.4}]); // cajones metálicos (rincón SO + NE)
+  loadPlant('barrel.glb',[{x:-7.0,y:0,z:11.3,target:.75,rotY:0},{x:-6.6,y:0,z:8.6,target:.7,rotY:.5}]);         // bidones (rincón NO + muro sur)
+  loadProp('lamp_industrial.glb',-5.4,1.95,10.6,.5,0);               // lámpara industrial sobre el área de trabajo (techo)
+  {const cord=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.55,6),new THREE.MeshStandardMaterial({color:0x14181b,roughness:.8}));cord.position.set(-5.4,2.42,10.6);scene.add(cord);const wl=new THREE.PointLight(0xbfe0ec,.55,4,2);wl.position.set(-5.4,2.0,10.6);scene.add(wl);} // cable + luz de trabajo
+  // reusados (CC0 Quaternius, 0 peso nuevo): clutter de taller
+  loadProp('gas_can.glb',-5.5,0,8.6,.35,-.3);                         // bidón de combustible (muro sur)
+  loadProp('propane_tank.glb',-6.95,0,10.65,.6,0);                    // garrafa (muro oeste, junto al estante)
+  loadProp('wood_log.glb',-6.5,0,9.05,.4,.3);                         // material en bruto (rincón SO)
+  loadProp('battery.glb',-4.85,.79,11.3,.18,.4);                      // batería sobre el banco
+  loadProp('can_red.glb',-5.0,.79,11.52,.16,.2);                      // lata sobre el banco
+  loadProp('pot.glb',-7.15,.62,9.7,.2,0);                            // recipiente en el estante de repuestos (repisa baja)
 
   const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05},{x0:-3.25,x1:3.25,z0:11.55,z1:15.25},{x0:-7.20,x1:-3.15,z0:8.45,z1:11.55}];
   function inArea(x,z){for(const a of AREAS)if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return true;return false;}

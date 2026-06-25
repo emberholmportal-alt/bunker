@@ -10,3 +10,13 @@ sin atribución requerida. Se incluye igual por cortesía.
 Descargados desde poly.pizza (static.poly.pizza). Optimizados/low-poly.
 Se cargan con GLTFLoader y se escalan/posicionan por código en js/game.js
 (función loadProp). Se registran para el toggle CEL/REAL igual que el robot.
+
+PLANTAS (cultivo) — flowers/flower_bushes/grass/clover/plant: poly.pizza, low-poly.
+
+SALA DE FABRICACIÓN — props agregados (poly.pizza):
+  - toolbox.glb ......... "Toolbox"  · CC0 1.0 (sin atribución requerida)
+  - crate_metal.glb ..... "Crate"    · CC0 1.0
+  - shelf_small.glb ..... "Shelf Small" · CC0 1.0
+  - barrel.glb .......... "Barrel"   · CC-BY 3.0  (atribución por cortesía a su autor en poly.pizza)
+  - lamp_industrial.glb . "Industrial Pendant Lamp" · CC-BY 3.0  (atribución por cortesía)
+  El resto de la sala reusa props CC0 ya presentes (gas_can, propane_tank, etc.).
