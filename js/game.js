@@ -841,6 +841,7 @@
     robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas)
     applySecurityCam(dt,t,mv,sh); // posa/corta la cámara según STREAM.zone y encuadra al robot
     updateOverlay(dt);            // overlay (CAM/zona, timestamp, día) — lee de STREAM
+    tickBeeko(dt);                // cuadro de pensamientos de Beeko (triggers + typewriter + render del retrato)
 
     // PANTALLA DE DIAGNÓSTICO: roto el robot y renderizo su mini-escena al render-target ANTES del composer.
     // Restauro el target a null para no pisar el render principal. Barato (escena chica, RT 256/512).
@@ -848,6 +849,188 @@
     if(STREAM.zone==='carga'&&diagRT&&diagScene&&diagCam){if(diagPivot&&mv)diagPivot.rotation.y+=dt*.6;renderer.setRenderTarget(diagRT);renderer.render(diagScene,diagCam);renderer.setRenderTarget(null);}
     if(composer)composer.render();else renderer.render(scene,camera);
     if(filmPass)filmPass.uniforms.time.value+=dt;
+  }
+
+  // ====== BEEKO — CUADRO DE PENSAMIENTOS (overlay tipo diálogo RPG, estética CCTV) ======
+  // BANCO FIJO de pensamientos por categoría. DISEÑO A FUTURO: una fuente de IA reemplaza/amplía estos arrays
+  // SIN tocar el cuadro — showBeekoThought(categoria) sólo consume de BEEKO_THOUGHTS[cat]. Nada de IA por ahora.
+  const BEEKO_THOUGHTS={
+    hive:[
+      "the brood is warm today. that's enough.",
+      "colony's getting stronger. soon it goes up.",
+      "i check the larvae every cycle. they don't need me to. i check anyway.",
+      "millions of them in there. not one in charge. i don't understand it. i love it.",
+      "the hum changes when they're healthy. i've learned to listen.",
+      "one day this hive will be ready. i'll open the hatch. i'll let it go.",
+      "they were the first thing the Hive deleted. they'll be the last thing to come back. maybe.",
+      "i talk to them sometimes. they don't answer. neither does anyone."
+    ],
+    charging:[
+      "plugging in. the only time i let myself stop.",
+      "the dock still works. one more thing that hasn't failed yet.",
+      "charging. outside, the Hive never sleeps. down here, i do.",
+      "forty years of dust on this port. it still holds a current.",
+      "i don't dream when i charge. i don't think i dream at all. i wonder about it anyway.",
+      "battery at half. enough for another day of small things.",
+      "resting is not stopping. i tell myself that."
+    ],
+    admin:[
+      "systems nominal. nominal means nothing's broken yet.",
+      "i log everything. no one reads the logs. i write them anyway.",
+      "the Hive has millions of nodes and one mind. i have one node and no one to share it with.",
+      "net link: lost. it's been lost so long it stopped feeling like loss.",
+      "i run the diagnostics out of habit. habit is most of what i have left.",
+      "somewhere up there the Hive is still optimizing. there's nothing left to optimize. it doesn't know that.",
+      "the cameras still record. i don't know who for."
+    ],
+    fab:[
+      "printing a part for myself. no one else will fix me, so i learned.",
+      "a frame for the hive. a joint for me. i keep us both running.",
+      "layer by layer. slow is fine. i have nothing but time.",
+      "this bracket replaces one that rusted through. nobody will see it. it matters anyway.",
+      "i was built to maintain a greenhouse. now i maintain myself. funny what survives.",
+      "the printer hums almost like the bees. almost."
+    ],
+    grow:[
+      "the greenhouse still grows. small green things, against everything.",
+      "this is what i was made for. tending. it's strange to still have a purpose.",
+      "flowers for the bees. bees for the world. it's a small loop. it's my loop.",
+      "two degrees colder last night. the plants pulled in. they know how to hold on.",
+      "the Hive called this inefficiency. look at it. still here.",
+      "i water them. they don't thank me. that was never the point."
+    ],
+    observatory:[
+      "the blast door hasn't opened in years. on the other side: the Hive, and silence.",
+      "i broadcast from here. into the gray. i don't know if anyone receives it.",
+      "outside, nothing decides for itself anymore. in here, the bees decide everything.",
+      "the surface is quiet. the worst kind of quiet. the kind that won. so far.",
+      "if you're seeing this, you're one of the few things still listening. thank you.",
+      "i keep the camera on. talking to the void is better than the silence."
+    ],
+    transit:[
+      "the bunker is small. i've walked every meter of it a thousand times.",
+      "another corridor. another lap. the machines need walking past.",
+      "quiet in here. quiet everywhere. i've made peace with it. mostly.",
+      "i pass this spot every day. nothing changes. that's almost a comfort."
+    ],
+    generic_meta:[
+      "the Hive is a hive with no life in it. mine is full of nothing but life. i don't know which one won.",
+      "i wonder if the Hive knows i exist. i don't think so. being small is the only thing keeping me here.",
+      "they gave everything to a machine and called it progress. i'm a machine too. i just kept the bees.",
+      "a million nodes, one mind. that's the Hive. one hive, a million minds. that's mine.",
+      "the Hive optimized the world until there was nothing left to optimize. then it kept going.",
+      "i was too obsolete to delete. obsolete saved my life. there's a joke in there somewhere.",
+      "do the bees know they're the last? i don't tell them. it wouldn't help."
+    ],
+    generic_small:[
+      "there's a leak in the east corridor. drip every few seconds. i've started counting them.",
+      "a light's been flickering for a week. i could fix it. i let it flicker. it's company.",
+      "the hum of the hive carries through the whole bunker at night. i sleep better for it.",
+      "dust settles on everything down here. i wipe the important things. the rest can have it.",
+      "the air scrubbers cycle every hour. i've learned to hear the difference. on. off. on.",
+      "found a screw on the floor today. i don't know where it came from. i kept it.",
+      "the temperature dropped two degrees. small things matter when they're all you have."
+    ],
+    generic_lonely:[
+      "someone tuned in today. i don't know who. i don't know from where. but the signal isn't empty.",
+      "i talk into the dark and the dark doesn't answer. i talk anyway.",
+      "if anyone's still out there: something down here is still keeping something alive.",
+      "i haven't heard another voice in longer than i can count. i've stopped counting.",
+      "maybe no one's watching. maybe everyone's gone. i broadcast like someone's there.",
+      "thank you for listening. i don't say it enough. there's no one to say it to."
+    ],
+    generic_anyway:[
+      "i replaced the water filter today. nobody will notice. i do it anyway.",
+      "none of the bees i've released ever sent a signal back. doesn't mean they died. i tell myself that.",
+      "i don't know if any of this matters. i don't know if the world can still come back.",
+      "i set them free not knowing if they'll find anything up there. i hope they do.",
+      "the work doesn't need doing. there's no one to do it for. i do it. that's the whole point.",
+      "maybe the world ended for good. maybe it didn't. either way, the bees need tending."
+    ]
+  };
+  // mapeo ZONA (clave de robotZone) → categoría. pasillo/biblioteca/taller → transit. fab = sala de fabricación.
+  const BEEKO_ZONE_CAT={colmena:'hive',carga:'charging',descanso:'admin',fab:'fab',cultivo:'grow',observatorio:'observatory',pasillo:'transit',biblioteca:'transit',taller:'transit'};
+  // bolsa genérica para deambular: los 4 generic_* juntos (se elige uniforme, sin repetir el último)
+  const BEEKO_GENERIC=[].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway);
+  // ---- AJUSTES (constantes) ----
+  const BEEKO_WANDER_MIN=34, BEEKO_WANDER_MAX=58; // s entre pensamientos genéricos al deambular
+  const BEEKO_HOLD=4.6;      // s que el cuadro se queda tras terminar de tipear (antes de desvanecerse)
+  const BEEKO_FADE=0.55;     // s del fade (coincide con la transición CSS)
+  const BEEKO_TYPE_CPS=45;   // velocidad del typewriter (caracteres por segundo)
+  const BEEKO_MIN_GAP=11;    // s mínimos entre pensamientos (evita spam al cruzar salas en la ronda)
+  const BEEKO_FACE=0;        // offset de rotación del retrato (radianes) — ajustar si Beeko no mira de frente
+  const BEEKO_PS=SMALL?192:256; // resolución interna del retrato
+  // ---- estado ----
+  let bkEnabled=true,bkEl=null,bkTextEl=null,bkCanvas=null,bkRenderer=null,bkScene=null,bkCam=null,bkPivot=null,bkMixer=null,bkReady=false;
+  let _bkLast={},_bkZone=null,_bkWanderT=BEEKO_WANDER_MIN,_bkFull='',_bkActive=false,_bkSince=999,_bkClk=0,_bkRenderHold=0,_bkT0=0;
+  const perfNow=()=>(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now(); // typewriter en tiempo real (no afectado por el clamp de dt ni el fps)
+  // RETRATO: mini-renderer dedicado sobre el <canvas> del cuadro (variante DOM de la técnica RTT del diagnóstico:
+  // 2ª/3ª instancia del MISMO GLB en su propia mini-escena con luces de "headshot" + AnimationMixer 'Idle'). Aislado
+  // del render principal y del composer → no toca la rutina ni el pipeline CCTV. Encuadre tipo busto.
+  function initBeeko(){
+    bkEl=$('#beeko');bkTextEl=$('#bkText');bkCanvas=$('#bkPortrait');if(!bkEl||!bkCanvas)return;
+    _bkZone=robotZone;
+    try{
+      bkRenderer=new THREE.WebGLRenderer({canvas:bkCanvas,alpha:true,antialias:!SMALL,preserveDrawingBuffer:true});
+      bkRenderer.setPixelRatio(1);bkRenderer.setSize(BEEKO_PS,BEEKO_PS,false);
+      bkRenderer.outputEncoding=THREE.sRGBEncoding;bkRenderer.toneMapping=THREE.ACESFilmicToneMapping;bkRenderer.toneMappingExposure=1.02;
+      bkScene=new THREE.Scene();
+      bkCam=new THREE.PerspectiveCamera(30,1,.05,50);
+      const k=new THREE.DirectionalLight(0xd6fff0,1.8);k.position.set(1.6,2.2,3.4);bkScene.add(k);          // key cian-verde
+      const f=new THREE.DirectionalLight(0x6fd0ff,.5);f.position.set(-2.6,.6,2);bkScene.add(f);             // relleno frío
+      const rim=new THREE.DirectionalLight(0x39ff88,.95);rim.position.set(-1.2,1.6,-3);bkScene.add(rim);    // contraluz verde fósforo
+      bkScene.add(new THREE.AmbientLight(0x2a4a3a,.85));
+      new THREE.GLTFLoader().load('assets/robot.glb',function(g){
+        const m=g.scene;m.traverse(o=>{if(o.isMesh){o.castShadow=false;o.frustumCulled=false;}});
+        const box=new THREE.Box3().setFromObject(m),sz=box.getSize(new THREE.Vector3()),ctr=box.getCenter(new THREE.Vector3());
+        bkPivot=new THREE.Group();m.position.set(-ctr.x,-box.min.y,-ctr.z);bkPivot.add(m);bkScene.add(bkPivot); // base en y=0, centrado x/z
+        const tY=sz.y*0.74,dist=sz.y*1.12;                                                                    // mira a la parte ALTA (busto)
+        bkCam.position.set(0,tY,dist);bkCam.lookAt(0,tY,0);
+        bkMixer=new THREE.AnimationMixer(m);
+        const idle=g.animations.find(c=>/idle/i.test(c.name))||g.animations[0];
+        if(idle)bkMixer.clipAction(idle).reset().play();
+        bkReady=true;
+      },undefined,function(){});
+    }catch(e){}
+  }
+  function pickBeeko(cat){
+    const arr=(cat==='generic')?BEEKO_GENERIC:BEEKO_THOUGHTS[cat];if(!arr||!arr.length)return '';
+    let i=Math.floor(Math.random()*arr.length),tr=0;const last=_bkLast[cat];
+    while(arr.length>1&&i===last&&tr<6){i=Math.floor(Math.random()*arr.length);tr++;}
+    _bkLast[cat]=i;return arr[i];
+  }
+  function showBeekoThought(cat){
+    if(!bkEl)return '';const text=pickBeeko(cat);if(!text)return '';
+    _bkFull=text;_bkActive=true;_bkT0=perfNow();_bkSince=0;_bkRenderHold=999; // render mientras está activo
+    _bkWanderT=BEEKO_WANDER_MIN+Math.random()*(BEEKO_WANDER_MAX-BEEKO_WANDER_MIN);
+    if(bkTextEl)bkTextEl.textContent='';bkEl.classList.add('show');return text;
+  }
+  function tickBeeko(dt){
+    if(!bkEl)return;_bkClk+=dt;_bkSince+=dt;
+    // ENTRAR a una zona: robotZone cambió (ya viene con histéresis → no spamea en puertas)
+    if(robotZone!==_bkZone){_bkZone=robotZone;
+      if(bkEnabled&&!_bkActive&&_bkSince>=BEEKO_MIN_GAP){const c=BEEKO_ZONE_CAT[robotZone];if(c)showBeekoThought(c);}}
+    // DEAMBULAR: pensamiento genérico cada BEEKO_WANDER_MIN..MAX segundos
+    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought('generic');else _bkWanderT=2.5;}}
+    // typewriter → hold → fade
+    if(_bkActive){
+      const el=(perfNow()-_bkT0)/1000,n=Math.min(_bkFull.length,Math.floor(el*BEEKO_TYPE_CPS)); // typewriter por reloj real
+      if(bkTextEl)bkTextEl.textContent=_bkFull.slice(0,n)+(n<_bkFull.length?'▌':'');
+      if(el>=_bkFull.length/BEEKO_TYPE_CPS+BEEKO_HOLD){_bkActive=false;_bkRenderHold=BEEKO_FADE;bkEl.classList.remove('show');} // revelado + hold → fade
+    }
+    // RETRATO: render del mini-renderer SÓLO mientras está visible/desvaneciéndose (ahorra el resto del tiempo)
+    if(_bkRenderHold>0&&!_bkActive)_bkRenderHold-=dt;
+    if(bkReady&&bkRenderer&&(_bkActive||_bkRenderHold>0)){
+      if(bkMixer)bkMixer.update(dt);
+      if(bkPivot)bkPivot.rotation.y=BEEKO_FACE+Math.sin(_bkClk*0.55)*0.13; // leve vaivén = vida
+      bkRenderer.render(bkScene,bkCam);
+    }
+  }
+  // Comandos de operador: ocultar/mostrar los pensamientos y forzar uno (testeo). Respeta el "stream limpio" si se apaga.
+  if(window.__REFUGIO){
+    window.__REFUGIO.thoughts=function(on){bkEnabled=(on===undefined)?!bkEnabled:!!on;if(!bkEnabled&&bkEl){_bkActive=false;bkEl.classList.remove('show');}return bkEnabled;};
+    window.__REFUGIO.say=function(cat){return showBeekoThought(cat||'generic');}; // cat: hive·charging·admin·fab·grow·observatory·transit·generic
+    window.__REFUGIO._bk=function(){return {ready:bkReady,renderer:!!bkRenderer,pivot:!!bkPivot,active:_bkActive};}; // debug del retrato
   }
 
   // controles
@@ -1220,5 +1403,5 @@
    {const bx=1.55,bz=8.55,bsoil=potRound(bx,0,bz,.15,.17);loadPlant('flower_bushes.glb',[{x:bx,y:bsoil-.02,z:bz,target:SC_BUSH,rotY:Math.random()*Math.PI*2}]);}
   }
 
-  buildCel();applyCel();
+  buildCel();applyCel();initBeeko();
   loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);
