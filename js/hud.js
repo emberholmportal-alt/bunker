@@ -31,10 +31,11 @@
     room(-6.45,-0.8,-2.7,3.05,'rgba(150,190,255,.06)');     // carga
     room(-7.2,8.45,-3.15,11.55,'rgba(143,255,176,.06)');    // fabricación
     room(-3.25,11.55,3.25,15.25,'rgba(255,200,120,.06)');   // colmena
+    room(3.4,11.8,7.2,15.4,'rgba(230,200,120,.05)');        // bóveda (este de la colmena)
     x.fillStyle='rgba(201,201,184,.75)';x.font='8px VT323, monospace';x.textAlign='center';
     const lab=(t,wx,wz)=>{const p=m(wx,wz);x.fillText(t,p[0],p[1]);};
     lab(T('room_observatory'),0,-1.2);lab(T('room_library'),-1.2,6.4);lab(T('room_cultivo'),0,9.6);lab(T('room_workshop'),5.4,7.0);lab(T('room_rest'),-5.4,7.0);
-    lab(T('room_charging'),-4.6,1.1);lab(T('room_fab'),-5.2,10.0);lab(T('room_hive'),0,13.4);
+    lab(T('room_charging'),-4.6,1.1);lab(T('room_fab'),-5.2,10.0);lab(T('room_hive'),0,13.4);lab(T('room_vault'),5.3,13.5);
     // marcador = la UNIDAD R-01 (ya no hay jugador): triángulo ámbar orientado al rumbo del robot
     const p=m(px,pz);x.save();x.translate(p[0],p[1]);x.rotate(yaw);x.fillStyle='#ffb000';x.shadowColor='#ffb000';x.shadowBlur=6;x.beginPath();x.moveTo(0,4.5);x.lineTo(3,-4);x.lineTo(-3,-4);x.closePath();x.fill();x.restore();x.shadowBlur=0;x.textAlign='left';
   }
