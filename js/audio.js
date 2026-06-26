@@ -1,13 +1,14 @@
 // EL BÚNKER — audio (WebAudio)
   // ---- AUDIO ----
-  let actx=null,master=null,audioOn=false,noiseBuf=null,whisperG=null;
+  let actx=null,master=null,audioOn=false,noiseBuf=null,whisperG=null,humG=null;
+  const HUM_BASE=.5; // gain de reposo del zumbido del generador (para el duck del fallo eléctrico)
   // VOLÚMENES por sonido (0..~1, ajustables en vivo con __REFUGIO.vol('paso',0.08)). 'master' = volumen general.
   // step/creak = pasos y crujidos de Beeko. El resto son los SFX existentes (cada función multiplica por su entrada).
   const AVOL={master:.55, step:.05, creak:.045, camclick:1, flap:1, blip:1, alarm:1, rumble:1, thud:1};
   function mkNoise(){const b=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
   function startAudio(){if(!actx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();noiseBuf=mkNoise();
       master=actx.createGain();master.gain.value=0;master.connect(actx.destination);
-      const humG=actx.createGain();humG.gain.value=.5;const f=actx.createBiquadFilter();f.type='lowpass';f.frequency.value=140;humG.connect(f);f.connect(master);
+      humG=actx.createGain();humG.gain.value=HUM_BASE;const f=actx.createBiquadFilter();f.type='lowpass';f.frequency.value=140;humG.connect(f);f.connect(master);
       [55,82.5].forEach((hz,i)=>{const o=actx.createOscillator();o.type='sawtooth';o.frequency.value=hz;if(i)o.detune.value=6;const g=actx.createGain();g.gain.value=i?.25:.5;o.connect(g);g.connect(humG);o.start();});
       const airG=actx.createGain();airG.gain.value=.12;const ns=actx.createBufferSource();ns.buffer=noiseBuf;ns.loop=true;const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=500;ns.connect(lp);lp.connect(airG);airG.connect(master);ns.start();
       whisperG=actx.createGain();whisperG.gain.value=0;const wn=actx.createBufferSource();wn.buffer=noiseBuf;wn.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1200;bp.Q.value=6;wn.connect(bp);bp.connect(whisperG);whisperG.connect(master);wn.start();
@@ -18,6 +19,11 @@
   function rumble(){if(!audioOn||!actx)return;const t=actx.currentTime;const s=actx.createBufferSource();s.buffer=noiseBuf;const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=90;const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.5*AVOL.rumble,t+.05);g.gain.exponentialRampToValueAtTime(.001,t+.8);s.connect(lp);lp.connect(g);g.connect(master);s.start(t);s.stop(t+.85);}
   function thud(){if(!audioOn||!actx)return;const t=actx.currentTime;const o=actx.createOscillator();o.type='sine';o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(40,t+.18);const g=actx.createGain();g.gain.setValueAtTime(.35*AVOL.thud,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);o.connect(g);g.connect(master);o.start(t);o.stop(t+.3);}
   function blip(){if(!audioOn||!actx)return;const t=actx.currentTime;const o=actx.createOscillator();o.type='triangle';o.frequency.value=880;const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.12*AVOL.blip,t+.01);g.gain.linearRampToValueAtTime(0,t+.1);o.connect(g);g.connect(master);o.start(t);o.stop(t+.12);}
+  // FALLO ELÉCTRICO: 'duck' del zumbido del generador. genDuck(level[,ramp]) lleva el gain del hum a 'level' (default=reposo HUM_BASE).
+  function genDuck(level,ramp){if(!actx||!humG)return;const t=actx.currentTime,L=(level===undefined)?HUM_BASE:Math.max(0,level),r=ramp||.3;humG.gain.cancelScheduledValues(t);humG.gain.setValueAtTime(Math.max(.0001,humG.gain.value),t);humG.gain.linearRampToValueAtTime(Math.max(.0001,L),t+r);}
+  // clic eléctrico (relé/breaker) — para el corte y el reencendido del fallo eléctrico
+  function eclick(){if(!audioOn||!actx)return;const t=actx.currentTime;const o=actx.createOscillator();o.type='square';o.frequency.setValueAtTime(2400,t);o.frequency.exponentialRampToValueAtTime(380,t+.045);const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.13,t+.003);g.gain.exponentialRampToValueAtTime(.0008,t+.07);o.connect(g);g.connect(master);o.start(t);o.stop(t+.08);
+    const s=actx.createBufferSource();s.buffer=noiseBuf;const hp=actx.createBiquadFilter();hp.type='highpass';hp.frequency.value=2000;const g2=actx.createGain();g2.gain.setValueAtTime(.10,t);g2.gain.exponentialRampToValueAtTime(.0006,t+.05);s.connect(hp);hp.connect(g2);g2.connect(master);s.start(t);s.stop(t+.06);}
   // ---- BEEKO CAMINANDO: pasos metálicos sutiles (sincronizados con la animación de caminar) + crujidos del cuerpo (robot viejo/oxidado) ----
   // Tono: tenue/lejano, como captado por el micrófono de una cámara de seguridad en un búnker silencioso. Gateados igual que el resto
   // (si el audio no está activado no suenan ni fallan). Volumen por AVOL.step / AVOL.creak.
