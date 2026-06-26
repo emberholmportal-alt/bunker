@@ -855,10 +855,13 @@
   // cuenta. Por eso __REFUGIO.setZone('taller') / setDay(120) se reflejan al toque. ======
   const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging',colmena:'room_hive',fab:'room_fab',vault:'room_vault'}; // nombre de sala vía i18n (todo el overlay en inglés)
   const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07',colmena:'08',fab:'09',vault:'10'}; // número de cámara FIJO por sala
-  let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1;
+  let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1,_ovEvent=null;
+  const EV_BADGE={quake:'⚠ SEISMIC EVENT', blackout:'⚠ POWER FAILURE'};
   function updateOverlay(dt){
     const z=STREAM.zone;
     if(z!==_ovZone){_ovZone=z;const e=$('#ch-cam');if(e)e.textContent=T('ov_cam')+' '+(ZONE_CAM[z]||'00')+' — '+(ZONE_I18N[z]?T(ZONE_I18N[z]):(''+z).toUpperCase());} // CAM 0X — ZONA (inglés vía i18n), cambia al cambiar STREAM.zone
+    if(STREAM.event!==_ovEvent){_ovEvent=STREAM.event;const e=$('#ch-event');if(e){ // INDICADOR DE EVENTO: aparece/desaparece SOLO según STREAM.event (no un timer) → acompaña la duración real y se va limpio al terminar
+      if(STREAM.event){e.textContent=EV_BADGE[STREAM.event]||'⚠ ALERT';e.className='on '+STREAM.event;}else e.className='';}}
     _ovAcc+=dt;if(_ovAcc<.25)return;_ovAcc=0;                  // timestamp/día ~4 veces/s (sin escribir DOM de más)
     const tm=streamClock();if(tm!==_ovTime){_ovTime=tm;const e=$('#ch-time');if(e)e.textContent=tm;} // HH:MM:SS UTC desde STREAM.now
     if(STREAM.day!==_ovDay){_ovDay=STREAM.day;const e=$('#ch-day');if(e)e.textContent=STREAM.day;}    // DAY N desde STREAM.day
@@ -1507,7 +1510,8 @@
   // BLINDAJE DE NORMALIDAD: las luces se modulan SIEMPRE desde su valor base (función pura de redK/dimK) y endEvent() restaura
   // explícito → imposible que queden rojas o apagadas para siempre. (shake/blackout/evT vienen declarados arriba, eran del survival jubilado.)
   const EV_GAP_MIN=180, EV_GAP_MAX=360;        // <<< FRECUENCIA: segundos entre eventos (AJUSTAR ACÁ). Default 3–6 min (ocasional/contemplativo).
-  const EV_QUAKE_DUR=6.5, EV_BLACKOUT_DUR=7.0; // duración de cada evento (s)
+  const EV_QUAKE_DUR=13.0, EV_BLACKOUT_DUR=14.0; // duración de cada evento (s) — AJUSTAR ACÁ
+  const EV_ARC_UP=0.28, EV_ARC_HOLD=0.18;        // forma del arco: sube 28% · sostiene 18% (pico breve) · baja el resto 54% (cola larga). Proporcional a la duración.
   const EV_SHAKE_MAX=1.0;                       // intensidad del shake de cámara en el pico
   const EV_QUAKE_RED=0.7;                       // cuánto se tiñen de rojo las luces en el pico (0..1)
   const EV_BLACKOUT_CUT=0.95;                   // cuánto bajan las luces principales en el corte (0..1)
@@ -1525,7 +1529,7 @@
   const _evRed=new THREE.Color(0xff2a20);
   function evApplyLights(redK,dimK){for(const e of EV_LIGHTS){e.l.color.copy(e.c).lerp(_evRed,redK);if(dimK>0)e.l.intensity=e.i*(1-dimK);}} // modulación PURA desde base
   function evRestoreLights(){for(const e of EV_LIGHTS){e.l.color.copy(e.c);e.l.intensity=e.i;}}                                          // restauración explícita exacta
-  function evEnvelope(p){return p<0.3?p/0.3:p>0.7?Math.max(0,(1-p)/0.3):1;}                                                              // arco: sube (0–.3) · pico (.3–.7) · baja (.7–1)
+  function evEnvelope(p){return p<EV_ARC_UP?p/EV_ARC_UP:p<EV_ARC_UP+EV_ARC_HOLD?1:Math.max(0,(1-p)/(1-EV_ARC_UP-EV_ARC_HOLD));} // sube → pico breve → baja largo (mantiene la forma al estirar la duración)                                                              // arco: sube (0–.3) · pico (.3–.7) · baja (.7–1)
   function reactBeeko(cat){const mode=Math.floor(Math.random()*3);evHoldT=EV_REACT_HOLD[mode]; // 0 leve (mantiene) / 1 mira ('No') / 2 melancólico ('Idle' quieto)
     if(robot.model){if(mode===1)setRobotAnim('No');else if(mode===2)setRobotAnim('Idle');} showBeekoThought(cat);}
   function startEvent(type){if(evType!=='')return false;evType=type;evClock=0;_evRumbleT=0;streamDrive('event',type); // un solo evento a la vez
