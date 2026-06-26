@@ -39,8 +39,11 @@
     // --- sala de fabricación (impresoras 3D) ---
     print: 0,             // progreso de la pieza en impresión 0..100 (auto-cicla en F1; lo manejará la rutina en F2; la pieza lo LEE)
 
+    // --- televisor del observatorio ---
+    tv: false,            // TV prendido/apagado (lo maneja la rutina en el tramo OCIO; el TV de la sala lo LEE para estática+glow)
+
     // --- override por campo: si un campo está forzado, el driver NO lo pisa ---
-    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false }
+    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false, tv:false }
   };
 
   // El driver escribe un campo SOLO si nadie lo forzó desde afuera (admin).
@@ -91,6 +94,7 @@
     setBeesReleased: n => streamForce('beesReleased', n),
     setCharge: n => streamForce('charge', Math.max(0, Math.min(100, n))), // medidor del sector de carga (0..100)
     setPrint: n => streamForce('print', Math.max(0, Math.min(100, n))),   // progreso de impresión de la sala de fabricación (0..100)
+    setTV: on => streamForce('tv', (on===undefined)?!STREAM.tv:!!on),     // televisor del observatorio: setTV(true)=prende · setTV(false)=apaga · setTV()=alterna (override del operador)
     // Encendido de audio del operador. sound(true)/sound(false) o toggle sound(). OJO: por la política de autoplay del navegador,
     // resume() desde la CONSOLA suele NO contar como gesto válido → ceba el AudioContext pero puede quedar 'suspended' (sin sonido)
     // hasta el 1er click/tecla en la página (que sí lo desbloquea, vía el listener global). Por eso van las dos vías.

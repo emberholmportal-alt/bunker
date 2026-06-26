@@ -141,7 +141,11 @@
       {p:[-5.4,10.3], look:[-5.4,11.4], g:['Yes','Idle'],    dwell:[5,9], w:3}, // impresora (mira la pieza) — frecuente
       {p:[-6.6,10.0], look:[-7.2,10.0], g:['ThumbsUp','Idle'],dwell:[3,5], w:1}, // estante de repuestos
       {p:[-5.0,10.6], look:[-5.4,11.35],g:['Yes'],           dwell:[3,5], w:1}, // bandeja / banco
-      {p:[-6.0,9.0],  look:[-6.0,8.2],  g:['Idle'],          dwell:[3,5], w:1}]} // toolbox sur
+      {p:[-6.0,9.0],  look:[-6.0,8.2],  g:['Idle'],          dwell:[3,5], w:1}]}, // toolbox sur
+    // OCIO: una sola station — Beeko se planta FRENTE al televisor del observatorio y lo mira. Casi quieto, gestos esporádicos
+    // (mayoría 'Idle' + algún 'Yes'/'ThumbsUp' suave), dwell largo = "viendo tele". El TV lo prende/apaga routineTick (STREAM.tv).
+    ocio:{zone:'observatorio',node:0,action:'watching',stations:[
+      {p:[-1.30,-0.10], look:[-2.5,-0.5], g:['Idle','Idle','Idle','Idle','Yes','ThumbsUp'], dwell:[6,11], w:1}]}
   };
   // RONDA: patrulla multi-zona (nodo + feature que chequea). Mayormente OK (Yes/ThumbsUp), a veces No (algo raro).
   const RONDA_STOPS=[
@@ -460,7 +464,40 @@
   // staging junto a la BLAST (norte): cajones/bidón/material como "suministros de cuando se selló el búnker"
   loadProp('wood_log.glb',1.3,0,-4.3,.4,.5);
   loadPlant('crate_metal.glb',[{x:-2.9,y:0,z:-1.4,target:.55,rotY:.2},{x:0.5,y:0,z:-4.6,target:.6,rotY:-.3},{x:1.15,y:0,z:-4.45,target:.5,rotY:.25}]); // cajones de suministros (oeste + esclusa)
-  loadPlant('barrel.glb',[{x:-2.68,y:0,z:-0.5,target:.7,rotY:0},{x:-0.1,y:0,z:-4.75,target:.7,rotY:.4}]);                                              // bidones (oeste apoyado al ras del muro + esclusa)
+  loadPlant('barrel.glb',[{x:-0.1,y:0,z:-4.75,target:.7,rotY:.4}]);                                              // bidón (esclusa). El bidón que estaba junto al contador (oeste) lo reemplaza el TELEVISOR ↓
+  // ====== TELEVISOR CRT (observatorio) — reemplaza el barril que estaba junto al contador "TIME ALONE" del muro oeste ======
+  // Procedural (0 assets), retro/gastado, sobre un mueble bajo. Estado ON/OFF leído de STREAM.tv (driver: la rutina en el tramo
+  // OCIO; override de testeo: __REFUGIO.setTV(true/false)). ON = ESTÁTICA (ruido animado por canvas, "nieve") + glow frío que lava
+  // la sala; OFF = pantalla negra, sin glow. Mira hacia el ESE (donde Beeko se planta a verlo y donde CAM 01 lo encuadra).
+  let tvOn=false,tvStaticAcc=0,tvScrFrozen=false; // estado renderizado del TV (flanco para prender/apagar) + acumulador de la estática
+  const tvGrp=new THREE.Group();tvGrp.position.set(-2.55,0,-0.5);tvGrp.rotation.y=Math.PI/2-0.32;scene.add(tvGrp); // muro oeste, frente angulado hacia la sala (+x con sesgo +z)
+  const tvPlastic=new THREE.MeshStandardMaterial({map:tex(grime('#6f6a58'),1),normalMap:_wn,roughness:.82,metalness:.05}); // plástico beige viejo y sucio
+  const tvDark=new THREE.MeshStandardMaterial({color:0x17140f,roughness:.7,metalness:.1});
+  const tvMetal=new THREE.MeshStandardMaterial({color:0x2a2620,roughness:.55,metalness:.4});
+  // (1) mueble bajo donde apoya el TV
+  {const cab=new THREE.MeshStandardMaterial({map:tex(grime('#463d31'),1),normalMap:_wn,roughness:.9,metalness:.05});
+   tvGrp.add(meshBox(.78,.46,.5,0,.25,0,cab));tvGrp.add(meshBox(.82,.04,.54,0,.5,0,tvDark));     // cuerpo + tapa
+   for(const sx of[-.33,.33])for(const sz of[-.2,.2])tvGrp.add(meshBox(.05,.18,.05,sx,.09,sz,tvMetal));} // pequeñas patas
+  const TVY=0.52; // base del TV (= tapa del mueble)
+  // (2) carcasa del TV (caja CRT: frente ancho) + bisel frontal
+  tvGrp.add(meshBox(.54,.42,.46,0,TVY+.21,0,tvPlastic));                                          // carcasa
+  tvGrp.add(meshBox(.52,.40,.03,-.02,TVY+.21,.235,tvPlastic));                                    // marco/bisel frontal (mira +z local)
+  // (3) PANTALLA embutida (mira +z local). MeshBasic = auto-iluminada cuando ON; el color baja el brillo cuando OFF.
+  const tvScrCv=cv(160,120),tvScrX=tvScrCv.getContext('2d');tvScrX.fillStyle='#050605';tvScrX.fillRect(0,0,160,120);
+  const tvScrData=tvScrX.createImageData(160,120);
+  const tvScrTex=new THREE.CanvasTexture(tvScrCv);tvScrTex.anisotropy=2;
+  const tvScrMat=new THREE.MeshBasicMaterial({map:tvScrTex,color:0x242424});                       // color≈gris oscuro = pantalla apagada (sin señal)
+  const tvScreen=new THREE.Mesh(new THREE.PlaneGeometry(.40,.30),tvScrMat);tvScreen.position.set(-.04,TVY+.21,.252);tvGrp.add(tvScreen);
+  // (4) perillas a la derecha del frente + parlante insinuado
+  for(const ky of[TVY+.30,TVY+.14]){const k=new THREE.Mesh(new THREE.CylinderGeometry(.028,.03,.04,12),tvMetal);k.rotation.x=Math.PI/2;k.position.set(.20,ky,.245);tvGrp.add(k);}
+  {const spk=meshBox(.1,.26,.02,.205,TVY+.21,.244,tvDark);for(let i=0;i<5;i++)tvGrp.add(meshBox(.09,.012,.005,.205,TVY+.30-i*.04,.249,tvMetal));tvGrp.add(spk);} // rejilla del parlante
+  // (5) antena de conejo (V) en una esquina superior — gastada, apenas torcida
+  for(const a of[-.5,.5]){const ant=new THREE.Mesh(new THREE.CylinderGeometry(.006,.004,.5,6),tvMetal);ant.position.set(.12,TVY+.42,-.06);ant.rotation.z=a*0.7;ant.position.x+=a*.06;ant.translateY(.25);tvGrp.add(ant);
+    const tip=new THREE.Mesh(new THREE.SphereGeometry(.012,8,8),tvMetal);tip.position.copy(ant.position);tip.translateY(.25);tvGrp.add(tip);}
+  // (6) glow de la pantalla (frío, azulado) — encendido sólo cuando el TV está ON
+  const tvGlow=new THREE.PointLight(0xaec6e0,0,2.6,2);tvGlow.position.set(-.04,TVY+.21,.55);tvGrp.add(tvGlow);
+  // dibuja un cuadro de ESTÁTICA (ruido blanco/nieve) en el canvas de la pantalla
+  function tvDrawStatic(){const d=tvScrData.data;for(let i=0;i<d.length;i+=4){const v=(Math.random()*255)|0;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}tvScrX.putImageData(tvScrData,0,0);tvScrTex.needsUpdate=true;}
   // ---- LÁMPARA INDUSTRIAL en cada sala (consistencia + lógica de búnker): clones del MISMO GLB (geometría compartida → ~0 peso).
   // Montadas al techo (sin collider, nunca bloquean la nav). Salto cultivo (luces de cultivo magenta) y colmena (glow ámbar). ----
   const LAMP_SPOTS=[[-0.3,-1.5],[0,4.3],[0,6.6],[5.4,7.0],[-5.4,7.0],[-4.9,1.1]]; // hub, pasillo, biblioteca, taller, descanso, carga
@@ -799,6 +836,15 @@
     {const _seg=routineSegment();
      if(_seg==='carga'){streamDrive('charge',Math.min(100,STREAM.charge+dt*CHARGE_UP));robot.bat=100;}
      else if(_seg)streamDrive('charge',Math.max(50,STREAM.charge-dt*CHARGE_DOWN));}
+    // TELEVISOR: lee STREAM.tv (lo maneja la rutina en OCIO / el operador con setTV). ON = ESTÁTICA animada + glow frío; OFF = negra.
+    {const on=!!STREAM.tv;
+     if(on!==tvOn){tvOn=on;tvScrMat.color.setHex(on?0xffffff:0x242424);tvScrFrozen=false; // flanco: pantalla viva ↔ apagada
+       if(!on){tvScrX.fillStyle='#050605';tvScrX.fillRect(0,0,160,120);tvScrTex.needsUpdate=true;}}
+     if(on){
+       if(mv){tvStaticAcc+=dt;if(tvStaticAcc>=0.05){tvStaticAcc=0;tvDrawStatic();}}     // "nieve" en movimiento ~20fps
+       else if(!tvScrFrozen){tvDrawStatic();tvScrFrozen=true;}                            // prefers-reduced-motion: un cuadro fijo de estática
+       tvGlow.intensity=1.05+(mv?Math.sin(t*30)*.14:0);}                                 // glow con titileo de tubo
+     else tvGlow.intensity=0;}
     // COLMENA: el enjambre LEE STREAM.bees (cantidad visible) y orbita la colmena con ruido de darteo. El latido pulsa.
     // RUTINA COLMENA — la cría crece (STREAM.bees) mientras el tramo está activo; al llenarse, libera un enjambre.
     if(routineSegment()==='colmena'&&beeReleaseT<=0){streamDrive('bees',Math.min(BEE_CAP,STREAM.bees+dt*BEE_RATE));
@@ -1255,10 +1301,11 @@
     robot.path=p;robot.pi=0;robot.dest=t;setWP();robot.moving=true;
   }
   // ====== RUTINA F2 — DÍA COMPLETO DEL ROBOT ====== (driver por defecto las 24h según streamHourUTC; reemplaza a robotWander)
-  // CARGA 00–06 + 21–24 (durmiendo en el dock) · COLMENA 06–10 · ADMIN 10–13 · FABRICACIÓN 13–17 · RONDA 17–21.
-  // _forceSeg (testeo): undefined=auto(hora) · null=off(deambula) · 'carga'/'colmena'/'admin'/'fabricacion'/'ronda'=forzar el tramo.
+  // CARGA 00–06 + 21–24 (durmiendo en el dock) · COLMENA 06–10 · ADMIN 10–13 · FABRICACIÓN 13–17 · RONDA 17–20 · OCIO 20–21.
+  // OCIO = el "ratito" de Beeko: va al observatorio, prende el TV y mira ESTÁTICA (lo único que hay). Tono melancólico.
+  // _forceSeg (testeo): undefined=auto(hora) · null=off(deambula) · 'carga'/'colmena'/'admin'/'fabricacion'/'ronda'/'ocio'=forzar el tramo.
   function routineSegment(){ if(_forceSeg!==undefined) return _forceSeg; const h=streamHourUTC();
-    if(h<6)return'carga'; if(h<10)return'colmena'; if(h<13)return'admin'; if(h<17)return'fabricacion'; if(h<21)return'ronda'; return'carga'; }
+    if(h<6)return'carga'; if(h<10)return'colmena'; if(h<13)return'admin'; if(h<17)return'fabricacion'; if(h<20)return'ronda'; if(h<21)return'ocio'; return'carga'; }
   function _faceXZ(fx,fz){ if(robot.model) robot.model.rotation.y=Math.atan2(fx-robot.model.position.x, fz-robot.model.position.z); }
   function weightedPick(sts){ let tot=0;for(const s of sts)tot+=(s.w||1); let r=Math.random()*tot;
     for(const s of sts){ r-=(s.w||1); if(r<=0)return s; } return sts[sts.length-1]; }
@@ -1275,11 +1322,13 @@
   }
   function routineTick(dt){ // driver del tramo cuando el robot está quieto (status idle, no moviéndose)
     const seg=routineSegment(),cfg=SEG_CFG[seg];
+    if(seg!=='ocio')streamDrive('tv',false);          // fuera del tramo de ocio: TV apagado (respeta override del operador)
     if(seg==='ronda'){rondaTick(dt);return;}
     if(!cfg){robot.wanderT=0.5;return;}
     if(!robot.rt||robot.rt.seg!==seg){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; // cambio de tramo: limpia poses fijas
       robot.rt={seg:seg,phase:'',station:null,dwellT:0,stopIdx:-1}; }
     if(robotZone!==cfg.zone){travelTo(cfg.node);return;} // todavía no llegó a la zona del tramo
+    if(seg==='ocio')streamDrive('tv',true);            // ya está en el observatorio frente al TV: lo PRENDE (la rutina puede pisar al driver, no al operador)
     if(!cfg.stations){ // ADMIN: se planta en el escritorio (sin stations; mantiene la pose de tecleo)
       if(!robot.atDesk){travelTo(cfg.node);return;}
       if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;}
@@ -1320,7 +1369,7 @@
     if(robot.model&&robot.status==='idle'){setRobotAnim('Wave'); if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,2.6);} // se despide
   }
   // Hooks de operador/testeo (extienden el __REFUGIO del backbone).
-  // forceSegment('carga'|'colmena'|'admin'|'fabricacion'|'ronda') fuerza el tramo · forceSegment(null) lo apaga (deambula) · forceSegment() vuelve a auto(hora). releaseSwarm() libera a mano.
+  // forceSegment('carga'|'colmena'|'admin'|'fabricacion'|'ronda'|'ocio') fuerza el tramo · forceSegment(null) lo apaga (deambula) · forceSegment() vuelve a auto(hora). releaseSwarm() libera a mano.
   if(window.__REFUGIO){
     window.__REFUGIO.forceSegment=function(s){_forceSeg=(arguments.length===0)?undefined:s;return _forceSeg;};
     window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
@@ -1369,7 +1418,7 @@
             if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
             robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
         }else if(routineSegment()){routineTick(dt); // RUTINA F2 es el driver durante TODO el día (reemplaza a robotWander)
-        }else{ if(robot.rt){robot.rt=null;streamReportAction('idle');} // tramo apagado (forceSegment(null)) → vuelve a deambular como antes
+        }else{ if(robot.rt){robot.rt=null;streamReportAction('idle');streamDrive('tv',false);} // tramo apagado (forceSegment(null)) → vuelve a deambular como antes (y apaga el TV por las dudas)
             robot.wanderT-=dt;if(robot.wanderT<=0){
             if(robot.atDesk){robot.atDesk=false;streamReportAction('idle');} // deja la estación: vuelve action a 'idle' antes de deambular
             if(robot.atFab){robot.atFab=false;streamReportAction('idle');}   // deja la impresora
