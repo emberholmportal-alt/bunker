@@ -137,6 +137,16 @@
   // ---- COLMENA (HIVE): enjambre de abejas (Points) + contadores. El enjambre LEE STREAM.bees; los contadores LEEN STREAM.beesReleased.
   let beeSwarm=null,beeData=[],beeNumX=null,beeNumTex=null,_beesRelShown=-1,hiveGlow=null,hiveHaze=null;
   const BEES_MAX=80, hiveC=new THREE.Vector3(0,1.3,14.4); // pool del enjambre y centro de órbita (frente a la colmena)
+  // ---- FASE 2 · TRAMO COLMENA (rutina de stations + liberación de enjambre). Corrida única → variación con Math.random. ----
+  let _forceSeg=undefined;                 // testeo: undefined=auto(hora) · null=off(deambula) · 'colmena'=forzar el tramo
+  let beeReleaseT=0,_beesResetPending=false;
+  const BEE_CAP=60, BEE_RATE=0.5, BEE_RELEASE_DUR=3.6, HIVE_NODE=15; // cría tope, crecimiento/s, duración del surge, nodo NAV de la colmena
+  const COLMENA_STATIONS=[ // {punto donde se para, feature que mira, subset de gestos}
+    {p:[0,13.4],    look:[0,14.55],  g:['Yes','Idle','ThumbsUp']}, // incubadora (cría)
+    {p:[-2.4,13.2], look:[-2.9,13.4], g:['ThumbsUp','Idle']},      // estación apícola
+    {p:[2.3,13.2],  look:[2.7,13.4],  g:['Yes','Idle']},           // jardinera de flores
+    {p:[2.6,12.7],  look:[3.36,12.7], g:['Idle','Yes']}            // display de liberadas
+  ];
   // ---- SALA DE FABRICACIÓN: impresora 3D animada. La pieza crece leyendo STREAM.print (auto-cicla si no está forzado). ----
   let gantry=null,printHead=null,partBracket=null,partHex=null,nozGlow=null,filament=null,printX=null,printTex=null,_printLayerShown=-1,fabRoomLight=null,filTop=null;
   let _printT=0,_printPart=0;
@@ -789,11 +799,20 @@
     if(dockHaze)dockHaze.material.opacity=.10+(mv?Math.abs(Math.sin(t*1.5))*.06:.03);
     if(mv)for(let i=0;i<chargeLeds.length;i++)chargeLeds[i].visible=(Math.sin(t*2.6+i*1.1)>-.2);
     // COLMENA: el enjambre LEE STREAM.bees (cantidad visible) y orbita la colmena con ruido de darteo. El latido pulsa.
+    // RUTINA COLMENA — la cría crece (STREAM.bees) mientras el tramo está activo; al llenarse, libera un enjambre.
+    if(routineSegment()==='colmena'&&beeReleaseT<=0){streamDrive('bees',Math.min(BEE_CAP,STREAM.bees+dt*BEE_RATE));
+      if(STREAM.bees>=BEE_CAP-0.5&&robotZone==='colmena')triggerRelease();}
+    if(beeReleaseT>0){beeReleaseT-=dt;if(beeReleaseT<=0&&_beesResetPending){_beesResetPending=false;streamDrive('bees',4);}} // tras el surge quedan pocas
     if(beeSwarm){const n=Math.max(0,Math.min(BEES_MAX,Math.round(STREAM.bees))),a=beeSwarm.geometry.attributes.position.array;
-      for(let i=0;i<n;i++){const d=beeData[i];if(mv)d.a+=d.w*dt;
-        a[i*3]  =hiveC.x+Math.cos(d.a)*d.r+(mv?Math.sin(t*d.nf+d.np)*.12:0);
-        a[i*3+1]=hiveC.y+d.h+(mv?Math.cos(t*d.nf2+d.np2)*.10+Math.sin(t*1.3+d.np)*.05:0);
-        a[i*3+2]=hiveC.z+Math.sin(d.a)*d.r+(mv?Math.cos(t*d.nf+d.np)*.12:0);}
+      if(beeReleaseT>0){const k=1-Math.max(0,beeReleaseT)/BEE_RELEASE_DUR,spr=1+k*3.4; // LIBERACIÓN: el enjambre sale por la puerta sur (z≈11.8) y se dispersa
+        for(let i=0;i<n;i++){const d=beeData[i];if(mv)d.a+=d.w*dt*2.4;
+          a[i*3]  =hiveC.x+Math.cos(d.a)*d.r*spr+(mv?Math.sin(t*d.nf*2+d.np)*.22:0);
+          a[i*3+1]=hiveC.y+d.h+k*1.2+(mv?Math.cos(t*d.nf2*2+d.np2)*.18:0);                          // suben
+          a[i*3+2]=hiveC.z+Math.sin(d.a)*d.r*.5 - k*(hiveC.z-11.4) - k*k*4*(.5+.5*Math.sin(d.np));}  // van al sur y más allá de la puerta
+      }else{for(let i=0;i<n;i++){const d=beeData[i];if(mv)d.a+=d.w*dt; // órbita normal
+          a[i*3]  =hiveC.x+Math.cos(d.a)*d.r+(mv?Math.sin(t*d.nf+d.np)*.12:0);
+          a[i*3+1]=hiveC.y+d.h+(mv?Math.cos(t*d.nf2+d.np2)*.10+Math.sin(t*1.3+d.np)*.05:0);
+          a[i*3+2]=hiveC.z+Math.sin(d.a)*d.r+(mv?Math.cos(t*d.nf+d.np)*.12:0);}}
       beeSwarm.geometry.setDrawRange(0,n);beeSwarm.geometry.attributes.position.needsUpdate=true;}
     if(hiveGlow)hiveGlow.intensity=1.0+(mv?Math.abs(Math.sin(t*1.1))*.55:.2);          // latido dorado
     if(hiveHaze)hiveHaze.material.opacity=.07+(mv?Math.abs(Math.sin(t*0.9))*.05:.02);
@@ -945,7 +964,7 @@
       row.querySelector('.mk').onclick=()=>doCraft(rc.id);
       list.appendChild(row);});
   }
-  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false};
+  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,rt:null};
   const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
   // ===== POSE "TECLEO" del robot en el escritorio (action='admin') — TODOS los ángulos para calibrar, en un solo lugar.
   // Son DELTAS en RADIANES desde la pose de REPOSO de cada hueso (0 = brazo al costado, como viene). Se SUMAN al reposo y
@@ -1093,6 +1112,40 @@
     if(!p.length){robot.wanderT=1;return;}
     robot.path=p;robot.pi=0;robot.dest=t;setWP();robot.moving=true;
   }
+  // ====== RUTINA F2 — TRAMO COLMENA ====== (driver por defecto durante 06:00–10:00; el resto del día sigue deambulando)
+  function routineSegment(){ if(_forceSeg!==undefined) return _forceSeg; const h=streamHourUTC(); return (h>=6&&h<10)?'colmena':null; }
+  function _faceXZ(fx,fz){ if(robot.model) robot.model.rotation.y=Math.atan2(fx-robot.model.position.x, fz-robot.model.position.z); }
+  function colmenaPick(){ // micro-hop a una station (variación con Math.random; evita repetir la última)
+    const prev=robot.rt&&robot.rt.station; let st=COLMENA_STATIONS[Math.floor(Math.random()*COLMENA_STATIONS.length)],tr=0;
+    while(st===prev&&tr<5){st=COLMENA_STATIONS[Math.floor(Math.random()*COLMENA_STATIONS.length)];tr++;}
+    robot.rt.station=st;robot.rt.phase='choreo';robot.tx=st.p[0];robot.tz=st.p[1];robot.path=null;robot.dest=-1;robot.moving=true;setRobotAnim('Walking');
+  }
+  function colmenaArrive(){ // llegó a la station: se orienta al feature, gesto, y pausa
+    const st=robot.rt&&robot.rt.station; if(!st)return;
+    _faceXZ(st.look[0],st.look[1]); setRobotAnim(st.g[Math.floor(Math.random()*st.g.length)]);
+    robot.rt.dwellT=3+Math.random()*5; streamReportAction('tending');
+  }
+  function colmenaTick(dt){
+    if(!robot.rt) robot.rt={phase:'',station:null,dwellT:0};
+    if(robotZone!=='colmena'){ // todavía no llegó → camina a la colmena por la nav existente
+      const s=nearestNode(robot.model.position.x,robot.model.position.z),p=navPath(s,HIVE_NODE);
+      if(p.length){robot.path=p;robot.pi=0;robot.dest=HIVE_NODE;setWP();robot.moving=true;robot.rt.phase='travel';setRobotAnim('Walking');}
+      else robot.wanderT=0.4; return;
+    }
+    if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;} // pausa/gesto en la station
+    colmenaPick(); // a la próxima station
+  }
+  function triggerRelease(){ // LIBERACIÓN del enjambre (surge visible + contador)
+    if(beeReleaseT>0) return;
+    beeReleaseT=BEE_RELEASE_DUR; _beesResetPending=true;
+    streamDrive('beesReleased', Math.round(STREAM.beesReleased)+1); // sube el acumulado (respeta override)
+    if(robot.model&&robot.status==='idle'){setRobotAnim('Wave'); if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,2.6);} // se despide
+  }
+  // Hooks de operador/testeo (extienden el __REFUGIO del backbone). forceSegment('colmena')/null/sin-arg(auto); releaseSwarm() a mano.
+  if(window.__REFUGIO){
+    window.__REFUGIO.forceSegment=function(s){_forceSeg=(arguments.length===0)?undefined:s;return _forceSeg;};
+    window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
+  }
   // POSE DE TECLEO: sobrescribe las rotaciones de los huesos de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
   // Deltas de ADMIN_POSE sumados al reposo capturado. Sólo se llama cuando el robot está en el escritorio (atDesk).
   function applyAdminPose(t){const B=robot.armBones,R=robot.armRest,P=ADMIN_POSE;if(!B||!R)return;
@@ -1127,12 +1180,16 @@
                 robot.atDesk=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction('admin');robot.wanderT=10+Math.random()*8; // mira al norte (+z) a la pantalla; queda un rato
               }else if(robot.dest===NODE_FABC){ // SALA DE FABRICACIÓN: el robot se para frente a la impresora a fabricar
                 robot.atFab=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction('fabricating');robot.wanderT=12+Math.random()*8; // mira al norte (+z) a la impresora
+              }else if(robot.rt&&robot.rt.phase==='choreo'){colmenaArrive(); // RUTINA COLMENA: llegó a una station → gesto + pausa
+              }else if(robot.rt&&robot.rt.phase==='travel'){robot.rt.phase='';setRobotAnim('Idle'); // llegó a la colmena (vía nav) → arranca la coreografía
               }else{robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}}
           }
           else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;
             if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
             robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
-        }else{robot.wanderT-=dt;if(robot.wanderT<=0){
+        }else if(routineSegment()==='colmena'){colmenaTick(dt); // RUTINA COLMENA es el driver durante el tramo (reemplaza a robotWander)
+        }else{ if(robot.rt){robot.rt=null;streamReportAction('idle');} // salió del tramo → vuelve a deambular como hoy
+            robot.wanderT-=dt;if(robot.wanderT<=0){
             if(robot.atDesk){robot.atDesk=false;streamReportAction('idle');} // deja la estación: vuelve action a 'idle' antes de deambular
             if(robot.atFab){robot.atFab=false;streamReportAction('idle');}   // deja la impresora
             robotWander();}}
