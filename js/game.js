@@ -600,7 +600,7 @@
     box(3.8,CH+.3,.3,VX,CH/2,11.8,concreteMat);                  // muro sur
     box(3.8,CH+.3,.3,VX,CH/2,15.4,concreteMat);                  // muro norte
     // ---- materiales: oro MATE polvoriento (NO brillante), monedas, billetes viejos, acero del strongbox, polvo ----
-    const goldMat=new THREE.MeshStandardMaterial({map:tex(grime('#8a6d2e'),1),normalMap:_wn,color:0x9a7a34,metalness:.5,roughness:.66}); // dorado apagado y sucio
+    const goldMat=new THREE.MeshStandardMaterial({map:tex(grime('#8a6d2e'),1),normalMap:_wn,color:0xb0892f,metalness:.62,roughness:.52}); // dorado: catchea glint pero con grime/polvo (no casino)
     const coinMat=new THREE.MeshStandardMaterial({color:0xa8863e,metalness:.55,roughness:.6,normalMap:metalN});
     const billMat=new THREE.MeshStandardMaterial({map:tex(grime('#5e6450'),1),normalMap:_wn,color:0x6a7058,roughness:.93,metalness:.03}); // billetes verdosos desteñidos
     const bandMat=new THREE.MeshStandardMaterial({color:0x9a8f6a,roughness:.85});
@@ -623,21 +623,37 @@
       for(let i=0;i<6;i++){const ch=new THREE.Mesh(new THREE.TorusGeometry(.035,.012,6,12),vSteel);ch.position.set(3.6+i*.075,.02,14.18-(i%2?.05:0));ch.rotation.x=Math.PI/2;ch.rotation.y=(Math.random()-.5);ch.castShadow=true;scene.add(ch);}} // eslabones de cadena en el piso
     {const hzC=cv(128,32),hxx=hzC.getContext('2d');hxx.fillStyle='#caa800';hxx.fillRect(0,0,128,32);hxx.fillStyle='#111';for(let s=-16;s<140;s+=24){hxx.beginPath();hxx.moveTo(s,0);hxx.lineTo(s+12,0);hxx.lineTo(s-4,32);hxx.lineTo(s-16,32);hxx.closePath();hxx.fill();}const hz=tex(hzC,1);
       for(const hp of[[3.9,13.75,.5],[4.3,14.7,-.7]]){const t=new THREE.Mesh(new THREE.PlaneGeometry(.55,.09),new THREE.MeshStandardMaterial({map:hz,roughness:.9,transparent:true,opacity:.8}));t.rotation.x=-Math.PI/2;t.rotation.z=hp[2];t.position.set(hp[0],.016,hp[1]);scene.add(t);}} // cinta hazard ROTA, caída
-    // (3) HOARD DE ORO — pirámide de lingotes MATE contra el muro sur/SE (el botín principal)
+    // (3) HOARD DE ORO — pirámides GRANDES de lingotes MATE contra el muro sur (el botín que mira Beeko desde su parada)
     function goldBar(g,x,y,z,rot){const b=meshBox(.2,.075,.11,x,y,z,goldMat);b.rotation.y=rot;b.castShadow=true;g.add(b);}
-    {const g=new THREE.Group();g.position.set(6.3,0,12.2);scene.add(g);
-      const rows=[[0,4],[.08,3],[.16,2],[.24,1]];                // pirámide 4·3·2·1
-      for(const zoff of[0,.27])for(const r of rows)for(let i=0;i<r[1];i++)goldBar(g,(i-(r[1]-1)/2)*.235,.04+r[0],zoff,(Math.random()-.5)*.14);}
-    // (4) MONEDAS — pilas de cilindros + derrame en el piso
-    {const g=new THREE.Group();g.position.set(5.1,0,12.05);scene.add(g);
+    function goldPyramid(cx,cz,base,depth){const g=new THREE.Group();g.position.set(cx,0,cz);scene.add(g); // pirámide base·…·1 × 'depth' hileras de fondo
+      for(let d=0;d<depth;d++)for(let L=0;L<base;L++){const n=base-L;for(let i=0;i<n;i++)goldBar(g,(i-(n-1)/2)*.235,.04+L*.08,d*.26,(Math.random()-.5)*.14);}}
+    goldPyramid(6.35,12.15,5,3);                                  // pirámide GRANDE (5·4·3·2·1 × 3) contra el muro sur SE
+    goldPyramid(4.25,12.05,4,2);                                  // segunda pirámide al SO
+    // (4) MONEDAS — MUCHAS pilas de cilindros + derrame abundante en el piso (entre las pirámides)
+    {const g=new THREE.Group();g.position.set(5.05,0,12.0);scene.add(g);
       const stack=(sx,sz,n)=>{for(let i=0;i<n;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(.058,.058,.014,16),coinMat);c.position.set(sx,.02+i*.014,sz);c.castShadow=true;g.add(c);}};
-      stack(-.2,0,8);stack(-.08,.06,5);stack(.03,-.05,9);stack(.15,.05,4);
-      for(let i=0;i<9;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(.058,.058,.014,16),coinMat);c.rotation.x=Math.PI/2;c.rotation.z=Math.random()*3;c.position.set(.18+Math.random()*.5,.008,-.12+Math.random()*.4);c.castShadow=true;g.add(c);}}
-    // (5) FAJOS DE BILLETES — ladrillos verdosos con faja, apilados + un par caídos
-    {const g=new THREE.Group();g.position.set(4.9,0,13.0);scene.add(g);
+      for(let s=0;s<10;s++)stack(-.55+Math.random()*1.1,-.16+Math.random()*.5,4+Math.floor(Math.random()*9));
+      for(let i=0;i<22;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(.058,.058,.014,16),coinMat);c.rotation.x=Math.PI/2;c.rotation.z=Math.random()*3;c.position.set(-.55+Math.random()*1.45,.008,-.2+Math.random()*.72);c.castShadow=true;g.add(c);}}
+    // (5) FAJOS DE BILLETES procedurales — pila contra el muro sur (complementa las montañas GLB de abajo)
+    {const g=new THREE.Group();g.position.set(4.55,0,11.98);scene.add(g);
       const bundle=(bx,by,bz,rot)=>{const b=meshBox(.16,.06,.08,bx,by,bz,billMat);b.rotation.y=rot;b.castShadow=true;g.add(b);const bd=meshBox(.162,.062,.022,bx,by,bz,bandMat);bd.rotation.y=rot;g.add(bd);};
-      for(let r=0;r<3;r++)for(let i=0;i<3-r;i++)bundle(-.18+i*.17+r*.085,.035+r*.062,0,(Math.random()-.5)*.1);
-      bundle(.3,.035,.12,.5);bundle(.18,.035,.22,-.3);}
+      for(let L=0;L<4;L++){const n=4-L;for(let i=0;i<n;i++)bundle(-.26+i*.17,.035+L*.062,(Math.random()-.5)*.2,(Math.random()-.5)*.25);}}
+    // (5b) MONTAÑAS DE RIQUEZA (GLB clonados — 0 peso por instancia): cash_stack + gold_ingots + dólares sueltos. VAN CONTRA LAS
+    // PAREDES Y EN EL FONDO/RINCONES — NUNCA en la parada de Beeko (~5.3,13.7) ni en el pasillo puerta→parada. Cantidad reducida en mobile.
+    {const N=SMALL?0.55:1, cash=[], gold=[], bills=[];
+      const heap=(arr,cx,cz,rx,rz,layers,per,t0,t1,yStep)=>{for(let L=0;L<layers;L++){const n=Math.max(1,Math.round(per*N*(1-L*.16))),sh=1-L*.12;for(let i=0;i<n;i++)arr.push({x:cx+(Math.random()-.5)*rx*2*sh,z:cz+(Math.random()-.5)*rz*2*sh,y:L*yStep,target:t0+Math.random()*(t1-t0),rotY:Math.random()*6.28});}};
+      // CASH (montañas): muro sur (detrás del oro), muro este (columna alta), muro norte NE, rincón SO
+      heap(cash, 5.65,12.02, .95,.26, 5,7, .30,.46, .14);
+      heap(cash, 6.88,13.5,  .16,.95, 5,5, .30,.46, .15);
+      heap(cash, 6.4,15.06,  .8,.18,  5,5, .30,.46, .15);
+      heap(cash, 3.8,12.2,   .32,.42, 4,4, .28,.42, .13);
+      // GOLD INGOTS (GLB) coronando/reforzando las pirámides + algunos al este
+      heap(gold, 6.35,12.2,  .5,.2,  3,4, .34,.5,  .14);
+      heap(gold, 4.25,12.0,  .34,.2, 2,3, .34,.5,  .14);
+      heap(gold, 6.82,12.65, .14,.3, 3,2, .32,.46, .14);
+      // DÓLARES sueltos (quad texturado) al pie del hoard sur (lejos del centro y de la parada)
+      for(let i=0;i<Math.round(14*N);i++)bills.push({x:3.75+Math.random()*3.1, z:11.95+Math.random()*.78, y:.012, target:.15+Math.random()*.05, rotY:Math.random()*6.28});
+      loadPlant('cash_stack.glb',cash); loadPlant('gold_ingots.glb',gold); loadPlant('dollar_bill.glb',bills);}
     // (6) STRONGBOX abierto (de donde salió el botín) contra el muro este, tapa caída hacia atrás
     {const g=new THREE.Group();g.position.set(6.7,0,14.2);g.rotation.y=-.5;scene.add(g);
       g.add(meshBox(.5,.34,.4,0,.18,0,vSteel));                  // cuerpo
@@ -659,9 +675,11 @@
       hel.add(meshBox(.02,.06,.22,0,.06,0,new THREE.MeshStandardMaterial({color:helC,roughness:.85}))); // cresta
       hel.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
     // (8) ILUMINACIÓN — fría y TENUE (cuarto muerto) + HAZ CÁLIDO ámbar que entra por la puerta desde la colmena (vida/riqueza)
-    const vCold=new THREE.PointLight(0x8a98b0,.55,7,2);vCold.position.set(VX+.3,CH-.4,VZ);scene.add(vCold);
-    const vWarm=new THREE.SpotLight(0xffb43a,1.25,5.5,Math.PI/5,.55,1.5);vWarm.position.set(3.5,1.7,14.35);vWarm.target.position.set(6.0,.5,12.6);scene.add(vWarm);scene.add(vWarm.target); // haz por la puerta (NO) hacia el oro
-    const vGlint=new THREE.PointLight(0xffd98a,.42,3.2,2);vGlint.position.set(6.2,.95,12.4);scene.add(vGlint); // realce del oro (sutil, no casino)
+    const vCold=new THREE.PointLight(0x8a98b0,.7,7,2);vCold.position.set(VX+.3,CH-.4,VZ);scene.add(vCold); // fill frío: el cuarto se lee, pero sigue en penumbra
+    const vWarm=new THREE.SpotLight(0xffb43a,1.3,5.5,Math.PI/5,.55,1.5);vWarm.position.set(3.5,1.7,14.35);vWarm.target.position.set(6.0,.5,12.4);scene.add(vWarm);scene.add(vWarm.target); // haz cálido que entra por la puerta desde la colmena
+    const vHoard=new THREE.PointLight(0xffcf8a,.9,4.7,2);vHoard.position.set(5.7,1.45,12.3);scene.add(vHoard); // luz cálida-dorada SOBRE el hoard sur → el oro se LEE como oro (punto medio, no casino)
+    const vGlint=new THREE.PointLight(0xffe0a0,.5,3.4,2);vGlint.position.set(6.35,1.0,12.3);scene.add(vGlint);   // glint del oro
+    const vGlint2=new THREE.PointLight(0xffe0a0,.32,3,2);vGlint2.position.set(6.85,1.15,13.6);scene.add(vGlint2); // glint en el cash del muro este
     {const haze=new THREE.Mesh(new THREE.SphereGeometry(.9,12,12),new THREE.MeshBasicMaterial({color:0xffb43a,transparent:true,opacity:.05,depthWrite:false}));haze.position.set(4.3,1.2,14.0);scene.add(haze);} // polvo en el haz
     // (9) ATMÓSFERA NARRATIVA — cartel estarcido DESTEÑIDO en el muro este + capas de polvo en el piso
     {const sc=cv(256,128),sx=sc.getContext('2d');sx.clearRect(0,0,256,128);
@@ -1294,7 +1312,7 @@
   };
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo; 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:6.2,z:12.4,r:.6}/*pila de oro (bóveda)*/,{x:5.0,z:12.05,r:.5}/*fajos+monedas (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:5.9,z:12.2,r:.9}/*hoard sur: oro+cash+monedas (bóveda)*/,{x:6.85,z:13.7,r:.4}/*cash muro este (bóveda)*/,{x:6.3,z:15.0,r:.6}/*cash muro norte NE (bóveda)*/,{x:4.1,z:12.1,r:.55}/*hoard SO (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{

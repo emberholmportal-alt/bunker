@@ -20,3 +20,10 @@ SALA DE FABRICACIÓN — props agregados (poly.pizza):
   - barrel.glb .......... "Barrel"   · CC-BY 3.0  (atribución por cortesía a su autor en poly.pizza)
   - lamp_industrial.glb . "Industrial Pendant Lamp" · CC-BY 3.0  (atribución por cortesía)
   El resto de la sala reusa props CC0 ya presentes (gas_can, propane_tank, etc.).
+
+LA BÓVEDA (VAULT) — oro y dinero apilado (poly.pizza), clonados para las montañas:
+  - gold_ingots.glb ..... "Gold Ingots" de Quaternius · CC0 1.0 (sin atribución requerida)
+  - cash_stack.glb ...... "Cash Stack" de J-Toastie   · CC-BY 3.0 (atribución por cortesía)
+  - dollar_bill.glb ..... "Dollar" de J-Toastie        · CC-BY 3.0 (atribución por cortesía)
+  Se cargan UNA vez y se CLONAN en masa (loadPlant) para armar las montañas de
+  riqueza → 0 peso por instancia. Complementan el oro/monedas/fajos procedurales.
