@@ -1082,6 +1082,9 @@
   if(window.__REFUGIO){
     window.__REFUGIO.forceSegment=function(s){_forceSeg=(arguments.length===0)?undefined:s;return _forceSeg;};
     window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
+    // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
+    window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
+    window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
   }
   // POSE DE TECLEO: sobrescribe las rotaciones de los huesos de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
   // Deltas de ADMIN_POSE sumados al reposo capturado. Sólo se llama cuando el robot está en el escritorio (atDesk).
