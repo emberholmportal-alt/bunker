@@ -42,8 +42,11 @@
     // --- televisor del observatorio ---
     tv: false,            // TV prendido/apagado (lo maneja la rutina en el tramo OCIO; el TV de la sala lo LEE para estática+glow)
 
+    // --- eventos aleatorios (temblor / fallo eléctrico) ---
+    event: '',            // '' | 'quake' | 'blackout' — evento en curso (lo setea el controlador; '' = búnker tranquilo)
+
     // --- override por campo: si un campo está forzado, el driver NO lo pisa ---
-    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false, tv:false }
+    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false, tv:false, event:false }
   };
 
   // El driver escribe un campo SOLO si nadie lo forzó desde afuera (admin).

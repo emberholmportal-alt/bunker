@@ -681,12 +681,7 @@
     const vGlint=new THREE.PointLight(0xffe0a0,.5,3.4,2);vGlint.position.set(6.35,1.0,12.3);scene.add(vGlint);   // glint del oro
     const vGlint2=new THREE.PointLight(0xffe0a0,.32,3,2);vGlint2.position.set(6.85,1.15,13.6);scene.add(vGlint2); // glint en el cash del muro este
     {const haze=new THREE.Mesh(new THREE.SphereGeometry(.9,12,12),new THREE.MeshBasicMaterial({color:0xffb43a,transparent:true,opacity:.05,depthWrite:false}));haze.position.set(4.3,1.2,14.0);scene.add(haze);} // polvo en el haz
-    // (9) ATMÓSFERA NARRATIVA — cartel estarcido DESTEÑIDO en el muro este + capas de polvo en el piso
-    {const sc=cv(256,128),sx=sc.getContext('2d');sx.clearRect(0,0,256,128);
-      sx.strokeStyle='#b8a23a';sx.globalAlpha=.5;sx.lineWidth=5;sx.strokeRect(12,12,232,104);
-      sx.fillStyle='#c8b34a';sx.globalAlpha=.55;sx.font='bold 44px Anton, sans-serif';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('VAULT',128,52);
-      sx.font='17px VT323, monospace';sx.globalAlpha=.4;sx.fillText('RESTRICTED · AUTHORIZED ONLY',128,90);
-      const sg=new THREE.Mesh(new THREE.PlaneGeometry(.9,.45),new THREE.MeshStandardMaterial({map:tex(sc,1),transparent:true,roughness:1}));sg.position.set(7.04,1.7,13.2);sg.rotation.y=-Math.PI/2;scene.add(sg);} // muro este, mira al oeste
+    // (9) ATMÓSFERA — capas de polvo en el piso (cartel "VAULT/RESTRICTED" removido: redundante, el overlay ya dice CAM 10 · VAULT)
     dust(2.2,1.6,5.8,.014,12.6);dust(.9,.7,4.1,.015,14.3);       // polvo asentado en el piso (bajo las pilas + cerca de la puerta)
   }
   loadProp('lamp_industrial.glb',5.3,1.95,13.4,.5,0);            // lámpara industrial al techo (ÚNICO GLB de la sala: clon ya cargado → 0 peso nuevo)
@@ -1025,9 +1020,12 @@
     // flash de evento
     if(flashA>0)flashA-=dt*1.4;const fe=$('#flash');fe.style.background='rgb('+flashCol+')';fe.style.opacity=clamp(flashA,0,.6).toFixed(2);
 
+    // EVENTOS ALEATORIOS: scheduler + arco del evento (luces/shake/sonido/alerta/Beeko). Corre DESPUÉS de animar las luces de
+    // sala (así las pisa durante el evento) y ANTES de capturar 'sh' (para que el shake del temblor llegue a la cámara).
+    eventTick(dt,t,mv);
     // CÁMARA DE SEGURIDAD (reemplaza 1ª persona + movimiento). El robot reporta su sala a STREAM;
     // la cámara LEE STREAM.zone y corta. No detecta al robot para decidir la zona.
-    if(shake>0)shake-=dt*1.6;const sh=Math.max(0,shake);
+    if(shake>0&&evType!=='quake')shake-=dt*1.6;const sh=Math.max(0,shake); // en temblor lo maneja eventTick; si no, decae normal
     robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas)
     applySecurityCam(dt,t,mv,sh); // posa/corta la cámara según STREAM.zone y encuadra al robot
     updateOverlay(dt);            // overlay (CAM/zona, timestamp, día) — lee de STREAM
@@ -1045,6 +1043,20 @@
   // BANCO FIJO de pensamientos por categoría. DISEÑO A FUTURO: una fuente de IA reemplaza/amplía estos arrays
   // SIN tocar el cuadro — showBeekoThought(categoria) sólo consume de BEEKO_THOUGHTS[cat]. Nada de IA por ahora.
   const BEEKO_THOUGHTS={
+    quake:[
+      "the ground is shaking again. the bunker holds. it always holds.",
+      "the bees go quiet when it shakes. they know before i do.",
+      "another tremor. the world up there is still falling apart. down here, we hold.",
+      "i felt that one in my frame. forty years and she hasn't cracked yet.",
+      "it shakes, and i wait, and it passes. that's the whole ritual now."
+    ],
+    blackout:[
+      "lights out again. the emergency cells kick in. i've done this in the dark before.",
+      "power's gone. somewhere a relay finally gave up. i'll find it tomorrow.",
+      "the dark doesn't bother me. the bees, though — i hope they stay warm.",
+      "another outage. one more thing held together with rust and luck.",
+      "the generator coughs and dies and coughs back. like me, almost."
+    ],
     hive:[
       "the brood is warm today. that's enough.",
       "colony's getting stronger. soon it goes up.",
@@ -1490,11 +1502,56 @@
     streamDrive('beesReleased', Math.round(STREAM.beesReleased)+1); // sube el acumulado (respeta override)
     if(robot.model&&robot.status==='idle'){setRobotAnim('Wave'); if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,2.6);} // se despide
   }
+  // ====== EVENTOS ALEATORIOS (temblor / fallo eléctrico) — controlador único ======
+  // Ocasionales, en TIEMPO REAL (se ven en el stream a cualquier speed). UN solo evento a la vez. Arco inicio→pico→fin.
+  // BLINDAJE DE NORMALIDAD: las luces se modulan SIEMPRE desde su valor base (función pura de redK/dimK) y endEvent() restaura
+  // explícito → imposible que queden rojas o apagadas para siempre. (shake/blackout/evT vienen declarados arriba, eran del survival jubilado.)
+  const EV_GAP_MIN=180, EV_GAP_MAX=360;        // <<< FRECUENCIA: segundos entre eventos (AJUSTAR ACÁ). Default 3–6 min (ocasional/contemplativo).
+  const EV_QUAKE_DUR=6.5, EV_BLACKOUT_DUR=7.0; // duración de cada evento (s)
+  const EV_SHAKE_MAX=1.0;                       // intensidad del shake de cámara en el pico
+  const EV_QUAKE_RED=0.7;                       // cuánto se tiñen de rojo las luces en el pico (0..1)
+  const EV_BLACKOUT_CUT=0.95;                   // cuánto bajan las luces principales en el corte (0..1)
+  const EV_REACT_HOLD=[0.5,1.6,2.6];            // pausa de Beeko según el modo: leve / mira / melancólico
+  const QUAKE_ALERTS=['⚠ SEISMIC ACTIVITY DETECTED','⚠ STRUCTURAL STRESS — SECTOR INTEGRITY NOMINAL','⚠ TREMOR DETECTED — SYSTEMS HOLDING'];
+  const BLACKOUT_ALERTS=['⚠ POWER FAILURE — EMERGENCY LIGHTING ENGAGED','⚠ MAIN POWER LOST — BACKUP ACTIVE','⚠ GRID FAULT — RESTORING'];
+  let evType='', evClock=0, evEnabled=true, evHoldT=0, _evRumbleT=0;  // evHoldT lo lee tickRobot (congela a Beeko durante su reacción)
+  evT=EV_GAP_MIN+Math.random()*(EV_GAP_MAX-EV_GAP_MIN);              // primer evento tras un gap completo
+  // luces de EMERGENCIA (ámbar/rojas, apagadas) que rampan durante el fallo eléctrico (hub / norte / oeste)
+  const emergLights=[new THREE.PointLight(0xff5526,0,9,2),new THREE.PointLight(0xff5526,0,9,2),new THREE.PointLight(0xff6a33,0,8,2)];
+  emergLights[0].position.set(0,2.3,1.0);emergLights[1].position.set(0,2.3,10.2);emergLights[2].position.set(-5.0,2.3,8.0);emergLights.forEach(l=>scene.add(l));
+  // REGISTRO de luces de sala (PointLight/SpotLight) con su base (intensidad+color). Excluye baliza del blast, emergencia, generador, baliza giratoria.
+  const _evSkip=new Set([sealLight,emer,coreLight,gyroLight].concat(emergLights));
+  const EV_LIGHTS=[]; scene.traverse(o=>{if((o.isPointLight||o.isSpotLight)&&!_evSkip.has(o))EV_LIGHTS.push({l:o,i:o.intensity,c:o.color.clone()});});
+  const _evRed=new THREE.Color(0xff2a20);
+  function evApplyLights(redK,dimK){for(const e of EV_LIGHTS){e.l.color.copy(e.c).lerp(_evRed,redK);if(dimK>0)e.l.intensity=e.i*(1-dimK);}} // modulación PURA desde base
+  function evRestoreLights(){for(const e of EV_LIGHTS){e.l.color.copy(e.c);e.l.intensity=e.i;}}                                          // restauración explícita exacta
+  function evEnvelope(p){return p<0.3?p/0.3:p>0.7?Math.max(0,(1-p)/0.3):1;}                                                              // arco: sube (0–.3) · pico (.3–.7) · baja (.7–1)
+  function reactBeeko(cat){const mode=Math.floor(Math.random()*3);evHoldT=EV_REACT_HOLD[mode]; // 0 leve (mantiene) / 1 mira ('No') / 2 melancólico ('Idle' quieto)
+    if(robot.model){if(mode===1)setRobotAnim('No');else if(mode===2)setRobotAnim('Idle');} showBeekoThought(cat);}
+  function startEvent(type){if(evType!=='')return false;evType=type;evClock=0;_evRumbleT=0;streamDrive('event',type); // un solo evento a la vez
+    if(type==='quake'){showAlert(QUAKE_ALERTS[Math.floor(Math.random()*QUAKE_ALERTS.length)]);alarm();}
+    else{showAlert(BLACKOUT_ALERTS[Math.floor(Math.random()*BLACKOUT_ALERTS.length)]);eclick();genDuck(0.04,0.35);} // generador tose y se apaga
+    reactBeeko(type);return true;}
+  function endEvent(){evType='';evClock=0;shake=0;evRestoreLights();emergLights.forEach(l=>l.intensity=0);genDuck(undefined,0.5);streamDrive('event',''); // CANDADO: todo a base
+    evT=EV_GAP_MIN+Math.random()*(EV_GAP_MAX-EV_GAP_MIN);}
+  function eventTick(dt,t,mv){
+    if(evType===''){ if(evEnabled&&!STREAM._force.event){evT-=dt;if(evT<=0)startEvent(Math.random()<0.5?'quake':'blackout');} return; } // scheduler (no corre con evento activo → no se solapan)
+    evClock+=dt;const DUR=evType==='quake'?EV_QUAKE_DUR:EV_BLACKOUT_DUR,p=Math.min(1,evClock/DUR),env=evEnvelope(p);
+    if(evType==='quake'){ shake=EV_SHAKE_MAX*env*(mv?1:0.3); evApplyLights(env*EV_QUAKE_RED,0); // shake (respeta reduced-motion) + luces a rojo
+      _evRumbleT-=dt; if(env>0.35&&_evRumbleT<=0){rumble();_evRumbleT=0.6+Math.random()*0.3;} }                                        // retumbo intermitente en el pico
+    else{ let cut; if(p<0.12)cut=(Math.random()<0.5?1:0.2)*EV_BLACKOUT_CUT; else if(p>0.86)cut=(Math.random()<0.5?1:0.35)*EV_BLACKOUT_CUT; else cut=EV_BLACKOUT_CUT; // flicker caída → corte → flicker reencendido
+      evApplyLights(0,mv?cut:cut*0.9);
+      const em=Math.min(1,env*1.4); emergLights.forEach((l,i)=>l.intensity=(1.15+(mv?Math.sin(t*7+i)*0.18:0))*em); emer.intensity=(1.7+(mv?Math.sin(t*9)*0.3:0))*em; } // emergencia ámbar/roja
+    if(evClock>=DUR)endEvent();
+  }
   // Hooks de operador/testeo (extienden el __REFUGIO del backbone).
   // forceSegment('carga'|'colmena'|'admin'|'fabricacion'|'ronda'|'ocio') fuerza el tramo · forceSegment(null) lo apaga (deambula) · forceSegment() vuelve a auto(hora). releaseSwarm() libera a mano.
   if(window.__REFUGIO){
     window.__REFUGIO.forceSegment=function(s){_forceSeg=(arguments.length===0)?undefined:s;return _forceSeg;};
     window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
+    window.__REFUGIO.quake=function(){return startEvent('quake');};        // dispara un temblor YA (no-op si hay un evento en curso)
+    window.__REFUGIO.blackout=function(){return startEvent('blackout');};  // dispara un fallo eléctrico YA
+    window.__REFUGIO.events=function(on){evEnabled=(on===undefined)?!evEnabled:!!on;return evEnabled;}; // on/off del scheduler automático (override del operador)
     // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
@@ -1512,6 +1569,7 @@
     B.lR.rotation.set(R.lR.x+P.LOWERARM_R.x+bR, R.lR.y+P.LOWERARM_R.y, R.lR.z+P.LOWERARM_R.z);}
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
+    if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
     if(robot.atDesk)applyAdminPose(clk.elapsedTime); // pose de tecleo en el escritorio (después del mixer)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
