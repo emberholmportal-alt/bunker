@@ -681,12 +681,7 @@
     const vGlint=new THREE.PointLight(0xffe0a0,.5,3.4,2);vGlint.position.set(6.35,1.0,12.3);scene.add(vGlint);   // glint del oro
     const vGlint2=new THREE.PointLight(0xffe0a0,.32,3,2);vGlint2.position.set(6.85,1.15,13.6);scene.add(vGlint2); // glint en el cash del muro este
     {const haze=new THREE.Mesh(new THREE.SphereGeometry(.9,12,12),new THREE.MeshBasicMaterial({color:0xffb43a,transparent:true,opacity:.05,depthWrite:false}));haze.position.set(4.3,1.2,14.0);scene.add(haze);} // polvo en el haz
-    // (9) ATMÓSFERA NARRATIVA — cartel estarcido DESTEÑIDO en el muro este + capas de polvo en el piso
-    {const sc=cv(256,128),sx=sc.getContext('2d');sx.clearRect(0,0,256,128);
-      sx.strokeStyle='#b8a23a';sx.globalAlpha=.5;sx.lineWidth=5;sx.strokeRect(12,12,232,104);
-      sx.fillStyle='#c8b34a';sx.globalAlpha=.55;sx.font='bold 44px Anton, sans-serif';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('VAULT',128,52);
-      sx.font='17px VT323, monospace';sx.globalAlpha=.4;sx.fillText('RESTRICTED · AUTHORIZED ONLY',128,90);
-      const sg=new THREE.Mesh(new THREE.PlaneGeometry(.9,.45),new THREE.MeshStandardMaterial({map:tex(sc,1),transparent:true,roughness:1}));sg.position.set(7.04,1.7,13.2);sg.rotation.y=-Math.PI/2;scene.add(sg);} // muro este, mira al oeste
+    // (9) ATMÓSFERA — capas de polvo en el piso (cartel "VAULT/RESTRICTED" removido: redundante, el overlay ya dice CAM 10 · VAULT)
     dust(2.2,1.6,5.8,.014,12.6);dust(.9,.7,4.1,.015,14.3);       // polvo asentado en el piso (bajo las pilas + cerca de la puerta)
   }
   loadProp('lamp_industrial.glb',5.3,1.95,13.4,.5,0);            // lámpara industrial al techo (ÚNICO GLB de la sala: clon ya cargado → 0 peso nuevo)
