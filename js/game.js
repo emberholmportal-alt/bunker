@@ -1328,7 +1328,7 @@
     if(!robot.rt||robot.rt.seg!==seg){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; // cambio de tramo: limpia poses fijas
       robot.rt={seg:seg,phase:'',station:null,dwellT:0,stopIdx:-1}; }
     if(robotZone!==cfg.zone){travelTo(cfg.node);return;} // todavía no llegó a la zona del tramo
-    if(seg==='ocio')streamDrive('tv',true);            // ya está en el observatorio frente al TV: lo PRENDE (la rutina puede pisar al driver, no al operador)
+    // OCIO: el TV NO se prende acá (todavía está cruzando la sala hacia el TV). Se prende al LLEGAR a la station (routineArrive·choreo).
     if(!cfg.stations){ // ADMIN: se planta en el escritorio (sin stations; mantiene la pose de tecleo)
       if(!robot.atDesk){travelTo(cfg.node);return;}
       if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;}
@@ -1342,6 +1342,7 @@
     if(rt.seg==='ronda'){rondaArrive();return;}
     if(rt.phase==='choreo'){ // llegó a una station → se orienta al feature, gesto y pausa
       const st=rt.station; if(st){_faceXZ(st.look[0],st.look[1]);setRobotAnim(st.g[Math.floor(Math.random()*st.g.length)]);}
+      if(routineSegment()==='ocio')streamDrive('tv',true); // OCIO: recién AHORA (plantado frente al TV) lo prende; mientras caminaba quedó apagado
       const dw=(st&&st.dwell)||[3,8]; rt.dwellT=dw[0]+Math.random()*(dw[1]-dw[0]); rt.phase=''; streamReportAction(cfg.action); return;
     }
     // phase==='travel' → llegó al nodo de la zona
