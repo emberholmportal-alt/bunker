@@ -140,12 +140,34 @@
   // ---- FASE 2 · TRAMO COLMENA (rutina de stations + liberación de enjambre). Corrida única → variación con Math.random. ----
   let _forceSeg=undefined;                 // testeo: undefined=auto(hora) · null=off(deambula) · 'colmena'=forzar el tramo
   let beeReleaseT=0,_beesResetPending=false;
-  const BEE_CAP=60, BEE_RATE=0.5, BEE_RELEASE_DUR=3.6, HIVE_NODE=15; // cría tope, crecimiento/s, duración del surge, nodo NAV de la colmena
+  const BEE_CAP=60, BEE_RATE=0.5, BEE_RELEASE_DUR=3.6; // cría tope, crecimiento por seg, duración del surge de liberación
+  const CHARGE_UP=0.5, CHARGE_DOWN=0.08; // carga: sube en el dock / drena lento el resto del día (piso 50)
   const COLMENA_STATIONS=[ // {punto donde se para, feature que mira, subset de gestos}
     {p:[0,13.4],    look:[0,14.55],  g:['Yes','Idle','ThumbsUp']}, // incubadora (cría)
     {p:[-2.4,13.2], look:[-2.9,13.4], g:['ThumbsUp','Idle']},      // estación apícola
     {p:[2.3,13.2],  look:[2.7,13.4],  g:['Yes','Idle']},           // jardinera de flores
     {p:[2.6,12.7],  look:[3.36,12.7], g:['Idle','Yes']}            // display de liberadas
+  ];
+  // Config por TRAMO within-zone (zona, nodo de entrada, acción de STREAM, stations con dwell/peso opcionales). RONDA va aparte.
+  const SEG_CFG={
+    carga:{zone:'carga',node:12,action:'charging',stations:[ // el más QUIETO: dock pesado + largo (enchufado)
+      {p:[-5.6,1.1], look:[-6.25,1.1], g:['Idle'],           dwell:[10,18], w:5},
+      {p:[-5.7,2.0], look:[-6.42,2.0], g:['Yes','Idle'],     dwell:[3,5],   w:1},
+      {p:[-5.6,2.5], look:[-6.46,2.6], g:['ThumbsUp'],       dwell:[3,5],   w:1}]},
+    colmena:{zone:'colmena',node:15,action:'tending',stations:COLMENA_STATIONS},
+    admin:{zone:'descanso',node:16,action:'admin'}, // sin stations: se planta en el escritorio (pose de tecleo)
+    fabricacion:{zone:'fab',node:20,action:'fabricating',stations:[
+      {p:[-5.4,10.3], look:[-5.4,11.4], g:['Yes','Idle'],    dwell:[5,9], w:3}, // impresora (mira la pieza) — frecuente
+      {p:[-6.6,10.0], look:[-7.2,10.0], g:['ThumbsUp','Idle'],dwell:[3,5], w:1}, // estante de repuestos
+      {p:[-5.0,10.6], look:[-5.4,11.35],g:['Yes'],           dwell:[3,5], w:1}, // bandeja / banco
+      {p:[-6.0,9.0],  look:[-6.0,8.2],  g:['Idle'],          dwell:[3,5], w:1}]} // toolbox sur
+  };
+  // RONDA: patrulla multi-zona (nodo + feature que chequea). Mayormente OK (Yes/ThumbsUp), a veces No (algo raro).
+  const RONDA_STOPS=[
+    {node:0,  look:[-2.1,-4.0]},   // generador / hub
+    {node:4,  look:[2.9,9.6]},     // cultivo (racks)
+    {node:15, look:[0,14.55]},     // colmena
+    {node:20, look:[-5.4,11.35]}   // fabricación
   ];
   // ---- SALA DE FABRICACIÓN: impresora 3D animada. La pieza crece leyendo STREAM.print (auto-cicla si no está forzado). ----
   let gantry=null,printHead=null,partBracket=null,partHex=null,nozGlow=null,filament=null,printX=null,printTex=null,_printLayerShown=-1,fabRoomLight=null,filTop=null;
@@ -798,6 +820,11 @@
       if(dockGlow)dockGlow.intensity=.7+(c/100)*.8+(mv?Math.sin(t*2.4)*.12:0);}
     if(dockHaze)dockHaze.material.opacity=.10+(mv?Math.abs(Math.sin(t*1.5))*.06:.03);
     if(mv)for(let i=0;i<chargeLeds.length;i++)chargeLeds[i].visible=(Math.sin(t*2.6+i*1.1)>-.2);
+    // CARGA: en el tramo 'carga' (durmiendo en el dock) la carga sube hacia 100 y la batería del robot queda full;
+    // el resto del día drena lento hacia un piso de 50 → la curva oscila 50–100 (respeta override de admin vía streamDrive).
+    {const _seg=routineSegment();
+     if(_seg==='carga'){streamDrive('charge',Math.min(100,STREAM.charge+dt*CHARGE_UP));robot.bat=100;}
+     else if(_seg)streamDrive('charge',Math.max(50,STREAM.charge-dt*CHARGE_DOWN));}
     // COLMENA: el enjambre LEE STREAM.bees (cantidad visible) y orbita la colmena con ruido de darteo. El latido pulsa.
     // RUTINA COLMENA — la cría crece (STREAM.bees) mientras el tramo está activo; al llenarse, libera un enjambre.
     if(routineSegment()==='colmena'&&beeReleaseT<=0){streamDrive('bees',Math.min(BEE_CAP,STREAM.bees+dt*BEE_RATE));
@@ -824,7 +851,8 @@
     // FABRICACIÓN: STREAM.print auto-cicla (si no está forzado), alternando pieza por ciclo. La pieza crece capa a capa leyéndolo;
     // el cabezal barre XY sobre la capa actual; el filamento sigue al cabezal; el panel se redibuja al cambiar de capa.
     if(printHead){
-      if(!STREAM._force.print){_printT+=dt;if(_printT>=PRINT_SECS){_printT-=PRINT_SECS;_printPart^=1;partBracket.visible=(_printPart===0);partHex.visible=(_printPart===1);}streamDrive('print',(_printT/PRINT_SECS)*100);}
+      // STREAM.print avanza en el tramo 'fabricacion' (la rutina) y como fallback cuando la rutina está apagada (forceSegment(null)); pausa fuera de esos casos.
+      if(!STREAM._force.print&&(routineSegment()==='fabricacion'||routineSegment()===null)){_printT+=dt;if(_printT>=PRINT_SECS){_printT-=PRINT_SECS;_printPart^=1;partBracket.visible=(_printPart===0);partHex.visible=(_printPart===1);}streamDrive('print',(_printT/PRINT_SECS)*100);}
       const pv=Math.max(0,Math.min(100,STREAM.print)),layer=Math.floor(pv/100*PRINT_LAYERS),frac=Math.max(.001,layer/PRINT_LAYERS); // capas discretas (look "capa a capa")
       (partBracket.visible?partBracket:partHex).scale.y=frac;
       gantry.position.y=.16+frac*PART_MAXH;gantry.position.z=mv?Math.sin(t*0.6)*.14:0; // sube con la pieza + barre en Y(z)
@@ -1112,28 +1140,64 @@
     if(!p.length){robot.wanderT=1;return;}
     robot.path=p;robot.pi=0;robot.dest=t;setWP();robot.moving=true;
   }
-  // ====== RUTINA F2 — TRAMO COLMENA ====== (driver por defecto durante 06:00–10:00; el resto del día sigue deambulando)
-  function routineSegment(){ if(_forceSeg!==undefined) return _forceSeg; const h=streamHourUTC(); return (h>=6&&h<10)?'colmena':null; }
+  // ====== RUTINA F2 — DÍA COMPLETO DEL ROBOT ====== (driver por defecto las 24h según streamHourUTC; reemplaza a robotWander)
+  // CARGA 00–06 + 21–24 (durmiendo en el dock) · COLMENA 06–10 · ADMIN 10–13 · FABRICACIÓN 13–17 · RONDA 17–21.
+  // _forceSeg (testeo): undefined=auto(hora) · null=off(deambula) · 'carga'/'colmena'/'admin'/'fabricacion'/'ronda'=forzar el tramo.
+  function routineSegment(){ if(_forceSeg!==undefined) return _forceSeg; const h=streamHourUTC();
+    if(h<6)return'carga'; if(h<10)return'colmena'; if(h<13)return'admin'; if(h<17)return'fabricacion'; if(h<21)return'ronda'; return'carga'; }
   function _faceXZ(fx,fz){ if(robot.model) robot.model.rotation.y=Math.atan2(fx-robot.model.position.x, fz-robot.model.position.z); }
-  function colmenaPick(){ // micro-hop a una station (variación con Math.random; evita repetir la última)
-    const prev=robot.rt&&robot.rt.station; let st=COLMENA_STATIONS[Math.floor(Math.random()*COLMENA_STATIONS.length)],tr=0;
-    while(st===prev&&tr<5){st=COLMENA_STATIONS[Math.floor(Math.random()*COLMENA_STATIONS.length)];tr++;}
+  function weightedPick(sts){ let tot=0;for(const s of sts)tot+=(s.w||1); let r=Math.random()*tot;
+    for(const s of sts){ r-=(s.w||1); if(r<=0)return s; } return sts[sts.length-1]; }
+  function pickStation(cfg){ // micro-hop a una station (peso + evita repetir la última)
+    const prev=robot.rt.station; let st=weightedPick(cfg.stations),tr=0;
+    while(st===prev&&cfg.stations.length>1&&tr<5){st=weightedPick(cfg.stations);tr++;}
     robot.rt.station=st;robot.rt.phase='choreo';robot.tx=st.p[0];robot.tz=st.p[1];robot.path=null;robot.dest=-1;robot.moving=true;setRobotAnim('Walking');
   }
-  function colmenaArrive(){ // llegó a la station: se orienta al feature, gesto, y pausa
-    const st=robot.rt&&robot.rt.station; if(!st)return;
-    _faceXZ(st.look[0],st.look[1]); setRobotAnim(st.g[Math.floor(Math.random()*st.g.length)]);
-    robot.rt.dwellT=3+Math.random()*5; streamReportAction('tending');
+  function travelTo(node){ // camina hasta un nodo NAV (entre zonas o dentro). Si ya está, llega al toque.
+    const s=nearestNode(robot.model.position.x,robot.model.position.z),p=navPath(s,node);
+    robot.rt.phase='travel';robot.dest=node;
+    if(p.length){robot.path=p;robot.pi=0;setWP();robot.moving=true;setRobotAnim('Walking');}
+    else routineArrive(); // ya parado en el nodo
   }
-  function colmenaTick(dt){
-    if(!robot.rt) robot.rt={phase:'',station:null,dwellT:0};
-    if(robotZone!=='colmena'){ // todavía no llegó → camina a la colmena por la nav existente
-      const s=nearestNode(robot.model.position.x,robot.model.position.z),p=navPath(s,HIVE_NODE);
-      if(p.length){robot.path=p;robot.pi=0;robot.dest=HIVE_NODE;setWP();robot.moving=true;robot.rt.phase='travel';setRobotAnim('Walking');}
-      else robot.wanderT=0.4; return;
+  function routineTick(dt){ // driver del tramo cuando el robot está quieto (status idle, no moviéndose)
+    const seg=routineSegment(),cfg=SEG_CFG[seg];
+    if(seg==='ronda'){rondaTick(dt);return;}
+    if(!cfg){robot.wanderT=0.5;return;}
+    if(!robot.rt||robot.rt.seg!==seg){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; // cambio de tramo: limpia poses fijas
+      robot.rt={seg:seg,phase:'',station:null,dwellT:0,stopIdx:-1}; }
+    if(robotZone!==cfg.zone){travelTo(cfg.node);return;} // todavía no llegó a la zona del tramo
+    if(!cfg.stations){ // ADMIN: se planta en el escritorio (sin stations; mantiene la pose de tecleo)
+      if(!robot.atDesk){travelTo(cfg.node);return;}
+      if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;}
+      robot.rt.dwellT=4+Math.random()*5; return; // micro-pausa; la pose se reaplica encima cada frame
     }
     if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;} // pausa/gesto en la station
-    colmenaPick(); // a la próxima station
+    pickStation(cfg); // a la próxima station (carga/colmena/fabricación)
+  }
+  function routineArrive(){ // llegó (último waypoint): resuelve según tramo y fase
+    const rt=robot.rt; if(!rt)return; const cfg=SEG_CFG[rt.seg];
+    if(rt.seg==='ronda'){rondaArrive();return;}
+    if(rt.phase==='choreo'){ // llegó a una station → se orienta al feature, gesto y pausa
+      const st=rt.station; if(st){_faceXZ(st.look[0],st.look[1]);setRobotAnim(st.g[Math.floor(Math.random()*st.g.length)]);}
+      const dw=(st&&st.dwell)||[3,8]; rt.dwellT=dw[0]+Math.random()*(dw[1]-dw[0]); rt.phase=''; streamReportAction(cfg.action); return;
+    }
+    // phase==='travel' → llegó al nodo de la zona
+    if(cfg&&!cfg.stations){ robot.atDesk=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction(cfg.action);rt.dwellT=4+Math.random()*5;rt.phase=''; } // ADMIN: pose de tecleo
+    else{ rt.phase='';setRobotAnim('Idle'); } // station-seg: el próximo tick elige la primera station
+  }
+  function rondaTick(dt){ // RONDA: patrulla los stops en orden (el tramo más MÓVIL)
+    if(!robot.rt||robot.rt.seg!=='ronda'){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; robot.rt={seg:'ronda',phase:'',station:null,dwellT:0,stopIdx:-1}; }
+    if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;}
+    const ni=(robot.rt.stopIdx+1)%RONDA_STOPS.length; robot.rt.stopIdx=ni; const stop=RONDA_STOPS[ni];
+    const s=nearestNode(robot.model.position.x,robot.model.position.z),p=navPath(s,stop.node);
+    robot.rt.phase='ronda';robot.dest=stop.node; streamReportAction('patrol');
+    if(p.length){robot.path=p;robot.pi=0;setWP();robot.moving=true;setRobotAnim('Walking');}
+    else rondaArrive(); // ya está en el nodo
+  }
+  function rondaArrive(){ // chequea el feature: casi siempre OK (Yes/ThumbsUp), a veces No (algo raro → micro-tensión)
+    const stop=RONDA_STOPS[robot.rt.stopIdx]; if(stop)_faceXZ(stop.look[0],stop.look[1]);
+    const ok=Math.random()<0.82; setRobotAnim(ok?(Math.random()<0.5?'Yes':'ThumbsUp'):'No');
+    robot.rt.dwellT=3+Math.random()*4; robot.rt.phase=''; streamReportAction('patrol');
   }
   function triggerRelease(){ // LIBERACIÓN del enjambre (surge visible + contador)
     if(beeReleaseT>0) return;
@@ -1141,7 +1205,8 @@
     streamDrive('beesReleased', Math.round(STREAM.beesReleased)+1); // sube el acumulado (respeta override)
     if(robot.model&&robot.status==='idle'){setRobotAnim('Wave'); if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,2.6);} // se despide
   }
-  // Hooks de operador/testeo (extienden el __REFUGIO del backbone). forceSegment('colmena')/null/sin-arg(auto); releaseSwarm() a mano.
+  // Hooks de operador/testeo (extienden el __REFUGIO del backbone).
+  // forceSegment('carga'|'colmena'|'admin'|'fabricacion'|'ronda') fuerza el tramo · forceSegment(null) lo apaga (deambula) · forceSegment() vuelve a auto(hora). releaseSwarm() libera a mano.
   if(window.__REFUGIO){
     window.__REFUGIO.forceSegment=function(s){_forceSeg=(arguments.length===0)?undefined:s;return _forceSeg;};
     window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
@@ -1176,19 +1241,18 @@
           if(d<(last?0.25:0.5)){
             if(!last){robot.pi++;setWP();}
             else{robot.moving=false;robot.path=null;
-              if(robot.dest===NODE_DESK){ // ESTACIÓN DE CÓMPUTO: el robot se PARA frente a la pantalla a administrar (pose como el dock)
+              if(robot.rt){routineArrive(); // RUTINA F2: resuelve la llegada según tramo/fase (stations, escritorio, ronda…)
+              }else if(robot.dest===NODE_DESK){ // DEAMBULAR: el robot se PARA frente a la pantalla a administrar (pose como el dock)
                 robot.atDesk=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction('admin');robot.wanderT=10+Math.random()*8; // mira al norte (+z) a la pantalla; queda un rato
-              }else if(robot.dest===NODE_FABC){ // SALA DE FABRICACIÓN: el robot se para frente a la impresora a fabricar
+              }else if(robot.dest===NODE_FABC){ // DEAMBULAR: el robot se para frente a la impresora a fabricar
                 robot.atFab=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction('fabricating');robot.wanderT=12+Math.random()*8; // mira al norte (+z) a la impresora
-              }else if(robot.rt&&robot.rt.phase==='choreo'){colmenaArrive(); // RUTINA COLMENA: llegó a una station → gesto + pausa
-              }else if(robot.rt&&robot.rt.phase==='travel'){robot.rt.phase='';setRobotAnim('Idle'); // llegó a la colmena (vía nav) → arranca la coreografía
               }else{robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}}
           }
           else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;
             if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
             robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
-        }else if(routineSegment()==='colmena'){colmenaTick(dt); // RUTINA COLMENA es el driver durante el tramo (reemplaza a robotWander)
-        }else{ if(robot.rt){robot.rt=null;streamReportAction('idle');} // salió del tramo → vuelve a deambular como hoy
+        }else if(routineSegment()){routineTick(dt); // RUTINA F2 es el driver durante TODO el día (reemplaza a robotWander)
+        }else{ if(robot.rt){robot.rt=null;streamReportAction('idle');} // tramo apagado (forceSegment(null)) → vuelve a deambular como antes
             robot.wanderT-=dt;if(robot.wanderT<=0){
             if(robot.atDesk){robot.atDesk=false;streamReportAction('idle');} // deja la estación: vuelve action a 'idle' antes de deambular
             if(robot.atFab){robot.atFab=false;streamReportAction('idle');}   // deja la impresora
