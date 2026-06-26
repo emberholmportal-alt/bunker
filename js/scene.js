@@ -29,12 +29,10 @@
   const sealLight=new THREE.PointLight(0xff2a2a,1.6,4,2);sealLight.position.set(-.6,2.25,RZ0+.4);scene.add(sealLight);
   const sealBulb=new THREE.Mesh(new THREE.SphereGeometry(.07,10,10),new THREE.MeshBasicMaterial({color:0xff4040}));sealBulb.position.copy(sealLight.position);scene.add(sealBulb);
 
-  // literas + cartel
-  // (literas removidas: helper bunk() eliminado)
   // (literas removidas del observatorio)
-  const sign=new THREE.Mesh(new THREE.PlaneGeometry(1.4,.7),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(signTex('REFUGIO 048','CAPACIDAD 100'))}));sign.position.set(-RX+.18,1.95,-2.6);sign.rotation.y=Math.PI/2;scene.add(sign);sign.visible=false; // PIVOTE: cartel REFUGIO 048/CAPACIDAD 100 OCULTO (mismo texto viejo) para evaluar cámaras; se reconvierte a REFUGIO 404 en sub-paso 7
+  // (cartel "REFUGIO 048 / CAPACIDAD 100" JUBILADO: texto del memecoin viejo; contradecía el canon de Beeko.)
 
-  // ---- TABLERO SPLIT-FLAP "HOLDERS" (montado en la pared, debajo del cartel REFUGIO 048) ----
+  // ---- TABLERO SPLIT-FLAP "TIME ALONE" (cronómetro del LIVE, montado en la pared del observatorio) ----
   const HB_DIG=13,HB_FLIP=0.13,hbC=cv(1024,384),hbX=hbC.getContext('2d'),hbTex=new THREE.CanvasTexture(hbC);hbTex.anisotropy=4; // 13 celdas = DDDD:HH:MM:SS (cronómetro del LIVE, no se topa)
   box(.10,.80,1.92,-RX+.13,1.16,-2.6,doorMat); // carcasa/bisel del tablero
   const hbBoard=new THREE.Mesh(new THREE.PlaneGeometry(1.7,.64),new THREE.MeshBasicMaterial({map:hbTex}));hbBoard.position.set(-RX+.20,1.16,-2.6);hbBoard.rotation.y=Math.PI/2;scene.add(hbBoard);
@@ -252,24 +250,9 @@
   // (infección orgánica interior removida — visual limpia)
   // (colonias de infección interior removidas)
 
-  // ---- CRT ----
-  const crtC=cv(512,256),crtX=crtC.getContext('2d'),crtTex=new THREE.CanvasTexture(crtC);
-  const crt=new THREE.Mesh(new THREE.PlaneGeometry(1.5,.75),new THREE.MeshBasicMaterial({map:crtTex}));crt.position.set(1.7,1.5,RZ0+.18);scene.add(crt);crt.visible=false;
-  box(1.7,.95,.12,1.7,1.5,RZ0+.1,doorMat).visible=false;
-  const crtGlow=new THREE.PointLight(0x44ff88,.5,3,2);crtGlow.position.set(1.7,1.5,RZ0+.7);scene.add(crtGlow);crtGlow.visible=false;
-  // PIVOTE: monitor CRT del observatorio ("REFUGIO 048 — ESTADO") OCULTO (texto viejo) para evaluar cámaras en limpio; se reconvierte en el sub-paso 7
-  let crtAcc=0,alertMsg='',crtGlitch=0;
-  function drawCRT(inside,outside,asim){const x=crtX;x.fillStyle='#02160c';x.fillRect(0,0,512,256);
-    x.fillStyle='rgba(0,0,0,.25)';for(let i=0;i<256;i+=4)x.fillRect(0,i,512,2);
-    const gx=crtGlitch>0?(Math.random()-.5)*14:0;
-    x.textAlign='left';x.fillStyle='#8fffb0';x.shadowColor='#8fffb0';x.shadowBlur=12;x.font='26px VT323, monospace';x.fillText('REFUGIO 048 — ESTADO',24+gx,38);
-    x.font='80px Anton, sans-serif';x.fillStyle=clock<3600?'#ff2e88':'#ffb000';x.shadowColor=x.fillStyle;x.fillText(fmt(clock),24+gx*2,124);
-    x.font='24px VT323, monospace';x.shadowBlur=8;x.fillStyle='#ffb000';x.shadowColor='#ffb000';x.fillText('REFUGIADOS  '+inside+' / '+CAP,24,170);
-    x.fillStyle='#ff2e88';x.shadowColor='#ff2e88';x.fillText('AFUERA  '+outside+' ALMAS',24,200);x.fillText('MUNDO ASIMILADO  '+Math.round(asim*100)+'%',24,230);
-    x.shadowBlur=0;x.strokeStyle='#3a4';x.strokeRect(300,156,188,12);x.fillStyle='#ff2e88';x.fillRect(300,156,188*asim,12);
-    if(crtGlitch>0){for(let i=0;i<3;i++){const yy=Math.random()*256;x.fillStyle=Math.random()<.5?'rgba(255,46,136,.5)':'rgba(57,255,208,.5)';x.fillRect(0,yy,512,2+Math.random()*4);}}
-    if(alertMsg){x.fillStyle='#ff2e88';x.shadowColor='#ff2e88';x.shadowBlur=14;x.font='28px Anton, sans-serif';x.fillText('⚠ '+alertMsg,300,200);}
-    crtTex.needsUpdate=true;}
+  // (CRT del observatorio "REFUGIO 048 — ESTADO" JUBILADO: dashboard del memecoin viejo —refugiados/almas/
+  //  mundo asimilado— en español; contradecía el canon. alertMsg se conserva: lo escribe showAlert.)
+  let alertMsg='';
 
   // ---- post ----
   let composer=null,filmPass=null,rgbPass=null;

@@ -3,11 +3,10 @@
   let holders=0,clock=FULL,speed=1,auto=false,running=true,ended=false,asim=.05;
   let shake=0,blackout=0,evT=7+Math.random()*6,prevInside=0,prevOutside=0,prevConsumed=0,coreSurge=0,flashA=0,flashCol='255,46,136',critT=22,critWarned=false;
   let look2portilla=0,enjSurge=0;
-  // PIVOTE live-stream: sim de supervivencia (eventos random, decay de stats/núcleo, holders, alarmas,
-  // tinte "locura") NEUTRALIZADA para evaluar las cámaras en limpio — metía alertas, sacudón de cámara,
-  // flashes y tinte rosa en las tomas. El robot NO depende de esto (corre en tickRobot). Reversible;
-  // el borrado profundo del modo jugable es el sub-paso 7.
-  const SURVIVAL=false;
+  // El sim de supervivencia del modo jugable (eventos random, decay de stats/núcleo, holders, crafteo,
+  // comandos del robot) fue JUBILADO: contradecía el canon de Beeko. El robot vive su rutina en tickRobot.
+  // Quedan declaradas arriba algunas variables de FX (shake/blackout/flash/enjambre exterior) que el loop
+  // todavía lee para el clima de las tomas; las de holders/clock siguen inertes y sin efecto.
   // FILTRO CCTV (sub-paso 5) — glitch ocasional sobre las bases del filtro. Estos consts son los
   // KNOBS para la "deriva" futura (con los días: bajar GAP / subir SPIKE para que el búnker se
   // raye más). Arranque conservador y BIEN ESPACIADO; preferir subir después de verlo.
@@ -22,24 +21,6 @@
   let glitchT=GLITCH_GAP+Math.random()*GLITCH_VAR, glitchA=0, cutA=0;
   function showAlert(txt){const a=$('#alert');a.textContent=txt;a.classList.add('show');alertMsg=txt;setTimeout(()=>a.classList.remove('show'),1700);setTimeout(()=>{if(alertMsg===txt)alertMsg='';},2300);}
   function setFlash(col,a){flashCol=col;flashA=a;}
-  // ---- feedback del slider HOLDERS (visual, no depende del audio) ----
-  function floatTick(txt,color){const c=$('#ticks');if(!c)return;const e=document.createElement('div');e.className='tick';e.style.color=color;e.style.top=(Math.random()*10)+'px';e.textContent=txt;c.appendChild(e);setTimeout(()=>{e.remove();},1000);}
-  function blipBatch(n){if(!audioOn||!actx)return;const o=actx.createOscillator();o.type='triangle';o.frequency.value=720+Math.min(n,14)*26;const g=actx.createGain();const t=actx.currentTime;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.12,t+.01);g.gain.linearRampToValueAtTime(0,t+.11);o.connect(g);g.connect(master);o.start(t);o.stop(t+.13);}
-  function holdoutPulse(kind){const b=$('#holdout');if(!b)return;b.classList.remove('hin','hout');void b.offsetWidth;b.classList.add(kind==='in'?'hin':'hout');}
-  function renderHoldout(inside,outside,consumed){const f=$('#ro-fill');if(f)f.style.width=(inside/CAP*100)+'%';
-    const ri=$('#ro-in');if(ri)ri.innerHTML=inside+'<i>/100</i>';
-    const ro=$('#ro-out');if(ro)ro.textContent=outside>0?T('ho_outside',outside):'—';
-    const rc=$('#ro-cons');if(rc)rc.textContent=consumed>0?('☣ '+consumed):'';
-    const rp=$('#ro-pop');if(rp){if(inside<=0)rp.textContent=T('ho_empty');
-      else rp.innerHTML='<b'+(inside>=CAP?' class="warn"':'')+'>'+inside+'</b> '+(inside===1?T('ho_soul_one'):T('ho_soul_many'))+(inside>=CAP?T('ho_full'):'');}
-    const b=$('#holdout');if(b)b.classList.toggle('full',inside>=CAP);}
-  function clearHoldersCue(){const s=$('#holders');if(s)s.classList.remove('cue');const h=$('#holdout');if(h)h.classList.remove('cue');}
-  function onFirstOutside(){showAlert(T('a_first_outside'));enjSurge=Math.max(enjSurge,3.5);gyroOn=Math.max(gyroOn,2.2);setFlash('255,46,136',.3);look2portilla=1.3;robotReact('No',2.6);}
-  function fireEvent(){const r=Math.random();
-    if(r<.4){showAlert(T('a_swarm_hit'));shake=1;setFlash('120,120,140',.35);dustFall=1.2;rumble();alarm();gyroOn=3.0;robotReact('No',2.4);stats.energia=clamp(stats.energia-15,0,100);stats.cordura=clamp(stats.cordura-8,0,100);if(Math.random()<.6&&crackIdx<3){cracks[crackIdx].opacity=1;crackIdx++;}}
-    else if(r<.72){showAlert(T('a_power_fail'));blackout=.8;crtGlitch=1;rumble();stats.cordura=clamp(stats.cordura-14,0,100);}
-    else{showAlert(T('a_gen_overload'));coreSurge=1.4;setFlash('255,140,0',.4);rumble();stats.cordura=clamp(stats.cordura-12,0,100);stats.energia=clamp(stats.energia-6,0,100);}
-    renderStats();}
 
   // 1ª persona + control de movimiento del jugador REMOVIDOS en el pivote a live-stream
   // (look-drag, WASD/flechas, joystick, linterna). La vista pasa a cámara de seguridad fija (abajo).
@@ -646,27 +627,7 @@
 
   const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05},{x0:-3.25,x1:3.25,z0:11.55,z1:15.25},{x0:-7.20,x1:-3.15,z0:8.45,z1:11.55}];
   function inArea(x,z){for(const a of AREAS)if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return true;return false;}
-  // ---- ZONAS DE INTERACCIÓN ----
-  const V=(x,z)=>new THREE.Vector3(x,0,z);
-  const zones=[
-    {p:V(-0.9,-3.4),r:1.3,label:T('z_feed_gen'),cdM:1.0,cd:0,fn:()=>{if(res.fuel>0){res.fuel--;nucleo=clamp(nucleo+26,0,100);renderRes();blip();}else showAlert(T('a_no_fuel'));}},
-    {p:V(-2.4,10.3),r:1.5,label:T('z_harvest'),cdM:2.0,cd:0,fn:()=>{res.food++;if(Math.random()<.4){res.semillas++;floatTick(T('ft_seeds'),'#9fe0b0');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderHotbar();renderStats();blip();}},
-    {p:V(-1.3,-4.55),r:1.4,label:T('z_water'),cdM:2.0,cd:0,fn:()=>{res.water++;stats.energia=clamp(stats.energia-6,0,100);renderRes();renderHotbar();renderStats();blip();}},
-    {p:V(1.9,-4.55),r:1.4,label:T('z_fuel'),cdM:2.5,cd:0,fn:()=>{res.fuel++;stats.energia=clamp(stats.energia-10,0,100);renderRes();renderStats();blip();}},
-    {p:V(2.3,-4.3),r:1.5,label:T('z_scrap'),cdM:2.0,cd:0,fn:()=>{res.chatarra++;if(Math.random()<.35){res.cables++;floatTick(T('ft_cables'),'#cfd2cc');}stats.energia=clamp(stats.energia-8,0,100);renderRes();renderStats();blip();}},
-    {p:V(RX-.4,1.6),r:1.3,label:T('z_repair'),cdM:1.5,cd:0,fn:()=>{if(res.chatarra>0){res.chatarra--;nucleo=clamp(nucleo+14,0,100);renderRes();blip();}else showAlert(T('a_no_scrap'));}},
-    {p:V(-5.8,7.0),r:1.4,label:T('z_rest'),cdM:1.5,cd:0,fn:()=>{stats.energia=clamp(stats.energia+35,0,100);renderStats();blip();}},
-    {p:V(-1.0,3.0),r:1.3,label:T('z_read'),cdM:1.5,cd:0,fn:()=>{stats.cordura=clamp(stats.cordura+30,0,100);renderStats();blip();}},
-    {p:V(1.95,2.2),r:1.2,label:T('z_radio'),cdM:.6,cd:0,fn:radioTune},
-    {p:V(5.9,6.3),r:1.7,label:T('z_craft'),cdM:.3,cd:0,fn:openCraft}
-  ];
-  const zoneRings=[];zones.forEach(z=>{const rg=new THREE.Mesh(new THREE.RingGeometry(.42,.52,28),new THREE.MeshBasicMaterial({color:z.fn?0x39ffaa:0xff3030,transparent:true,opacity:.3,side:THREE.DoubleSide,depthWrite:false}));rg.rotation.x=-Math.PI/2;rg.position.set(z.p.x,.015,z.p.z);rg.visible=false;scene.add(rg);zoneRings.push(rg);}); // PIVOTE: rings de interacción OCULTOS (cosméticos del modo jugable); se eliminan de raíz en el sub-paso 7
-  let activeZone=null,lastDisabled=null;const promptEl=$('#prompt'); // promptEl=null en el pivote (#prompt removido); updateZones queda definido pero sin llamar hasta la limpieza del sub-paso 7
-  function updateZones(){let best=null,bd=999;for(const z of zones){const d=Math.hypot(camera.position.x-z.p.x,camera.position.z-z.p.z);if(d<z.r&&d<bd){bd=d;best=z;}}
-    const dis=best?(!best.fn||best.cd>0):false;
-    if(best!==activeZone||dis!==lastDisabled){activeZone=best;lastDisabled=dis;
-      if(best){promptEl.textContent=(!best.fn?'⛔ ':(best.cd>0?'… ':'▸ '))+best.label;promptEl.style.display='block';promptEl.classList.toggle('disabled',dis);}
-      else promptEl.style.display='none';}}
+  // (ZONAS DE INTERACCIÓN del modo jugable — jubiladas: el robot ya no las usa; la cámara LEE STREAM.zone)
 
   // ====== CÁMARA DE SEGURIDAD (pivote a live-stream) ======
   // Poses fijas tipo CCTV, una por sala (esquina alta, apenas bajo el techo CH=2.65).
@@ -748,37 +709,13 @@
   function loop(){requestAnimationFrame(loop);
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
-    tickRobot(dt);radioTick(dt,t);mapAcc+=dt;if(mapAcc>.16){drawMapPlan(pos.x,pos.z,yaw);mapAcc=0;}
-    if(running&&SURVIVAL){clock-=dt*speed;asim=Math.min(1,.05+(1-clock/FULL)*.95);
-      if(auto&&holders<400){holders=Math.min(400,holders+dt*6+dt*speed*.02);$('#holders').value=Math.round(holders);$('#hv').textContent=Math.round(holders);}
-      evT-=dt;if(evT<=0){evT=10+Math.random()*9;fireEvent();}
-      nucleo=Math.max(0,nucleo-dt*0.35);
-      if(nucleo<=2){critT-=dt;if(!critWarned){critWarned=true;showAlert(T('a_gen_dying'));}if(Math.random()<.025)alarm();}
-      else{critT=22;critWarned=false;}
-      // decay de stats (tiempo real)
-      statAcc+=dt;if(statAcc>1){const d=statAcc;stats.hambre=clamp(stats.hambre-d*.6,0,100);stats.sed=clamp(stats.sed-d*.9,0,100);stats.energia=clamp(stats.energia-d*.5,0,100);
-        let cd2=d*.35;if(stats.hambre<=0||stats.sed<=0||stats.energia<=0)cd2+=d*2.2;stats.cordura=clamp(stats.cordura-cd2,0,100);statAcc=0;renderStats();renderRes();
-        ['hambre','sed','energia'].forEach(k=>{if(stats[k]<=0&&!ended)showAlert(({hambre:T('a_starvation'),sed:T('a_dehydration'),energia:T('a_exhaustion')})[k]);});}
-    }
-    const inside=Math.min(Math.round(holders),CAP);
-    const consumed=Math.floor(Math.max(0,holders-CAP)*Math.max(0,(asim-.6))/.4);
-    const outside=Math.max(0,Math.round(holders)-CAP-consumed);
-    const dIn=inside-prevInside,dOut=outside-prevOutside;
-    if(dIn>0){blipBatch(dIn);floatTick(T('ft_enter',dIn),'#8fffb0');holdoutPulse('in');if(prevInside===0)robotReact('Wave',3);}
-    if(inside>=CAP&&prevInside<CAP){showAlert(T('a_shelter_complete'));setFlash('255,200,80',.3);floatTick(T('ft_full'),'#ffd86a');blip();robotReact('Dance',4);}
-    if(dOut>0&&outside>0){if(Math.random()<.6)thud();shake=Math.max(shake,.3+Math.min(.5,dOut*.05));floatTick(T('ft_outside',dOut),'#ff2e88');holdoutPulse('out');if(prevOutside===0)onFirstOutside();}
-    if(inside!==prevInside||outside!==prevOutside||consumed!==prevConsumed)renderHoldout(inside,outside,consumed);
-    prevInside=inside;prevOutside=outside;prevConsumed=consumed;
-    refugioLight.intensity=(inside/CAP)*1.2;
+    tickRobot(dt);radioTick(dt,t);
+    mapAcc+=dt;if(mapAcc>.16){const rm=robot.model;drawMapPlan(rm?rm.position.x:0,rm?rm.position.z:0,rm?rm.rotation.y:0);mapAcc=0;} // minimapa: marca la posición del ROBOT (ya no hay jugador)
     updateUptimeBoard(streamUptime(),dt); // contador de pared: cronómetro del LIVE (HH:MM:SS desde LORE_EPOCH), lee de STREAM
-
-    crtAcc+=dt;if(crtAcc>.1){drawCRT(inside,outside,asim);crtAcc=0;}
     // dashboard de la estación de cómputo (sólo cuando la cámara activa es la del descanso, ~3/s): alimenta el log y redibuja
     if(STREAM.zone==='descanso'&&adminX){adminAcc+=dt;if(adminAcc>.33){adminAcc=0;
       if(Math.random()<.5){const M=['sys: nominal','hatch: sealed','swarm: incubating…','power: stable','cams: 08 online','env: scrubbers ok','net: link lost · standalone','core: heartbeat ok'];_adminLog.push(streamClock()+'  '+M[Math.floor(Math.random()*M.length)]);if(_adminLog.length>6)_adminLog.shift();}
       drawAdmin();adminTex.needsUpdate=true;}}
-    if(crtGlitch>0)crtGlitch-=dt*2;
-    crtGlow.intensity=.4+(mv?Math.sin(t*3)*.06:0);
 
     // blackout / titileo / emergencia oscilando en shake
     if(blackout>0)blackout-=dt;
@@ -872,11 +809,9 @@
     if(enjSurge>0)enjSurge-=dt;const enjB=mv?(.5+.5*Math.sin(t*.5)):.5,_es=Math.max(0,enjSurge);
     enjLight.intensity=1.1+asim*2.0+enjB*.7+_es;enjLeak.intensity=.25+asim*1.0+enjB*.18+_es*.4;parts.material.opacity=Math.min(1,.32+asim*.45+enjB*.12+_es*.08);sky.material.color.setRGB(1,1-asim*.3-enjB*.04,1-asim*.2);
 
-    const cShow=Math.min(outside,cN);
-    for(let i=0;i<cShow;i++){const b=cBase[i],bob=mv?Math.sin(t*1.5+cPh[i])*.04:0,sw=mv?Math.sin(t*1.0+cPh[i])*.05:0;
-      dummy.position.set(b.x+sw,b.y+bob,b.z);dummy.rotation.set(0,cPh[i],0);dummy.updateMatrix();cBody.setMatrixAt(i,dummy.matrix);
-      dummy.position.set(b.x+sw,b.y+.6+bob,b.z);dummy.updateMatrix();cHead.setMatrixAt(i,dummy.matrix);}
-    cBody.count=cShow;cHead.count=cShow;cBody.instanceMatrix.needsUpdate=true;cHead.instanceMatrix.needsUpdate=true;
+    // (MULTITUD DE "ALMAS AFUERA" JUBILADA: escalaba con el contador holders del memecoin —gente en cola fuera
+    //  del refugio de capacidad 100—; contradecía el canon (el mundo de the Hive afuera está en silencio).
+    //  Las InstancedMesh cBody/cHead siguen en scene.js con count=0, invisibles; removibles en una limpieza posterior.)
 
     // partículas / escombros
     if(mv){const a=parts.geometry.attributes.position.array;for(let i=0;i<PN;i++){a[i*3+1]+=dt*.7;a[i*3]-=dt*.3;if(a[i*3+1]>8){a[i*3+1]=0;a[i*3]=RX+2+Math.random()*10;}}parts.geometry.attributes.position.needsUpdate=true;
@@ -916,9 +851,8 @@
   }
 
   // controles
-  $('#holders').addEventListener('input',e=>{holders=+e.target.value;$('#hv').textContent=holders;auto=false;$('#auto').classList.remove('on');clearHoldersCue();});
-  $('#auto').addEventListener('click',e=>{auto=!auto;e.target.classList.toggle('on');clearHoldersCue();});
-  document.querySelectorAll('[data-spd]').forEach(b=>b.addEventListener('click',e=>{speed=+e.target.dataset.spd;document.querySelectorAll('[data-spd]').forEach(x=>x.classList.remove('on'));e.target.classList.add('on');}));
+  // velocidad x1/x800/x6k: acelera el RELOJ DEL STREAM (STREAM.speed) para testear el día del robot sin esperar horas reales.
+  document.querySelectorAll('[data-spd]').forEach(b=>b.addEventListener('click',e=>{speed=+e.target.dataset.spd;streamSetSpeed(speed);document.querySelectorAll('[data-spd]').forEach(x=>x.classList.remove('on'));e.target.classList.add('on');}));
   $('#snd').addEventListener('click',e=>{if(!audioOn){startAudio();e.target.classList.add('on');}else{stopAudio();e.target.classList.remove('on');}});
   // AUTOPLAY: el 1er click/tecla/touch EN LA PÁGINA desbloquea el audio (gesto de usuario confiable, lo que la consola no garantiza).
   // De un solo uso. Excluye el botón ♪ SONIDO (se maneja solo) para no pisar su toggle. camClick/flap/etc ya están gateados por audioOn.
@@ -927,17 +861,10 @@
     startAudio();const b=$('#snd');if(b)b.classList.add('on');_audioRm();}
   window.addEventListener('pointerdown',_audioUnlock);window.addEventListener('keydown',_audioUnlock);
   $('#cel').addEventListener('click',()=>{celOn=!celOn;applyCel();});
-  $('#rclose').addEventListener('click',()=>{$('#robotui').style.display='none';});
-  $('#cclose').addEventListener('click',()=>{$('#craftui').style.display='none';});
-  $('#rsend').addEventListener('click',sendRobot);$('#rcharge').addEventListener('click',chargeRobot);$('#rrepair').addEventListener('click',repairRobot);
   $('#reset').addEventListener('click',rst);
-  function rst(){holders=0;clock=FULL;asim=.05;auto=false;ended=false;running=true;shake=0;blackout=0;coreSurge=0;evT=7+Math.random()*6;prevInside=0;prevOutside=0;prevConsumed=0;dustFall=0;crtGlitch=0;flashA=0;gyroOn=0;waveT=-1;critT=22;critWarned=false;look2portilla=0;enjSurge=0;
-    stats.hambre=stats.sed=stats.energia=stats.cordura=100;nucleo=80;
-    for(const k in res)res[k]=0;res.fuel=6;res.food=5;res.water=5;res.med=2;res.chatarra=2;res.tela=1;res.semillas=1;
-    zones.forEach(z=>z.cd=0);refugioLight.intensity=0;
-    cracks.forEach(c=>c.opacity=0);crackIdx=0;resetRobot();renderStats();renderHotbar();renderRes();renderHoldout(0,0,0);
-    $('#holders').value=0;$('#hv').textContent='0';$('#auto').classList.remove('on');
-    const s=$('#holders');if(s)s.classList.add('cue');const h=$('#holdout');if(h)h.classList.add('cue');}
+  // RESTART: reinicia al robot a su pose/posición base y resincroniza el reloj del stream a UTC real (speed 1, sin offset).
+  function rst(){ended=false;running=true;resetRobot();streamResync();
+    speed=1;document.querySelectorAll('[data-spd]').forEach((x,i)=>x.classList.toggle('on',i===0));}
   addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight);});
 
   // ====== CEL-SHADING + CONTORNOS (toggle CEL/REAL) ======
@@ -957,41 +884,8 @@
   const _celAmb=new THREE.AmbientLight(0x7a8a9a,0);scene.add(_celAmb);
   let celOn=false;
   function applyCel(){celReg.forEach(r=>{r.m.material=celOn?r.toon:r.std;});celOutlines.forEach(o=>{o.visible=celOn;});_celAmb.intensity=celOn?0.34:0.05;if(renderer)renderer.toneMappingExposure=celOn?0.95:0.86;const b=$('#cel');if(b){b.textContent=celOn?T('btn_style_cel'):T('btn_style_real');b.classList.toggle('on',celOn);}}
-  // ====== UNIDAD R-01 (robot explorador) ======
-  // ====== BANCO DE CRAFTEO (árbol estilo Last Day on Earth) ======
-  const MATN={chatarra:'Chatarra',circuitos:'Circuitos',cables:'Cables',plastico:'Plástico',tela:'Tela',semillas:'Semillas',quimicos:'Químicos',lingote:'Lingote',placa:'Placa',telatratada:'Tela tratada',bateria:'Batería',fuel:'Combustible',food:'Comida',water:'Agua',med:'Medicina'};
-  const MAT=[['chatarra','🔩'],['circuitos','🖥'],['cables','🔌'],['plastico','🧴'],['tela','🧵'],['semillas','🌱'],['quimicos','⚗'],['lingote','🧱'],['placa','🟩'],['telatratada','🧶'],['bateria','🔋'],['fuel','⛽'],['food','🥫'],['water','💧'],['med','💊']];
-  // recetas: need (consume) → give (produce). give apunta a res[k] o a 'nucleo'.
-  const RECIPES=[
-    {id:'lingote', n:'Lingote de metal',  i:'🧱', cat:'Componentes', need:{chatarra:3,fuel:1},          give:{lingote:1}},
-    {id:'placa',   n:'Placa de circuito', i:'🟩', cat:'Componentes', need:{circuitos:2,cables:1},        give:{placa:1}},
-    {id:'telat',   n:'Tela tratada',      i:'🧶', cat:'Componentes', need:{tela:2,quimicos:1},           give:{telatratada:1}},
-    {id:'bateria', n:'Batería casera',    i:'🔋', cat:'Componentes', need:{circuitos:1,cables:1,chatarra:1}, give:{bateria:1}},
-    {id:'racion',  n:'Ración enlatada',   i:'🥫', cat:'Provisiones', need:{semillas:2,plastico:1},       give:{food:3}},
-    {id:'agua',    n:'Agua filtrada',     i:'💧', cat:'Provisiones', need:{chatarra:1,telatratada:1},    give:{water:3}},
-    {id:'vendaje', n:'Vendaje',           i:'🩹', cat:'Provisiones', need:{tela:2},                      give:{med:1}},
-    {id:'antidoto',n:'Antídoto',          i:'💊', cat:'Provisiones', need:{quimicos:1,semillas:1},       give:{med:2}},
-    {id:'celula',  n:'Célula de energía', i:'⚡', cat:'Energía',     need:{placa:1,bateria:1},           give:{nucleo:35}},
-    {id:'kit',     n:'Kit de reparación', i:'🛠', cat:'Energía',     need:{lingote:2,cables:1},          give:{nucleo:20,chatarra:1}},
-    {id:'combust', n:'Combustible sintético', i:'⛽', cat:'Energía', need:{quimicos:2,plastico:1},       give:{fuel:2}}
-  ];
-  function openCraft(){$('#craftui').style.display='block';renderCraft();}
-  function canCraft(rc){for(const k in rc.need)if((res[k]||0)<rc.need[k])return false;return true;}
-  function doCraft(id){const rc=RECIPES.find(r=>r.id===id);if(!rc)return;if(!canCraft(rc)){showAlert('FALTAN MATERIALES');return;}
-    for(const k in rc.need)res[k]-=rc.need[k];
-    for(const k in rc.give){if(k==='nucleo')nucleo=clamp(nucleo+rc.give[k],0,100);else res[k]=Math.min(99,(res[k]||0)+rc.give[k]);}
-    blip();showAlert('FABRICASTE: '+rc.n);renderRes();renderHotbar();renderCraft();}
-  function renderCraft(){
-    const inv=$('#cinv');if(inv){inv.innerHTML='';MAT.forEach(([k,ic])=>{const n=res[k]||0;const e=document.createElement('span');e.className='ci'+(n>0?' has':'');e.innerHTML=ic+' '+MATN[k]+' <b>'+n+'</b>';inv.appendChild(e);});}
-    const list=$('#crecipes');if(!list)return;list.innerHTML='';let lastCat='';
-    RECIPES.forEach(rc=>{if(rc.cat!==lastCat){lastCat=rc.cat;const h=document.createElement('div');h.className='ccat';h.textContent=rc.cat;list.appendChild(h);}
-      const ok=canCraft(rc),row=document.createElement('div');row.className='rcp';
-      const need=Object.keys(rc.need).map(k=>{const have=(res[k]||0),req=rc.need[k];return '<span class="'+(have>=req?'ok':'no')+'">'+req+' '+MATN[k]+'</span>';}).join(' + ');
-      const give=Object.keys(rc.give).map(k=>'+'+rc.give[k]+' '+(k==='nucleo'?'núcleo':(MATN[k]||k))).join(', ');
-      row.innerHTML='<span class="ic">'+rc.i+'</span><span class="info"><span class="nm">'+rc.n+'</span><br><span class="nd">'+need+' → '+give+'</span></span><button class="mk"'+(ok?'':' disabled')+'>FABRICAR</button>';
-      row.querySelector('.mk').onclick=()=>doCraft(rc.id);
-      list.appendChild(row);});
-  }
+  // ====== UNIDAD R-01 (robot) ======
+  // (BANCO DE CRAFTEO del modo jugable — jubilado: recetas/materiales/categorías del survival viejo.)
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,rt:null};
   const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
   // ===== POSE "TECLEO" del robot en el escritorio (action='admin') — TODOS los ángulos para calibrar, en un solo lugar.
@@ -1040,8 +934,6 @@
     }catch(e){}
   })();
   function setRobotAnim(name){if(!robot.mixer||!robot.act[name])return;const nx=robot.act[name];if(nx===robot.cur)return;if(robot.cur)robot.cur.fadeOut(0.3);nx.reset().fadeIn(0.3).play();robot.cur=nx;}
-  // R-01 reacciona a lo que pasa con el HOLDERS (queda quieto haciendo el gesto un rato)
-  function robotReact(name,dur){if(!robot.model||robot.status!=='idle'||robot.atDesk||robot.atFab)return;setRobotAnim(name);robot.moving=false;robot.wanderT=Math.max(robot.wanderT,dur||2.4);}
   function renderRobot(){
     const bc=robot.bat<25?'#ff4040':(robot.bat<55?'#ffaa00':'#39ff66'),hc=robot.hp<25?'#ff4040':(robot.hp<55?'#ffaa00':'#7ad0ee'),tc=robot.temp>85?'#ff4040':(robot.temp>65?'#ffaa00':'#ff9a5a');
     const set=(id,v,c)=>{const e=$('#'+id);if(e){e.style.width=Math.max(0,Math.min(100,v))+'%';if(c)e.style.background=c;}};
@@ -1057,14 +949,8 @@
     if($('#rcharge'))$('#rcharge').disabled=mission||robot.bat>=100;
     if($('#rrepair'))$('#rrepair').disabled=mission||robot.hp>=100;
   }
-  function sendRobot(){
-    if(robot.status!=='idle'){showAlert(T('a_unit_unavailable'));return;}
-    if(robot.temp>85){showAlert(T('a_unit_overheat'));return;}
-    if(robot.bat<30){showAlert(T('a_low_battery'));return;}
-    if(robot.hp<=0){showAlert(T('a_unit_damaged'));return;}
-    robot.status='leaving';robot.moving=true;robot.tx=DOORINX;robot.tz=DOORZ;doorTarget=1;setRobotAnim('Walking');showAlert(T('a_unit_to_hatch'));
-    renderRobot();
-  }
+  // (Comandos de jugador del robot — sendRobot/chargeRobot/repairRobot — JUBILADOS. La maquinaria de
+  //  misión/scavenge queda inerte en tickRobot: sin disparador, no se ejecuta; el robot vive su rutina.)
   function robotReturn(){
     robot.bat=clamp(robot.bat-35,0,100);robot.temp=clamp(robot.temp+30,0,100);doorTarget=1;
     if(robot.model){robot.model.visible=true;robot.model.position.set(DOORINX,0,DOORZ);robot.model.rotation.y=Math.atan2(2.05-DOORINX,-1.2-DOORZ);}
@@ -1082,20 +968,6 @@
     if(robot.hp<=0||robot.bat<=0){robot.status='broken';robot.moving=false;if(robot.model)robot.model.position.set(2.05,0,-1.2);setRobotAnim('Death');doorTarget=0;showAlert(T('a_unit_oos'));}
     else{robot.status='returning';robot.moving=true;robot.tx=2.05;robot.tz=-1.2;setRobotAnim('Walking');}
     renderRobot();
-  }
-  function chargeRobot(){
-    if(robot.status==='mission')return;
-    if(res.fuel<=0){showAlert(T('a_no_fuel_charge'));return;}
-    res.fuel--;robot.bat=clamp(robot.bat+45,0,100);robot.temp=clamp(robot.temp+8,0,100);
-    if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';robot.moving=false;setRobotAnim('Idle');}
-    renderRes();renderRobot();showAlert(T('a_battery_charged'));
-  }
-  function repairRobot(){
-    if(robot.status==='mission')return;
-    if(res.chatarra<=0){showAlert(T('a_no_scrap_repair'));return;}
-    res.chatarra--;robot.hp=clamp(robot.hp+35,0,100);
-    if(robot.status==='broken'&&robot.hp>0&&robot.bat>0){robot.status='idle';setRobotAnim('Idle');}
-    renderRes();renderRobot();showAlert(T('a_unit_repaired'));
   }
   function resetRobot(){robot.bat=80;robot.hp=100;robot.temp=35;robot.carga=0;robot.status='idle';robot.mT=0;robot.moving=false;robot.path=null;robot.wanderT=1.5;robot.atDesk=false;robot.atFab=false;streamReportAction('idle');if(robot.model){robot.model.visible=true;robot.model.position.set(2.05,0,-1.2);setRobotAnim('Idle');}renderRobot();}
   // ---- NAVEGACIÓN R-01: grafo de waypoints (árbol) que cruza por el CENTRO de cada puerta ----
@@ -1345,5 +1217,5 @@
    {const bx=1.55,bz=8.55,bsoil=potRound(bx,0,bz,.15,.17);loadPlant('flower_bushes.glb',[{x:bx,y:bsoil-.02,z:bz,target:SC_BUSH,rotY:Math.random()*Math.PI*2}]);}
   }
 
-  buildCel();applyCel();renderHoldout(0,0,0);
+  buildCel();applyCel();
   loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);

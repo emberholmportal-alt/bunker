@@ -1,69 +1,30 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>EL BÚNKER — REFUGIO 048</title>
+<title>REFUGIO 404 — LIVE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="motion">
   <div id="app"></div><div id="flash"></div><div id="madness"></div>
-  <div id="tag" data-i18n-html="tag_html">SHELTER 048 · <b>● LIVE SIGNAL</b><br>48 CHAINS DOWN</div>
   <div id="alert"></div>
   <div id="camhud">
     <div class="ch-tl"><span class="ch-rec" data-i18n="ov_rec">● REC</span><span id="ch-cam">CAM 01 — OBSERVATORY</span></div>
-    <div class="ch-tr"><span id="ch-time">00:00:00</span><span class="ch-day"><span data-i18n="ov_day">DAY</span> <b id="ch-day">0</b></span></div>
+    <div class="ch-tr"><span id="ch-time">00:00:00</span><span class="ch-day"><span data-i18n="ov_day">DAY</span> <b id="ch-day">0</b></span><span class="ch-bee-line"><span class="ch-bee">✦</span> <span data-i18n="ov_bees">BEES RELEASED</span> <b id="ch-bees">0</b></span></div>
     <div class="ch-br"><span class="ch-bars"><i></i><i></i><i></i><i></i></span><span id="ch-sig" data-i18n="ov_live">LIVE</span></div>
-    <div class="ch-bl"><span class="ch-bee">✦</span> <span data-i18n="ov_bees">BEES RELEASED</span> <b id="ch-bees">0</b></div>
   </div>
 
   <div id="panel">
-    <div class="ctl"><label data-i18n="holders">HOLDERS</label><input type="range" id="holders" class="cue" min="0" max="400" value="0"><span id="hv" style="color:var(--screen);width:32px">0</span></div>
-    <div id="holdout" class="cue">
-      <div class="hl"><span data-i18n="refugees">⌂ REFUGEES</span><span id="ro-in">0<i>/100</i></span></div>
-      <div class="hbar"><div id="ro-fill"></div></div>
-      <div class="hl2"><span id="ro-out">—</span><span id="ro-cons"></span></div>
-      <div class="hl3" id="ro-pop" data-i18n="ho_empty">shelter empty</div>
-    </div>
     <div class="prow">
-      <button class="btn" id="auto" data-i18n="btn_auto" data-i18n-title="tt_auto" title="Auto-raises HOLDERS">AUTO ▲</button>
-      <div class="seg" data-i18n-title="tt_speed" title="Time / swarm speed"><button class="btn on" data-spd="1">x1</button><button class="btn" data-spd="800">x800</button><button class="btn" data-spd="6000">x6k</button></div>
+      <div class="seg" data-i18n-title="tt_speed" title="Stream speed"><button class="btn on" data-spd="1">x1</button><button class="btn" data-spd="800">x800</button><button class="btn" data-spd="6000">x6k</button></div>
     </div>
-    <div class="prow"><button class="btn on" id="cel" data-i18n="btn_style_cel" data-i18n-title="tt_style" title="Cel-shading / realistic style">STYLE: CEL</button><button class="btn" id="snd" data-i18n="btn_sound" data-i18n-title="tt_sound" title="Audio on/off (hum, alarms, radio)">♪ SOUND</button><button class="btn" id="reset" data-i18n="btn_restart" data-i18n-title="tt_reset" title="Restart the demo">RESTART</button></div>
+    <div class="prow"><button class="btn on" id="cel" data-i18n="btn_style_cel" data-i18n-title="tt_style" title="Cel-shading / realistic style">STYLE: CEL</button><button class="btn" id="snd" data-i18n="btn_sound" data-i18n-title="tt_sound" title="Audio on/off (hum, alarms, radio)">♪ SOUND</button><button class="btn" id="reset" data-i18n="btn_restart" data-i18n-title="tt_reset" title="Restart the stream">RESTART</button></div>
   </div>
 
-  <div id="stats"></div>
-  <div id="res">
-    <div class="nuc"><div class="nl"><span data-i18n="generator">⚙ GENERATOR</span><span id="nucleo-pct">80%</span></div><div class="nt"><div class="nf" id="nucleo-bar"></div></div></div>
-    <div class="r" data-r="fuel"><svg viewBox="0 0 24 24" fill="none" stroke="#e6a868" stroke-width="1.5" stroke-linejoin="round"><rect x="5" y="8" width="10" height="11" rx="1"/><path d="M15 11h3v5h-3M8 8V6h4v2"/><line x1="7.5" y1="11.5" x2="13.5" y2="11.5" stroke-width="1.1"/></svg><span class="rv">6</span></div>
-    <div class="r" data-r="food"><svg viewBox="0 0 24 24" fill="none" stroke="#e6c490" stroke-width="1.5" stroke-linecap="round"><ellipse cx="12" cy="5.5" rx="5.5" ry="2"/><path d="M6.5 5.5v13c0 1.1 2.5 2 5.5 2s5.5-.9 5.5-2v-13"/><path d="M9.5 9v8M12 9v8M14.5 9v8" stroke-width="1.1"/></svg><span class="rv">5</span></div>
-    <div class="r" data-r="water"><svg viewBox="0 0 24 24"><path d="M12 3.5c0 0-6.5 7.2-6.5 11.2a6.5 6.5 0 0 0 13 0c0-4-6.5-11.2-6.5-11.2z" fill="#6cc0ee" stroke="#9bd8f8" stroke-width="1"/><path d="M9 14a3 3 0 0 0 1 3" fill="none" stroke="#bfeaff" stroke-width="1" stroke-linecap="round"/></svg><span class="rv">5</span></div>
-    <div class="r" data-r="chatarra" data-i18n-title="tt_scrap" title="Scrap (metal)"><svg viewBox="0 0 24 24" fill="none" stroke="#c2c8d0" stroke-width="1.5" stroke-linejoin="round"><path d="M8 4.5h8l4 7.5-4 7.5H8l-4-7.5z"/><circle cx="12" cy="12" r="3.3"/></svg><span class="rv">2</span></div>
-    <div class="r" data-r="med"><svg viewBox="0 0 24 24"><g transform="rotate(45 12 12)"><rect x="5.5" y="9" width="13" height="6" rx="3" fill="#ef6b6b"/><path d="M12 9h-3.5a3 3 0 0 0 0 6H12z" fill="#f6dada"/><rect x="5.5" y="9" width="13" height="6" rx="3" fill="none" stroke="#cf4a4a" stroke-width="1"/></g></svg><span class="rv">2</span></div>
-  </div>
-  <div id="map"><canvas id="mapc" width="196" height="150"></canvas><div class="blip" id="blip"></div></div>
-  <div id="craftui">
-    <div class="ctitle"><span data-i18n="craft_bench">⚗ CRAFTING BENCH</span> <span id="cclose">✕</span></div>
-    <div class="csec" data-i18n="craft_materials">MATERIALS</div><div id="cinv" class="cinv"></div>
-    <div class="csec" data-i18n="craft_recipes">RECIPES</div><div id="crecipes"></div>
-  </div>
-  <div id="robotui">
-    <div class="rtitle"><span data-i18n="unit_r01">🤖 UNIT R-01</span> <span id="rclose">✕</span></div>
-    <div class="rbar"><span><span data-i18n="battery">BATTERY</span> <b id="rbatv">80%</b></span><div class="rt"><div class="rf" id="rbat" style="width:80%;background:#39ff66"></div></div></div>
-    <div class="rbar"><span><span data-i18n="integrity">INTEGRITY</span> <b id="rhpv">100%</b></span><div class="rt"><div class="rf" id="rhp" style="width:100%;background:#7ad0ee"></div></div></div>
-    <div class="rbar"><span><span data-i18n="temperature">TEMPERATURE</span> <b id="rtempv">35°</b></span><div class="rt"><div class="rf" id="rtemp" style="width:35%;background:#ff9a5a"></div></div></div>
-    <div class="rbar"><span><span data-i18n="charge">CHARGE</span> <b id="rcargav">0%</b></span><div class="rt"><div class="rf" id="rcarga" style="width:0%;background:#c79aff"></div></div></div>
-    <div class="rstatus" id="rstatus" data-i18n="st_base">AT BASE</div>
-    <div class="rbtns">
-      <button class="btn" id="rsend" data-i18n="btn_send">SEND TO SCAVENGE</button>
-      <button class="btn" id="rcharge" data-i18n="btn_charge">CHARGE BATTERY</button>
-      <button class="btn" id="rrepair" data-i18n="btn_repair">REPAIR UNIT</button>
-    </div>
-  </div>
-  <div id="inv"></div>
-  <div id="ticks"></div>
+  <div id="map"><canvas id="mapc" width="196" height="150"></canvas></div>
 
   <div id="boot"><h2 data-i18n="boot_title">OPENING SHELTER</h2><p class="blink" data-i18n="boot_sub">sealing hatches…</p></div>
 
