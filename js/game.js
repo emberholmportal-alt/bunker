@@ -709,7 +709,7 @@
   function loop(){requestAnimationFrame(loop);
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
-    tickRobot(dt);radioTick(dt,t);
+    tickRobot(dt);tickRobotAudio(dt);radioTick(dt,t);
     mapAcc+=dt;if(mapAcc>.16){const rm=robot.model;drawMapPlan(rm?rm.position.x:0,rm?rm.position.z:0,rm?rm.rotation.y:0);mapAcc=0;} // minimapa: marca la posición del ROBOT (ya no hay jugador)
     updateUptimeBoard(streamUptime(),dt); // contador de pared: cronómetro del LIVE (HH:MM:SS desde LORE_EPOCH), lee de STREAM
     // dashboard de la estación de cómputo (sólo cuando la cámara activa es la del descanso, ~3/s): alimenta el log y redibuja
@@ -1031,6 +1031,28 @@
     window.__REFUGIO.thoughts=function(on){bkEnabled=(on===undefined)?!bkEnabled:!!on;if(!bkEnabled&&bkEl){_bkActive=false;bkEl.classList.remove('show');}return bkEnabled;};
     window.__REFUGIO.say=function(cat){return showBeekoThought(cat||'generic');}; // cat: hive·charging·admin·fab·grow·observatory·transit·generic
     window.__REFUGIO._bk=function(){return {ready:bkReady,renderer:!!bkRenderer,pivot:!!bkPivot,active:_bkActive};}; // debug del retrato
+  }
+
+  // ====== AUDIO DE BEEKO CAMINANDO (pasos sincronizados con la animación + crujidos del cuerpo) ======
+  // PASOS: derivados de la FASE de la animación 'Walking' (robot.cur.time) → un paso de audio por cada medio ciclo de las
+  // piernas, sólo cuando realmente camina. Siguen el ritmo real (si la animación cambia de velocidad, los pasos también).
+  // CRUJIDOS: timer aleatorio; más seguido al caminar, muy ocasional en quieto (cargando/admin). Volumen en audio.js (AVOL).
+  const CREAK_WALK_MIN=3.5, CREAK_WALK_MAX=9;   // s entre crujidos mientras camina
+  const CREAK_IDLE_MIN=16,  CREAK_IDLE_MAX=38;  // s entre crujidos en quieto (muy ocasional)
+  let _stepPh=0,_stepFrac=0,_wasWalk=false,_creakT=CREAK_IDLE_MIN+Math.random()*8;
+  function tickRobotAudio(dt){
+    if(!robot.model)return;
+    const walking = !!(robot.cur && robot.act && robot.cur===robot.act['Walking'] && robot.moving && robot.status==='idle' && !robot.atDesk && !robot.atFab);
+    if(walking){
+      const clip=robot.cur.getClip&&robot.cur.getClip(),dur=(clip&&clip.duration)||1,ph=((robot.cur.time||0)/dur)%1;
+      if(!_wasWalk){_wasWalk=true;_stepPh=ph;_stepFrac=0.22;}       // arranca a caminar: medio paso de gracia para que pise pronto pero no de golpe
+      else{let d=ph-_stepPh;if(d<0)d+=1;if(d>0.6)d=0;_stepPh=ph;_stepFrac+=d;} // avance de fase de esta frame (a prueba de wrap del loop de animación)
+      while(_stepFrac>=0.5){_stepFrac-=0.5;if(typeof step==='function')step();} // 2 pasos por ciclo de caminata (un pie cada medio ciclo)
+    }else _wasWalk=false;
+    _creakT-=dt;
+    if(_creakT<=0){ if(typeof creak==='function')creak();
+      _creakT = walking ? (CREAK_WALK_MIN+Math.random()*(CREAK_WALK_MAX-CREAK_WALK_MIN))
+                        : (CREAK_IDLE_MIN+Math.random()*(CREAK_IDLE_MAX-CREAK_IDLE_MIN)); }
   }
 
   // controles
