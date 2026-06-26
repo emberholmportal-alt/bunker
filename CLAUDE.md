@@ -1,11 +1,11 @@
-# CLAUDE.md — EL BÚNKER (REFUGIO 048)
+# CLAUDE.md — EL BÚNKER (REFUGIO 404)
 
 Guía para trabajar en este repo. Leer antes de tocar nada.
 
 ## Qué es el proyecto
 
 Trailer 3D **jugable** de una memecoin, presentado como una experiencia "found footage"
-de un búnker post-apocalíptico (REFUGIO 048). El gancho narrativo: una IA/"enjambre"
+de un búnker post-apocalíptico (REFUGIO 404). El gancho narrativo: una IA/"enjambre"
 asimiló al mundo y el búnker tiene **capacidad 100**. La métrica de la memecoin —
 **HOLDERS** — se traduce a personas que entran al refugio: los primeros 100 holders
 se salvan adentro; el excedente queda **afuera con la infección**. Es a la vez demo

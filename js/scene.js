@@ -30,7 +30,7 @@
   const sealBulb=new THREE.Mesh(new THREE.SphereGeometry(.07,10,10),new THREE.MeshBasicMaterial({color:0xff4040}));sealBulb.position.copy(sealLight.position);scene.add(sealBulb);
 
   // (literas removidas del observatorio)
-  // (cartel "REFUGIO 048 / CAPACIDAD 100" JUBILADO: texto del memecoin viejo; contradecía el canon de Beeko.)
+  // (cartel del refugio + capacidad JUBILADO: texto del memecoin viejo con el número viejo; contradecía el canon de Beeko.)
 
   // ---- TABLERO SPLIT-FLAP "TIME ALONE" (cronómetro del LIVE, montado en la pared del observatorio) ----
   const HB_DIG=13,HB_FLIP=0.13,hbC=cv(1024,384),hbX=hbC.getContext('2d'),hbTex=new THREE.CanvasTexture(hbC);hbTex.anisotropy=4; // 13 celdas = DDDD:HH:MM:SS (cronómetro del LIVE, no se topa)
@@ -250,7 +250,7 @@
   // (infección orgánica interior removida — visual limpia)
   // (colonias de infección interior removidas)
 
-  // (CRT del observatorio "REFUGIO 048 — ESTADO" JUBILADO: dashboard del memecoin viejo —refugiados/almas/
+  // (CRT del observatorio "estado del refugio" JUBILADO: dashboard del memecoin viejo —refugiados/almas/
   //  mundo asimilado— en español; contradecía el canon. alertMsg se conserva: lo escribe showAlert.)
   let alertMsg='';
 

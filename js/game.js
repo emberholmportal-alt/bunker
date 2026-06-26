@@ -221,11 +221,11 @@
     const screen=new THREE.Mesh(new THREE.PlaneGeometry(.74,.62),new THREE.MeshBasicMaterial({map:diagRT.texture}));screen.position.set(-6.35,1.66,MZ);screen.rotation.y=RY;scene.add(screen); // PANTALLA (textura del render-to-texture), mira al este
     {const sc2=cv(512,180),sx=sc2.getContext('2d');sx.fillStyle='#06120c';sx.fillRect(0,0,512,180);
       sx.fillStyle='#39ff88';sx.shadowColor='#39ff88';sx.shadowBlur=6;sx.font='20px VT323, monospace';sx.textBaseline='middle';
-      sx.fillText('UNIDAD R-01 · DIAGNÓSTICO',16,24);
+      sx.fillText('R-01 UNIT · DIAGNOSTICS',16,24);
       sx.font='19px VT323, monospace';sx.fillStyle='#bff7d2';sx.shadowBlur=4;
-      sx.fillText('BATERÍA NÚCLEO ....... 88%',16,62);
-      sx.fillText('REQ. CARGA ........... dock · ~2 HS',16,92);
-      sx.fillStyle='#39ff88';sx.fillText('ESTADO: OPERATIVO',16,128);
+      sx.fillText('CORE BATTERY ........ 88%',16,62);
+      sx.fillText('CHARGE REQ. ......... dock · ~2 HRS',16,92);
+      sx.fillStyle='#39ff88';sx.fillText('STATUS: OPERATIONAL',16,128);
       const st=new THREE.CanvasTexture(sc2);st.anisotropy=4;
       const strip=new THREE.Mesh(new THREE.PlaneGeometry(.74,.26),new THREE.MeshBasicMaterial({map:st}));strip.position.set(-6.35,1.24,MZ);strip.rotation.y=RY;scene.add(strip);}
     const scrGlow=new THREE.PointLight(0x39ff88,.45,2,2);scrGlow.position.set(-6.05,1.5,MZ);scene.add(scrGlow); // resplandor del monitor sobre la sala
@@ -270,14 +270,14 @@
         g.add(meshBox(.04,.1,.02,-.23,1.95,.11,steelD));g.add(meshBox(.04,.1,.02,.23,1.95,.11,steelD));    // manijas
         g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});
         led(-5.95,1.98,-0.80,0x39ff66,true);led(-5.78,1.98,-0.80,0xffaa00,true);led(-5.6,1.98,-0.80,0x39ff66,false);}
-      sign(hazTex('ALTA TENSIÓN','480V · NO ABRIR'),.5,.25,-5.7,2.18,-0.83,0);   // cartel sobre el gabinete
+      sign(hazTex('HIGH VOLTAGE','480V · DO NOT OPEN'),.5,.25,-5.7,2.18,-0.83,0);   // cartel sobre el gabinete
       // (B) CAJA DE FUSIBLES + junction box en el muro OESTE, entre el monitor (z=-0.1) y el dock (z=1.1)
       {const g=new THREE.Group();g.position.set(-6.45,1.5,0.55);g.rotation.y=RYW;scene.add(g);
         g.add(meshBox(.34,.46,.16,0,0,0,cab));g.add(meshBox(.3,.42,.02,0,0,.09,breaker));
         for(const px of[-.08,.08])g.add(meshBox(.05,.3,.02,px,0,.1,dark));
         g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
       led(-6.35,1.62,0.46,0x39ff66,true);led(-6.35,1.62,0.64,0xff3355,true);
-      sign(hazTex('PELIGRO','RIESGO ELÉCTRICO'),.42,.21,-6.43,1.92,0.55,RYW);
+      sign(hazTex('DANGER','ELECTRICAL HAZARD'),.42,.21,-6.43,1.92,0.55,RYW);
       // (C) DUCTO DE VENTILACIÓN en el techo (corre E-O por el norte) + rejilla en un extremo + soportes
       {const yD=2.40;box(2.9,.28,.3,-4.85,yD,-0.7,dark);
         for(const sx of[-6.0,-5.0,-4.0,-3.6])box(.06,.22,.36,sx,yD+.22,-0.7,steelD); // flejes al techo
@@ -401,7 +401,7 @@
       for(let i=0;i<5;i++){const a=i/5*Math.PI*2;const leg=new THREE.Mesh(new THREE.BoxGeometry(.28,.04,.05),steelD2);leg.position.set(Math.cos(a)*.14,.06,Math.sin(a)*.14);leg.rotation.y=-a;ch.add(leg);const wh=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.03,8),darkP);wh.rotation.z=Math.PI/2;wh.position.set(Math.cos(a)*.28,.03,Math.sin(a)*.28);ch.add(wh);}
       ch.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
     // --- cartelito de pared + lámpara de escritorio (clima de "puesto de trabajo") ---
-    {const sc=cv(256,64),sx=sc.getContext('2d');sx.fillStyle='#0a140c';sx.fillRect(0,0,256,64);sx.strokeStyle='#39ff88';sx.lineWidth=2;sx.strokeRect(4,4,248,56);sx.fillStyle='#8fffb0';sx.shadowColor='#39ff88';sx.shadowBlur=6;sx.font='20px VT323, monospace';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('CONTROL · REFUGIO 404',128,34);
+    {const sc=cv(256,64),sx=sc.getContext('2d');sx.fillStyle='#0a140c';sx.fillRect(0,0,256,64);sx.strokeStyle='#39ff88';sx.lineWidth=2;sx.strokeRect(4,4,248,56);sx.fillStyle='#8fffb0';sx.shadowColor='#39ff88';sx.shadowBlur=6;sx.font='20px VT323, monospace';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('CONTROL · SHELTER 404',128,34);
       const t=new THREE.CanvasTexture(sc);t.anisotropy=4;const sg=new THREE.Mesh(new THREE.PlaneGeometry(.55,.14),new THREE.MeshBasicMaterial({map:t,transparent:true}));sg.position.set(DKX,1.55,8.46);scene.add(sg);}
   }
 
@@ -503,8 +503,8 @@
       loadPlant('flowers.glb',[{x:px-.22,y:.36,z:pz,target:.34,rotY:0.6},{x:px+.2,y:.36,z:pz-.12,target:.3,rotY:2.1},{x:px,y:.36,z:pz+.14,target:.32,rotY:4.0}]);}
     // (9) ATMÓSFERA + DISPLAYS: cartel + contador de pared "LIBERADAS" (lee STREAM.beesReleased) + luz ambiente cálida
     {const sc=cv(256,128),sx=sc.getContext('2d');sx.fillStyle='#1c1206';sx.fillRect(0,0,256,128);sx.strokeStyle='#ffb13a';sx.lineWidth=3;sx.strokeRect(8,8,240,112);
-      sx.fillStyle='#ffd86a';sx.shadowColor='#ffb13a';sx.shadowBlur=8;sx.font='bold 30px Anton, sans-serif';sx.textAlign='center';sx.fillText('COLMENA',128,48);
-      sx.font='17px VT323, monospace';sx.fillStyle='#bff7d2';sx.shadowBlur=4;sx.fillText('PROYECTO REPOBLACIÓN',128,80);sx.fillStyle='#ffb13a';sx.fillText('REFUGIO 404', 128,104);
+      sx.fillStyle='#ffd86a';sx.shadowColor='#ffb13a';sx.shadowBlur=8;sx.font='bold 30px Anton, sans-serif';sx.textAlign='center';sx.fillText('HIVE',128,48);
+      sx.font='17px VT323, monospace';sx.fillStyle='#bff7d2';sx.shadowBlur=4;sx.fillText('REPOPULATION PROJECT',128,80);sx.fillStyle='#ffb13a';sx.fillText('SHELTER 404', 128,104);
       const st=new THREE.CanvasTexture(sc);st.anisotropy=4;const sgn=new THREE.Mesh(new THREE.PlaneGeometry(.8,.4),new THREE.MeshBasicMaterial({map:st,transparent:true}));sgn.position.set(-3.38,1.85,12.6);sgn.rotation.y=Math.PI/2;scene.add(sgn);}
     {const bnv=cv(256,96);beeNumX=bnv.getContext('2d');beeNumTex=new THREE.CanvasTexture(bnv);beeNumTex.anisotropy=4;
       box(.66,.5,.06,3.36,1.55,12.7,techH);                     // carcasa del display (muro este)
@@ -694,7 +694,7 @@
   function drawAdmin(){if(!adminX)return;const x=adminX,p2=n=>String(n).padStart(2,'0');
     x.fillStyle='#04140a';x.fillRect(0,0,512,384);x.strokeStyle='#1f6b3a';x.lineWidth=2;x.strokeRect(8,8,496,368);
     x.textBaseline='middle';x.textAlign='left';x.fillStyle='#8fffb0';x.shadowColor='#39ff88';x.shadowBlur=6;
-    x.font='25px Anton, sans-serif';x.fillText('REFUGIO 404 · SYSTEMS / ADMIN',22,32);x.shadowBlur=0;
+    x.font='25px Anton, sans-serif';x.fillText('SHELTER 404 · SYSTEMS / ADMIN',22,32);x.shadowBlur=0;
     x.strokeStyle='#143f24';x.beginPath();x.moveTo(16,50);x.lineTo(496,50);x.stroke();
     const up=Math.floor(streamUptime()/1000),dd=Math.floor(up/86400),hh=Math.floor(up%86400/3600),mm=Math.floor(up%3600/60),ss=up%60;
     x.font='20px VT323, monospace';x.fillStyle='#bff7d2';x.fillText('UPTIME  '+String(dd).padStart(4,'0')+':'+p2(hh)+':'+p2(mm)+':'+p2(ss),22,74);x.fillText('DAY '+STREAM.day,372,74);
@@ -702,7 +702,7 @@
     bar('POWER',Math.round(Math.max(0,Math.min(100,STREAM.charge))),100,106,'#39ff88');
     bar('HIVE',Math.round(STREAM.bees),80,132,'#ffb13a');
     x.fillStyle='#7fbf95';x.fillText('RELEASED',22,158);x.fillStyle='#ffd86a';x.fillText('✦ '+Math.round(STREAM.beesReleased),160,158);
-    x.fillStyle='#7fbf95';x.fillText('ACTIVE CAM',22,184);x.fillStyle='#8fffb0';x.fillText((ZONE_CAM[STREAM.zone]||'00')+' · '+(''+STREAM.zone).toUpperCase(),160,184);
+    x.fillStyle='#7fbf95';x.fillText('ACTIVE CAM',22,184);x.fillStyle='#8fffb0';x.fillText((ZONE_CAM[STREAM.zone]||'00')+' · '+(ZONE_I18N[STREAM.zone]?T(ZONE_I18N[STREAM.zone]):(''+STREAM.zone).toUpperCase()),160,184);
     x.fillStyle='#7fbf95';x.fillText('SYSTEMS',22,210);for(let i=0;i<10;i++){x.fillStyle=i<9?'#39ff88':'#1f6b3a';x.fillRect(160+i*15,204,11,12);}x.fillStyle='#8fffb0';x.fillText('NOMINAL',330,210);
     x.strokeStyle='#143f24';x.strokeRect(16,228,480,140);x.font='17px VT323, monospace';x.fillStyle='#6fcf8a';
     for(let i=0;i<_adminLog.length;i++)x.fillText(_adminLog[i],26,248+i*18);}
@@ -783,7 +783,7 @@
     // contador de pared "LIBERADAS" — LEE STREAM.beesReleased, se redibuja sólo al cambiar el entero
     if(beeNumX){const r=Math.max(0,Math.round(STREAM.beesReleased));if(r!==_beesRelShown){_beesRelShown=r;beeNumX.clearRect(0,0,256,96);
       beeNumX.fillStyle='#ffb13a';beeNumX.shadowColor='#ffb13a';beeNumX.shadowBlur=8;beeNumX.textAlign='center';
-      beeNumX.font='18px VT323, monospace';beeNumX.fillText('LIBERADAS',128,26);
+      beeNumX.font='18px VT323, monospace';beeNumX.fillText('RELEASED',128,26);
       beeNumX.font='52px VT323, monospace';beeNumX.fillText('✦ '+r,128,66);beeNumTex.needsUpdate=true;}}
     // FABRICACIÓN: STREAM.print auto-cicla (si no está forzado), alternando pieza por ciclo. La pieza crece capa a capa leyéndolo;
     // el cabezal barre XY sobre la capa actual; el filamento sigue al cabezal; el panel se redibuja al cambiar de capa.
