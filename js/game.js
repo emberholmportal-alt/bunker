@@ -152,6 +152,7 @@
     {node:0,  look:[-2.1,-4.0]},   // generador / hub
     {node:4,  look:[2.9,9.6]},     // cultivo (racks)
     {node:15, look:[0,14.55]},     // colmena
+    {node:24, look:[6.2,12.4]},    // bóveda (se planta a mirar el oro)
     {node:20, look:[-5.4,11.35]}   // fabricación
   ];
   // ---- SALA DE FABRICACIÓN: impresora 3D animada. La pieza crece leyendo STREAM.print (auto-cicla si no está forzado). ----
@@ -523,7 +524,7 @@
     const cz=13.6;                                              // centro z de la sala (x[-3.4,3.4] z[11.8,15.4])
     // (1) caja de sala (el muro sur z=11.8 es el del cultivo, ya partido para el hueco)
     box(6.8,.3,3.6,0,-.15,cz,floorMat);box(6.8,.3,3.6,0,CH,cz,ceilMat);
-    box(.3,CH+.3,3.6,-3.4,CH/2,cz,concreteMat);box(.3,CH+.3,3.6,3.4,CH/2,cz,concreteMat); // muros E/O
+    box(.3,CH+.3,3.6,-3.4,CH/2,cz,concreteMat);box(.3,CH+.3,1.7,3.4,CH/2,12.65,concreteMat);box(.3,CH+.3,.2,3.4,CH/2,15.3,concreteMat); // muro O entero; muro E PARTIDO: hueco z[13.5,15.2]=1.7m → LA BÓVEDA (CAM 10)
     box(6.8,CH+.3,.3,0,CH/2,15.4,concreteMat);                  // muro norte
     // (2) marco + dintel de la puerta (hueco x[-0.85,0.85] en z=11.8) con tira ÁMBAR cálida (paleta de colmena, no cian)
     const jamb2=new THREE.MeshStandardMaterial({color:0x2b2820,metalness:.7,roughness:.55,normalMap:metalN});
@@ -586,6 +587,93 @@
     const hl1=new THREE.PointLight(0xffcaa0,.7,8,2);hl1.position.set(0,CH-.3,13.0);scene.add(hl1);     // ambiente cálido de sala
     const hl2=new THREE.PointLight(0xffd8a0,.45,5,2);hl2.position.set(0,1.6,12.4);scene.add(hl2);      // relleno bajo (hacia la puerta)
   }
+
+  // ====== SALA: LA BÓVEDA (CAM 10 · VAULT) — al ESTE de la colmena, por el muro este partido. Cuarto SELLADO que Beeko descubrió:
+  // oro/monedas/fajos apilados y olvidados. Tono IRÓNICO/MELANCÓLICO, NO casino: oro MATE y polvoriento, penumbra fría, y un HAZ
+  // CÁLIDO ámbar que entra por la puerta desde la colmena (contraste vida/riqueza). 100% procedural (CERO peso nuevo) salvo la
+  // lámpara industrial (clon del GLB ya cargado). Detalle humano AUSENTE: un guante sobre el oro + un casco viejo en el piso. ======
+  {
+    const VX=5.3, VZ=13.6;                                        // centro de la sala x[3.4,7.2] z[11.8,15.4]
+    // (1) caja de sala (el muro OESTE es el muro este de la colmena, ya partido arriba para el hueco z[13.5,15.2])
+    box(3.8,.3,3.6,VX,-.15,VZ,floorMat);box(3.8,.3,3.6,VX,CH,VZ,ceilMat);
+    box(.3,CH+.3,3.6,7.2,CH/2,VZ,concreteMat);                   // muro este
+    box(3.8,CH+.3,.3,VX,CH/2,11.8,concreteMat);                  // muro sur
+    box(3.8,CH+.3,.3,VX,CH/2,15.4,concreteMat);                  // muro norte
+    // ---- materiales: oro MATE polvoriento (NO brillante), monedas, billetes viejos, acero del strongbox, polvo ----
+    const goldMat=new THREE.MeshStandardMaterial({map:tex(grime('#8a6d2e'),1),normalMap:_wn,color:0x9a7a34,metalness:.5,roughness:.66}); // dorado apagado y sucio
+    const coinMat=new THREE.MeshStandardMaterial({color:0xa8863e,metalness:.55,roughness:.6,normalMap:metalN});
+    const billMat=new THREE.MeshStandardMaterial({map:tex(grime('#5e6450'),1),normalMap:_wn,color:0x6a7058,roughness:.93,metalness:.03}); // billetes verdosos desteñidos
+    const bandMat=new THREE.MeshStandardMaterial({color:0x9a8f6a,roughness:.85});
+    const vSteel=new THREE.MeshStandardMaterial({color:0x33383d,metalness:.82,roughness:.5,normalMap:metalN});
+    const dustMat=new THREE.MeshBasicMaterial({map:tex(grime('#0c0e0a'),1),transparent:true,opacity:.4,depthWrite:false});
+    const dust=(w,d,x,y,z)=>{const p=new THREE.Mesh(new THREE.PlaneGeometry(w,d),dustMat);p.rotation.x=-Math.PI/2;p.position.set(x,y,z);scene.add(p);};
+    // (2) PUERTA SELLADA / FORZADA — marco del hueco + hoja pesada CORRIDA a un costado + volante + candado reventado + hazard roto
+    const jambV=new THREE.MeshStandardMaterial({color:0x2b3034,metalness:.8,roughness:.5,normalMap:metalN});
+    box(.4,.4,1.7,3.4,CH-.2,14.35,jambV);                        // dintel (cubre el hueco 1.7m)
+    box(.4,2.32,.18,3.4,1.16,13.5,jambV);box(.4,2.32,.18,3.4,1.16,15.2,jambV); // jambas S/N del hueco
+    {const s=new THREE.Mesh(new THREE.BoxGeometry(.05,.05,1.6),new THREE.MeshStandardMaterial({color:0x3a3e42,roughness:.7}));s.position.set(3.28,2.32,14.35);scene.add(s);} // tira de borde MUERTA (gris, sin glow: puerta sellada, no activa)
+    {const th=new THREE.Mesh(new THREE.PlaneGeometry(.5,1.7),new THREE.MeshStandardMaterial({color:0x36393d,metalness:.7,roughness:.55,normalMap:metalN}));th.rotation.x=-Math.PI/2;th.position.set(3.4,.013,14.35);scene.add(th);} // umbral al ras
+    {const door=new THREE.Group();door.position.set(4.2,0,15.16);door.rotation.y=-.16;scene.add(door); // hoja pesada CORRIDA y apoyada al muro norte (la forzó y quedó así)
+      door.add(meshBox(1.25,2.0,.16,0,1.05,0,vSteel));           // losa
+      door.add(meshBox(1.05,1.8,.04,0,1.05,.1,new THREE.MeshStandardMaterial({color:0x2a2e32,metalness:.6,roughness:.6}))); // panel interior
+      for(const rx of[-.5,.5])for(const ry of[.25,1.05,1.85]){const rv=new THREE.Mesh(new THREE.SphereGeometry(.035,8,8),vSteel);rv.position.set(rx,ry,.1);door.add(rv);} // remaches
+      {const w=new THREE.Group();w.position.set(0,1.05,.14);door.add(w);w.add(new THREE.Mesh(new THREE.TorusGeometry(.26,.04,10,22),vSteel));for(let i=0;i<4;i++){const sp=meshBox(.5,.05,.045,0,0,0,vSteel);sp.rotation.z=i*Math.PI/4;w.add(sp);}const hub=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.12,12),vSteel);hub.rotation.x=Math.PI/2;w.add(hub);} // VOLANTE de válvula
+      door.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+    {const lk=meshBox(.1,.13,.05,0,0,0,vSteel);lk.position.set(3.72,.06,14.05);lk.rotation.z=.4;lk.castShadow=true;scene.add(lk); // candado reventado
+      for(let i=0;i<6;i++){const ch=new THREE.Mesh(new THREE.TorusGeometry(.035,.012,6,12),vSteel);ch.position.set(3.6+i*.075,.02,14.18-(i%2?.05:0));ch.rotation.x=Math.PI/2;ch.rotation.y=(Math.random()-.5);ch.castShadow=true;scene.add(ch);}} // eslabones de cadena en el piso
+    {const hzC=cv(128,32),hxx=hzC.getContext('2d');hxx.fillStyle='#caa800';hxx.fillRect(0,0,128,32);hxx.fillStyle='#111';for(let s=-16;s<140;s+=24){hxx.beginPath();hxx.moveTo(s,0);hxx.lineTo(s+12,0);hxx.lineTo(s-4,32);hxx.lineTo(s-16,32);hxx.closePath();hxx.fill();}const hz=tex(hzC,1);
+      for(const hp of[[3.9,13.75,.5],[4.3,14.7,-.7]]){const t=new THREE.Mesh(new THREE.PlaneGeometry(.55,.09),new THREE.MeshStandardMaterial({map:hz,roughness:.9,transparent:true,opacity:.8}));t.rotation.x=-Math.PI/2;t.rotation.z=hp[2];t.position.set(hp[0],.016,hp[1]);scene.add(t);}} // cinta hazard ROTA, caída
+    // (3) HOARD DE ORO — pirámide de lingotes MATE contra el muro sur/SE (el botín principal)
+    function goldBar(g,x,y,z,rot){const b=meshBox(.2,.075,.11,x,y,z,goldMat);b.rotation.y=rot;b.castShadow=true;g.add(b);}
+    {const g=new THREE.Group();g.position.set(6.3,0,12.2);scene.add(g);
+      const rows=[[0,4],[.08,3],[.16,2],[.24,1]];                // pirámide 4·3·2·1
+      for(const zoff of[0,.27])for(const r of rows)for(let i=0;i<r[1];i++)goldBar(g,(i-(r[1]-1)/2)*.235,.04+r[0],zoff,(Math.random()-.5)*.14);}
+    // (4) MONEDAS — pilas de cilindros + derrame en el piso
+    {const g=new THREE.Group();g.position.set(5.1,0,12.05);scene.add(g);
+      const stack=(sx,sz,n)=>{for(let i=0;i<n;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(.058,.058,.014,16),coinMat);c.position.set(sx,.02+i*.014,sz);c.castShadow=true;g.add(c);}};
+      stack(-.2,0,8);stack(-.08,.06,5);stack(.03,-.05,9);stack(.15,.05,4);
+      for(let i=0;i<9;i++){const c=new THREE.Mesh(new THREE.CylinderGeometry(.058,.058,.014,16),coinMat);c.rotation.x=Math.PI/2;c.rotation.z=Math.random()*3;c.position.set(.18+Math.random()*.5,.008,-.12+Math.random()*.4);c.castShadow=true;g.add(c);}}
+    // (5) FAJOS DE BILLETES — ladrillos verdosos con faja, apilados + un par caídos
+    {const g=new THREE.Group();g.position.set(4.9,0,13.0);scene.add(g);
+      const bundle=(bx,by,bz,rot)=>{const b=meshBox(.16,.06,.08,bx,by,bz,billMat);b.rotation.y=rot;b.castShadow=true;g.add(b);const bd=meshBox(.162,.062,.022,bx,by,bz,bandMat);bd.rotation.y=rot;g.add(bd);};
+      for(let r=0;r<3;r++)for(let i=0;i<3-r;i++)bundle(-.18+i*.17+r*.085,.035+r*.062,0,(Math.random()-.5)*.1);
+      bundle(.3,.035,.12,.5);bundle(.18,.035,.22,-.3);}
+    // (6) STRONGBOX abierto (de donde salió el botín) contra el muro este, tapa caída hacia atrás
+    {const g=new THREE.Group();g.position.set(6.7,0,14.2);g.rotation.y=-.5;scene.add(g);
+      g.add(meshBox(.5,.34,.4,0,.18,0,vSteel));                  // cuerpo
+      g.add(meshBox(.46,.04,.36,0,.36,0,new THREE.MeshStandardMaterial({color:0x14181b,roughness:.8}))); // interior oscuro (casi vacío)
+      {const lid=meshBox(.5,.04,.4,0,.36,-.34,vSteel);lid.rotation.x=-2.0;g.add(lid);} // tapa abierta
+      for(const px of[-.2,.2])g.add(meshBox(.06,.06,.06,px,.36,.2,vSteel)); // cierres
+      goldBar(g,.05,.42,.05,.3);goldBar(g,-.06,.42,.13,-.2);     // un par de lingotes asomando
+      g.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+    // (7) DETALLE HUMANO AUSENTE — un GUANTE sobre el oro ("someone left a glove here, on top of the pile") + un CASCO viejo en el piso
+    {const gl=new THREE.Group();gl.position.set(6.25,.345,12.3);gl.rotation.set(.1,.7,.05);scene.add(gl);
+      const glMat=new THREE.MeshStandardMaterial({map:tex(grime('#4a3f30'),1),normalMap:_wn,color:0x6a5a44,roughness:.95});
+      gl.add(meshBox(.1,.03,.13,0,0,0,glMat));                   // palma
+      for(let i=0;i<4;i++)gl.add(meshBox(.02,.025,.07,-.033+i*.022,0,.1,glMat)); // dedos
+      gl.add(meshBox(.03,.025,.05,.06,0,.02,glMat));             // pulgar
+      gl.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+    {const helC=0x8a8048;const hel=new THREE.Group();hel.position.set(5.75,.1,13.78);hel.rotation.set(.12,.5,.16);scene.add(hel); // casco de obra DESTEÑIDO, caído en el piso
+      hel.add(new THREE.Mesh(new THREE.SphereGeometry(.12,14,10,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:helC,roughness:.85,metalness:.05}))); // domo
+      hel.add(new THREE.Mesh(new THREE.CylinderGeometry(.2,.2,.016,18),new THREE.MeshStandardMaterial({color:helC,roughness:.85}))); // ala
+      hel.add(meshBox(.02,.06,.22,0,.06,0,new THREE.MeshStandardMaterial({color:helC,roughness:.85}))); // cresta
+      hel.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+    // (8) ILUMINACIÓN — fría y TENUE (cuarto muerto) + HAZ CÁLIDO ámbar que entra por la puerta desde la colmena (vida/riqueza)
+    const vCold=new THREE.PointLight(0x8a98b0,.55,7,2);vCold.position.set(VX+.3,CH-.4,VZ);scene.add(vCold);
+    const vWarm=new THREE.SpotLight(0xffb43a,1.25,5.5,Math.PI/5,.55,1.5);vWarm.position.set(3.5,1.7,14.35);vWarm.target.position.set(6.0,.5,12.6);scene.add(vWarm);scene.add(vWarm.target); // haz por la puerta (NO) hacia el oro
+    const vGlint=new THREE.PointLight(0xffd98a,.42,3.2,2);vGlint.position.set(6.2,.95,12.4);scene.add(vGlint); // realce del oro (sutil, no casino)
+    {const haze=new THREE.Mesh(new THREE.SphereGeometry(.9,12,12),new THREE.MeshBasicMaterial({color:0xffb43a,transparent:true,opacity:.05,depthWrite:false}));haze.position.set(4.3,1.2,14.0);scene.add(haze);} // polvo en el haz
+    // (9) ATMÓSFERA NARRATIVA — cartel estarcido DESTEÑIDO en el muro este + capas de polvo en el piso
+    {const sc=cv(256,128),sx=sc.getContext('2d');sx.clearRect(0,0,256,128);
+      sx.strokeStyle='#b8a23a';sx.globalAlpha=.5;sx.lineWidth=5;sx.strokeRect(12,12,232,104);
+      sx.fillStyle='#c8b34a';sx.globalAlpha=.55;sx.font='bold 44px Anton, sans-serif';sx.textAlign='center';sx.textBaseline='middle';sx.fillText('VAULT',128,52);
+      sx.font='17px VT323, monospace';sx.globalAlpha=.4;sx.fillText('RESTRICTED · AUTHORIZED ONLY',128,90);
+      const sg=new THREE.Mesh(new THREE.PlaneGeometry(.9,.45),new THREE.MeshStandardMaterial({map:tex(sc,1),transparent:true,roughness:1}));sg.position.set(7.04,1.7,13.2);sg.rotation.y=-Math.PI/2;scene.add(sg);} // muro este, mira al oeste
+    dust(2.2,1.6,5.8,.014,12.6);dust(.9,.7,4.1,.015,14.3);       // polvo asentado en el piso (bajo las pilas + cerca de la puerta)
+  }
+  loadProp('lamp_industrial.glb',5.3,1.95,13.4,.5,0);            // lámpara industrial al techo (ÚNICO GLB de la sala: clon ya cargado → 0 peso nuevo)
+  {const cord=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.24,6),new THREE.MeshStandardMaterial({color:0x14181b,roughness:.8}));cord.position.set(5.3,2.53,13.4);scene.add(cord);} // cable al techo
+
   // ====== DETALLE DE SALAS: biblioteca, cultivo, descanso + luces ======
   {
     const bookWood=new THREE.MeshStandardMaterial({map:tex(grime('#3a2c1c'),1),normalMap:_wn,roughness:.9,metalness:.05});
@@ -699,7 +787,7 @@
   loadProp('can_red.glb',-5.0,.79,11.52,.16,.2);                      // lata sobre el banco
   loadProp('pot.glb',-7.15,.62,9.7,.2,0);                            // recipiente en el estante de repuestos (repisa baja)
 
-  const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05},{x0:-3.25,x1:3.25,z0:11.55,z1:15.25},{x0:-7.20,x1:-3.15,z0:8.45,z1:11.55}];
+  const AREAS=[{x0:-RX+.4,x1:RX-.4,z0:RZ0+.5,z1:RZ1+.05},{x0:-1.15,x1:1.15,z0:RZ1-.1,z1:5.35},{x0:-3.25,x1:3.25,z0:5.05,z1:8.35},{x0:-3.25,x1:3.25,z0:8.05,z1:11.65},{x0:3.15,x1:7.05,z0:5.75,z1:8.25},{x0:-7.2,x1:-3.15,z0:5.75,z1:8.25},{x0:-6.45,x1:-2.70,z0:-0.80,z1:3.05},{x0:-3.25,x1:3.25,z0:11.55,z1:15.25},{x0:-7.20,x1:-3.15,z0:8.45,z1:11.55},{x0:3.15,x1:7.05,z0:11.95,z1:15.25}];
   function inArea(x,z){for(const a of AREAS)if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return true;return false;}
   // (ZONAS DE INTERACCIÓN del modo jugable — jubiladas: el robot ya no las usa; la cámara LEE STREAM.zone)
 
@@ -708,7 +796,7 @@
   // La cámara LEE STREAM.zone y CORTA según ESE valor — NUNCA detecta la zona del robot por su
   // cuenta. game.js reporta la sala del robot a STREAM (con histéresis); si la admin futura hace
   // __REFUGIO.setZone('taller'), streamReportZone no la pisa y la cámara corta al taller igual.
-  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso','carga','colmena','fab']; // MISMO orden que AREAS
+  const ZONES=['observatorio','pasillo','biblioteca','cultivo','taller','descanso','carga','colmena','fab','vault']; // MISMO orden que AREAS
   const CAMS={
     observatorio:{pos:new THREE.Vector3( 2.20,2.40, 2.90),look:new THREE.Vector3( 0.00,1.10,-1.20)},
     pasillo:     {pos:new THREE.Vector3( 0.95,2.35, 3.25),look:new THREE.Vector3( 0.00,1.10, 4.50)},
@@ -718,7 +806,8 @@
     descanso:    {pos:new THREE.Vector3(-6.95,2.40, 6.00),look:new THREE.Vector3(-4.80,1.10, 7.00)},
     carga:       {pos:new THREE.Vector3(-3.50,2.45, 2.90),look:new THREE.Vector3(-5.70,1.00, 1.00)}, // esquina NE (junto a la puerta) mirando SO al dock; sala chica, FOV normal
     colmena:     {pos:new THREE.Vector3( 3.00,2.45,12.10),look:new THREE.Vector3( 0.00,1.10,14.40),fov:74}, // esquina SE alta mirando NO a la colmena+robot+enjambre; gran angular para que entre el volumen del enjambre
-    fab:         {pos:new THREE.Vector3(-3.70,2.45, 8.60),look:new THREE.Vector3(-5.60,1.10,11.30),fov:72} // esquina SE alta mirando NO a la impresora+robot
+    fab:         {pos:new THREE.Vector3(-3.70,2.45, 8.60),look:new THREE.Vector3(-5.60,1.10,11.30),fov:72}, // esquina SE alta mirando NO a la impresora+robot
+    vault:       {pos:new THREE.Vector3( 4.00,2.45,14.70),look:new THREE.Vector3( 6.20,0.95,12.40),fov:70} // desde la puerta (NO) mirando en diagonal al botín (SE) + robot al medio; el haz cálido entra por detrás-izq
   };
   // HISTÉRESIS: el robot se reporta en una sala sólo cuando entra a su "core" (AABB de AREAS
   // encogido por HYST). En las puertas (fuera de todo core) se mantiene la sala actual => sin
@@ -751,8 +840,8 @@
 
   // ====== OVERLAY DE CÁMARA (sub-paso 6) — LEE de STREAM (zone/now/day); NUNCA calcula nada por su
   // cuenta. Por eso __REFUGIO.setZone('taller') / setDay(120) se reflejan al toque. ======
-  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging',colmena:'room_hive',fab:'room_fab'}; // nombre de sala vía i18n (todo el overlay en inglés)
-  const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07',colmena:'08',fab:'09'}; // número de cámara FIJO por sala
+  const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging',colmena:'room_hive',fab:'room_fab',vault:'room_vault'}; // nombre de sala vía i18n (todo el overlay en inglés)
+  const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07',colmena:'08',fab:'09',vault:'10'}; // número de cámara FIJO por sala
   let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1;
   function updateOverlay(dt){
     const z=STREAM.zone;
@@ -982,6 +1071,16 @@
       "the Hive called this inefficiency. look at it. still here.",
       "i water them. they don't thank me. that was never the point."
     ],
+    vault:[
+      "they sealed this room before the end. metal. paper. stacked like it mattered.",
+      "i don't know what this is. but they locked it away, deep, behind a door this heavy.",
+      "the old files called it gold. i can't eat it. the bees can't pollinate it. i don't understand what made it precious.",
+      "they protected this with steel and locks. they protected the bees with nothing. i think they chose wrong.",
+      "whatever this was worth, it's worth nothing now. the door outlasted the world that wanted it.",
+      "someone left a glove here, on top of the pile. they touched this. they're gone. the gold stayed.",
+      "they buried their treasure and let the world die above it. i found the treasure. the world's still dead.",
+      "i come here sometimes. i look at it. i still don't understand. maybe that's the point."
+    ],
     observatory:[
       "the blast door hasn't opened in years. on the other side: the Hive, and silence.",
       "i broadcast from here. into the gray. i don't know if anyone receives it.",
@@ -1032,7 +1131,7 @@
     ]
   };
   // mapeo ZONA (clave de robotZone) → categoría. pasillo/biblioteca/taller → transit. fab = sala de fabricación.
-  const BEEKO_ZONE_CAT={colmena:'hive',carga:'charging',descanso:'admin',fab:'fab',cultivo:'grow',observatorio:'observatory',pasillo:'transit',biblioteca:'transit',taller:'transit'};
+  const BEEKO_ZONE_CAT={colmena:'hive',carga:'charging',descanso:'admin',fab:'fab',cultivo:'grow',observatorio:'observatory',pasillo:'transit',biblioteca:'transit',taller:'transit',vault:'vault'};
   // bolsa genérica para deambular: los 4 generic_* juntos (se elige uniforme, sin repetir el último)
   const BEEKO_GENERIC=[].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway);
   // ---- AJUSTES (constantes) ----
@@ -1195,7 +1294,7 @@
   };
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo; 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:6.2,z:12.4,r:.6}/*pila de oro (bóveda)*/,{x:5.0,z:12.05,r:.5}/*fajos+monedas (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -1282,11 +1381,15 @@
     {x:-2.9, z:9.5 },  //17 CULw cultivo oeste, ALINEADO con el hueco (z=9.5): el giro hacia FAB ocurre acá (adentro del cultivo)
     {x:-3.4, z:9.5 },  //18 FABd en el hueco de la puerta a fabricación (z[8.65,10.35]=1.7m, centro 9.5)
     {x:-3.9, z:9.5 },  //19 FABi lado-sala de la puerta (cruce recto 17→18→19 colineales en z=9.5)
-    {x:-5.4, z:10.3}   //20 FABC sala de fabricación: frente a la impresora (el robot se planta acá a fabricar)
+    {x:-5.4, z:10.3},  //20 FABC sala de fabricación: frente a la impresora (el robot se planta acá a fabricar)
+    {x:2.4,  z:14.35}, //21 HIVe colmena este, antes de la puerta a la BÓVEDA (esquiva el centerpiece de la colmena)
+    {x:3.4,  z:14.35}, //22 VAUd en el hueco de la puerta a la bóveda (z[13.5,15.2]=1.7m, centro 14.35)
+    {x:3.95, z:14.35}, //23 VAUi lado-bóveda de la puerta (cruce recto 21→22→23 colineales en z=14.35)
+    {x:5.3,  z:13.7 }  //24 VAUC bóveda: el robot se planta acá a mirar el oro
   ];
   // cruce recto por la puerta: 10→11→13 colineales en z=2.35 (carga); cultivo→colmena 4→14→15 en x=0; cultivo→fab 17→18→19 en z=9.5
-  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3,14,17],[3,6],[5,7],[6],[3,9],[8,16],[0,11],[10,13],[13],[11,12],[4,15],[14],[9],[4,18],[17,19],[18,20],[19]];
-  const DEST=[0,2,3,4,7,9,12,15,16,20]; // nodos "centro de sala" donde el robot puede plantarse (20=sala de fabricación)
+  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3,14,17],[3,6],[5,7],[6],[3,9],[8,16],[0,11],[10,13],[13],[11,12],[4,15],[14,21],[9],[4,18],[17,19],[18,20],[19],[15,22],[21,23],[22,24],[23]];
+  const DEST=[0,2,3,4,7,9,12,15,16,20,24]; // nodos "centro de sala" donde el robot puede plantarse (24=bóveda)
   function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
   function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
     for(let h=0;h<q.length;h++){const u=q[h];if(u===t)break;for(const v of ADJ[u])if(!seen[v]){seen[v]=true;prev[v]=u;q.push(v);}}
