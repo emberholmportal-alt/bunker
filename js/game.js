@@ -305,6 +305,43 @@
       const mLed=new THREE.PointLight(0x39ff66,.3,2.2,2);mLed.position.set(-5.8,1.6,-0.55);scene.add(mLed);
       // (I) UMBRAL de la puerta (placa metálica al ras en el hueco z[1.5,3.2]=1.7m) — enmarca el paso y disimula el borde
       {const th=new THREE.Mesh(new THREE.PlaneGeometry(.5,1.7),new THREE.MeshStandardMaterial({color:0x3a4046,metalness:.85,roughness:.45,normalMap:metalN}));th.rotation.x=-Math.PI/2;th.position.set(-3.2,.013,2.35);scene.add(th);}
+      // (J) PÓSTER (rastro humano ausente, como las literas/la taza del descanso): assets/miku.png pegado con cinta
+      // al muro NORTE, en el hueco entre el gabinete de breakers (x≈-5.7) y la rejilla (x≈-3.9). CAM 07 lo encuadra
+      // arriba-izquierda, sin tapar dock/medidor/pantalla. Decoración: SIN collider (el robot nunca llega al norte).
+      // NO es un guiño limpio: lo envejecemos en el material (desaturado, oscurecido, manchas de humedad, esquina
+      // despegada, cinta amarillenta) para que lleve "años en la pared". El grano/scanlines de cámara terminan de integrarlo.
+      {
+        const PW=0.56, PH=0.84;                                    // 2:3 (igual que miku.png 1024×1536), póster realista (~A1)
+        const pcv=cv(512,768), pctx=pcv.getContext('2d');
+        pctx.fillStyle='#3a3d30';pctx.fillRect(0,0,512,768);       // respaldo papel viejo por si la imagen no carga (no un hueco negro)
+        const pTex=new THREE.CanvasTexture(pcv);pTex.anisotropy=4;
+        // MeshStandard (objeto del mundo, lo LAVA la luz de sala — no MeshBasic como las pantallas/UI). Emisivo ínfimo
+        // para que no quede pisado a negro en la penumbra, sin "brillar" como algo nuevo.
+        const pMat=new THREE.MeshStandardMaterial({map:pTex,roughness:.96,metalness:0,emissive:0x0a0e08,emissiveMap:pTex,emissiveIntensity:.10});
+        const poster=new THREE.Mesh(new THREE.PlaneGeometry(PW,PH),pMat);
+        poster.position.set(-4.65,1.42,-0.83);poster.rotation.z=0.02; // muro norte (cara interior z≈-0.85) mirando al sur (+z); leve torcido = "lo colgaron hace mucho"
+        scene.add(poster);
+        // --- envejecido por canvas (se aplica al cargar la imagen; degradación: si falla queda el respaldo) ---
+        function agePoster(img){const W=512,H=768;pctx.clearRect(0,0,W,H);
+          pctx.drawImage(img,0,0,W,H);                                                                                  // 1) base
+          pctx.globalCompositeOperation='saturation';pctx.globalAlpha=.6;pctx.fillStyle='#808080';pctx.fillRect(0,0,W,H);// 2) DESATURADO (gris en blend 'saturation')
+          pctx.globalCompositeOperation='multiply';pctx.globalAlpha=.5;pctx.fillStyle='#8c8158';pctx.fillRect(0,0,W,H);  // 3) tinte papel viejo (amarillo-marrón)
+          pctx.globalAlpha=.28;pctx.fillStyle='#23271c';pctx.fillRect(0,0,W,H);                                          //    + oscurecido (clima búnker)
+          const stain=(x,y,r,c,a)=>{const g=pctx.createRadialGradient(x,y,r*.15,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(255,255,255,0)');pctx.globalAlpha=a;pctx.fillStyle=g;pctx.beginPath();pctx.arc(x,y,r,0,7);pctx.fill();};
+          pctx.globalCompositeOperation='multiply';                                                                      // 4) MANCHAS DE HUMEDAD (sutiles, lejos de la cara)
+          stain(60,80,110,'#6b5a36',.4);stain(470,300,170,'#5a4d30',.5);stain(110,700,200,'#534a2e',.6);stain(400,650,120,'#6b5a3a',.45);
+          pctx.globalAlpha=1;const vg=pctx.createRadialGradient(W/2,H/2,H*.32,W/2,H/2,H*.62);vg.addColorStop(0,'#fff');vg.addColorStop(1,'#5a5848');pctx.fillStyle=vg;pctx.fillRect(0,0,W,H); // 5) bordes gastados (viñeta multiply)
+          pctx.globalCompositeOperation='overlay';pctx.globalAlpha=.1;for(let i=0;i<14;i++){pctx.fillStyle=i%2?'#000':'#fff';pctx.fillRect((i*37+13)%W,0,1+(i%3),H);} // 6) descoloridos verticales (sol/roce)
+          pctx.globalCompositeOperation='source-over';                                                                   // 7) CINTA amarillenta en las esquinas de arriba (alguien lo pegó)
+          const tape=(tx,ty,ang)=>{pctx.save();pctx.translate(tx,ty);pctx.rotate(ang);pctx.globalAlpha=.42;pctx.fillStyle='#cfc9a8';pctx.fillRect(-46,-15,92,30);pctx.globalAlpha=.16;pctx.fillStyle='#000';pctx.fillRect(-46,-15,4,30);pctx.fillRect(42,-15,4,30);pctx.restore();};
+          tape(46,42,-0.7);tape(466,42,0.7);
+          pctx.globalAlpha=1;                                                                                            // 8) ESQUINA DESPEGADA (abajo-derecha): muro detrás + dorso del papel curvado + sombra
+          pctx.fillStyle='#1d2018';pctx.beginPath();pctx.moveTo(W,H);pctx.lineTo(W-150,H);pctx.lineTo(W,H-150);pctx.closePath();pctx.fill();
+          pctx.fillStyle='#b9b39a';pctx.beginPath();pctx.moveTo(W,H);pctx.lineTo(W-95,H);pctx.lineTo(W,H-95);pctx.closePath();pctx.fill();
+          pctx.globalAlpha=.25;pctx.fillStyle='#000';pctx.beginPath();pctx.moveTo(W-95,H);pctx.lineTo(W,H-95);pctx.lineTo(W-68,H-68);pctx.closePath();pctx.fill();
+          pctx.globalAlpha=1;pctx.globalCompositeOperation='source-over';pTex.needsUpdate=true;}
+        try{const _img=new Image();_img.onload=()=>{try{agePoster(_img);}catch(e){}};_img.onerror=()=>{};_img.src='assets/miku.png';}catch(e){}
+      }
     }
   }
 
