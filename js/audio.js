@@ -4,7 +4,7 @@
   const HUM_BASE=.5; // gain de reposo del zumbido del generador (para el duck del fallo eléctrico)
   // VOLÚMENES por sonido (0..~1, ajustables en vivo con __REFUGIO.vol('paso',0.08)). 'master' = volumen general.
   // step/creak = pasos y crujidos de Beeko. El resto son los SFX existentes (cada función multiplica por su entrada).
-  const AVOL={master:.55, step:.20, creak:.13, camclick:1, flap:1, blip:1, alarm:1, rumble:1, thud:1};
+  const AVOL={master:.55, step:.20, creak:.13, camclick:1, flap:1, blip:1, bkblip:1, alarm:1, rumble:1, thud:1};
   function mkNoise(){const b=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
   function startAudio(){if(!actx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();noiseBuf=mkNoise();
       master=actx.createGain();master.gain.value=0;master.connect(actx.destination);
@@ -19,6 +19,15 @@
   function rumble(){if(!audioOn||!actx)return;const t=actx.currentTime;const s=actx.createBufferSource();s.buffer=noiseBuf;const lp=actx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=90;const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.5*AVOL.rumble,t+.05);g.gain.exponentialRampToValueAtTime(.001,t+.8);s.connect(lp);lp.connect(g);g.connect(master);s.start(t);s.stop(t+.85);}
   function thud(){if(!audioOn||!actx)return;const t=actx.currentTime;const o=actx.createOscillator();o.type='sine';o.frequency.setValueAtTime(120,t);o.frequency.exponentialRampToValueAtTime(40,t+.18);const g=actx.createGain();g.gain.setValueAtTime(.35*AVOL.thud,t);g.gain.exponentialRampToValueAtTime(.001,t+.25);o.connect(g);g.connect(master);o.start(t);o.stop(t+.3);}
   function blip(){if(!audioOn||!actx)return;const t=actx.currentTime;const o=actx.createOscillator();o.type='triangle';o.frequency.value=880;const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.12*AVOL.blip,t+.01);g.gain.linearRampToValueAtTime(0,t+.1);o.connect(g);g.connect(master);o.start(t);o.stop(t+.12);}
+  // BLIP del cuadro de diálogo de Beeko: MUY sutil (suena UNA vez al aparecer el cuadro). Chirp electrónico tenue con leve subida de tono
+  // + un armónico apenas perceptible (textura "máquina/CRT"). Ataque suave para que NO sea un beep duro de videojuego (aparece seguido).
+  function bkBlip(){if(!audioOn||!actx)return;const t=actx.currentTime;const v=.05*AVOL.bkblip;
+    const o=actx.createOscillator();o.type='sine';o.frequency.setValueAtTime(560,t);o.frequency.linearRampToValueAtTime(720,t+.07);     // tono base: leve subida (señal "mensaje")
+    const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.012);g.gain.exponentialRampToValueAtTime(.0005,t+.13);
+    o.connect(g);g.connect(master);o.start(t);o.stop(t+.15);
+    const o2=actx.createOscillator();o2.type='triangle';o2.frequency.setValueAtTime(1120,t);o2.frequency.linearRampToValueAtTime(1440,t+.07); // armónico tenue (textura electrónica)
+    const g2=actx.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(v*.4,t+.012);g2.gain.exponentialRampToValueAtTime(.0004,t+.1);
+    o2.connect(g2);g2.connect(master);o2.start(t);o2.stop(t+.12);}
   // FALLO ELÉCTRICO: 'duck' del zumbido del generador. genDuck(level[,ramp]) lleva el gain del hum a 'level' (default=reposo HUM_BASE).
   function genDuck(level,ramp){if(!actx||!humG)return;const t=actx.currentTime,L=(level===undefined)?HUM_BASE:Math.max(0,level),r=ramp||.3;humG.gain.cancelScheduledValues(t);humG.gain.setValueAtTime(Math.max(.0001,humG.gain.value),t);humG.gain.linearRampToValueAtTime(Math.max(.0001,L),t+r);}
   // clic eléctrico (relé/breaker) — para el corte y el reencendido del fallo eléctrico
