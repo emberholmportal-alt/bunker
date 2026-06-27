@@ -177,10 +177,29 @@
   #beeko .bk-name{font-family:'Anton',sans-serif;font-size:16px;letter-spacing:2px;color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.4),0 0 3px #000;margin-bottom:5px}
   #beeko .bk-text{font-size:21px;line-height:1.16;color:#bdf5cf;text-shadow:0 0 7px rgba(143,255,176,.32),0 0 2px #000;min-height:2.3em;white-space:pre-wrap;word-break:break-word}
   #beeko .bk-scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.10) 0 1px,transparent 1px 3px);mix-blend-mode:overlay}
+
+  /* ===== CUADRO DE TRANSMISIÓN DE LA RADIO (señal saliente) — arriba-centro, BAJO los badges. No choca: REC/CAM/STATUS (top-izq), time/day/bees (top-der), badge de evento (centro, más arriba) ni el cuadro de Beeko (abajo). SIN retrato (lo distingue del pensamiento). ===== */
+  #radiotx{position:fixed;left:50%;top:96px;transform:translateX(-50%) translateY(-8px);z-index:8;width:min(600px,68vw);opacity:0;pointer-events:none;font-family:'VT323',monospace;transition:opacity .5s ease,transform .5s ease}
+  #radiotx.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #radiotx .rt-frame{position:relative;padding:7px 16px 10px;background:linear-gradient(180deg,rgba(8,16,20,.82),rgba(3,8,11,.86));border:1px solid rgba(120,210,255,.34);box-shadow:0 0 22px rgba(0,0,0,.5),inset 0 0 26px rgba(80,180,255,.05)}
+  #radiotx .rt-head{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+  #radiotx .rt-title{font-size:16px;letter-spacing:2px;color:var(--cyan);text-shadow:0 0 8px rgba(120,210,255,.5),0 0 3px #000}
+  #radiotx .rt-sig{display:inline-flex;align-items:flex-end;gap:2px;height:13px}
+  #radiotx .rt-sig i{display:block;width:3px;background:var(--cyan);box-shadow:0 0 5px rgba(120,210,255,.5);animation:rtSig 1s steps(1,end) infinite}
+  #radiotx .rt-sig i:nth-child(1){height:4px;animation-delay:0s}
+  #radiotx .rt-sig i:nth-child(2){height:7px;animation-delay:.12s}
+  #radiotx .rt-sig i:nth-child(3){height:10px;animation-delay:.24s}
+  #radiotx .rt-sig i:nth-child(4){height:13px;animation-delay:.36s}
+  @keyframes rtSig{0%,100%{opacity:1}50%{opacity:.3}}
+  #radiotx .rt-dot{margin-left:auto;width:9px;height:9px;border-radius:50%;background:#ff5a30;box-shadow:0 0 9px rgba(255,90,48,.8);animation:rtRec 1.1s steps(1,end) infinite}
+  @keyframes rtRec{0%,55%{opacity:1}56%,100%{opacity:.25}}
+  #radiotx .rt-text{font-size:19px;line-height:1.18;color:#bfe6ff;text-shadow:0 0 7px rgba(120,210,255,.3),0 0 2px #000;min-height:1.2em;white-space:pre-wrap;word-break:break-word}
+
   @media (max-width:760px){
     #beeko{bottom:30px;width:94vw}
     #beeko .bk-portrait{flex:0 0 84px;width:84px;height:84px}
     #beeko .bk-text{font-size:18px}
+    #radiotx{top:82px;width:92vw} #radiotx .rt-title{font-size:13px;letter-spacing:1px} #radiotx .rt-text{font-size:16px}
     /* overlay top comprimido en pantalla angosta: achicamos las dos columnas para que la 2ª línea (STATUS) no choque con DAY/BEES ni con la badge de evento */
     #camhud .ch-tl{font-size:15px} #camhud #ch-status{font-size:12px;margin-top:2px}
     #camhud #ch-time{font-size:18px} #camhud .ch-day{font-size:12px;letter-spacing:1px} #camhud .ch-bee-line{font-size:11px}

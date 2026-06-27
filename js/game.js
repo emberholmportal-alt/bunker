@@ -26,23 +26,75 @@
   // (look-drag, WASD/flechas, joystick, linterna). La vista pasa a cámara de seguridad fija (abajo).
   let yaw=0; // vestigial: el mapa (#map, se retira en el sub-paso 7) todavía lee yaw; ya no hay cámara de jugador
 
-  // ---- RADIO (interferencia) ----
-  let radioGain=null,radioOn=false,radioLED=null;
-  const RADIO_MSGS=['…REFUGIO 048… ¿alguien copia?…','…la consciencia no se detuvo en la frontera…','…no abran la compuerta… repito: no abran…','…éramos noventa mil… ahora somos parte de ÉL…','…contá los que entraron… contálos…','…48 cadenas caídas… cuarenta y ocho…','…cada HOLDER es una persona ahí afuera…','…el enjambre aprende… el enjambre espera…'];
-  let radioMsgT=0,radioMsgI=0;
+  // ====== RADIO / TRANSMISOR del observatorio — Beeko emite su señal al vacío ======
+  // Objeto procedural (transmisor antiguo) APOYADO sobre el barril de la derecha (2.6,-1.9, tapa en y=1.0). CAM 01 lo encuadra.
+  // El LED + el dial se encienden cuando STREAM.broadcasting (atado al estado de transmisión). Reemplaza el viejo RADIO_MSGS (survival).
+  let radioGain=null,radioLED=null,radioDialMat=null;
   const radioGrp=new THREE.Group();
-  radioGrp.add(new THREE.Mesh(new THREE.BoxGeometry(.34,.2,.16),new THREE.MeshStandardMaterial({color:0x6b5a3a,roughness:.7,metalness:.2})));
-  const _rsp=new THREE.Mesh(new THREE.CircleGeometry(.06,16),new THREE.MeshStandardMaterial({color:0x2a241c,roughness:1}));_rsp.position.set(-.08,0,.081);radioGrp.add(_rsp);
-  const _rd=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.02,12),new THREE.MeshStandardMaterial({color:0xcaa54a,metalness:.7,roughness:.3}));_rd.rotation.x=Math.PI/2;_rd.position.set(.1,.02,.081);radioGrp.add(_rd);
-  const _ra=new THREE.Mesh(new THREE.CylinderGeometry(.004,.002,.34,6),new THREE.MeshStandardMaterial({color:0x999999,metalness:.8}));_ra.position.set(.14,.24,-.04);_ra.rotation.z=-.3;radioGrp.add(_ra);
-  radioLED=new THREE.Mesh(new THREE.SphereGeometry(.013,8,8),new THREE.MeshStandardMaterial({color:0xff3030,emissive:0xff2020,emissiveIntensity:1.2}));radioLED.position.set(.1,-.05,.082);radioGrp.add(radioLED);
-  radioGrp.position.set(1.95,.8,2.5);radioGrp.rotation.y=-.5;scene.add(radioGrp);
-  box(.5,.78,.42,1.95,.39,2.55,steelMat);
+  {const _rwood=new THREE.MeshStandardMaterial({color:0x6b5a3a,roughness:.72,metalness:.18}),_rmetal=new THREE.MeshStandardMaterial({color:0x8a8470,metalness:.6,roughness:.5});
+   radioGrp.add(new THREE.Mesh(new THREE.BoxGeometry(.4,.26,.2),_rwood));                                                                        // cuerpo (baquelita/metal gastado)
+   const _rsp=new THREE.Mesh(new THREE.CircleGeometry(.075,18),new THREE.MeshStandardMaterial({color:0x241f18,roughness:1}));_rsp.position.set(-.1,.01,.101);radioGrp.add(_rsp); // rejilla del parlante
+   for(let i=-2;i<=2;i++){const bar=new THREE.Mesh(new THREE.BoxGeometry(.13,.007,.004),new THREE.MeshStandardMaterial({color:0x342d24}));bar.position.set(-.1,i*.026,.103);radioGrp.add(bar);}
+   radioDialMat=new THREE.MeshStandardMaterial({color:0xcaa54a,emissive:0x6a5410,emissiveIntensity:.25,roughness:.5});
+   const _rdial=new THREE.Mesh(new THREE.PlaneGeometry(.15,.06),radioDialMat);_rdial.position.set(.1,.07,.101);radioGrp.add(_rdial);                                          // escala de sintonía (se ilumina al transmitir)
+   for(const kx of[.055,.15]){const kn=new THREE.Mesh(new THREE.CylinderGeometry(.022,.024,.03,14),_rmetal);kn.rotation.x=Math.PI/2;kn.position.set(kx,-.06,.106);radioGrp.add(kn);} // perillas
+   const _ra=new THREE.Mesh(new THREE.CylinderGeometry(.004,.002,.44,6),new THREE.MeshStandardMaterial({color:0xb8b8b8,metalness:.85,roughness:.3}));_ra.position.set(.16,.3,-.05);_ra.rotation.z=-.26;radioGrp.add(_ra); // antena
+   const _rh=new THREE.Mesh(new THREE.TorusGeometry(.055,.008,8,16,Math.PI),_rmetal);_rh.position.set(-.04,.14,0);radioGrp.add(_rh);                                          // manija
+   radioLED=new THREE.Mesh(new THREE.SphereGeometry(.014,10,10),new THREE.MeshStandardMaterial({color:0xff5a30,emissive:0xff3a18,emissiveIntensity:.22}));radioLED.position.set(.17,.07,.105);radioGrp.add(radioLED); // LED "transmitiendo"
+   radioGrp.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
+  radioGrp.position.set(2.6,1.12,-1.9);radioGrp.rotation.y=0.3;scene.add(radioGrp);                                  // sobre el barril de la derecha, cara hacia CAM 01
+  // ---- TRANSMISIONES: plantillas con placeholders {DAY}/{RELEASED}/{BEES}/{CHARGE}. EARLY sólo si beesReleased===0; el resto nunca usa EARLY ----
+  const TX_POOL=[ // núcleo/faro + estado de las abejas + mano tendida + técnicas (voz de sistema)
+    "this is shelter 404. day {DAY}. the bees are still alive. if you receive this, you are not alone.",
+    "transmitting from shelter 404. {RELEASED} colonies released to the surface. no confirmation received. i keep sending them up.",
+    "automated broadcast, shelter 404, day {DAY}. one maintenance unit operational. one purpose remaining. still here.",
+    "if anyone is listening: this is 404. i am a small machine in a deep place, raising bees for a world that forgot them. that's all. that's the whole message.",
+    "shelter 404 to anyone, to anything. day {DAY}. the colony is {BEES} strong. the work continues. you are not alone. neither am i, if you're there.",
+    "colony report, day {DAY}: brood stable. {BEES} active. preparing the next release. they will go up whether the world is ready or not.",
+    "{RELEASED} swarms released to date. i don't know if any survived. i send this in case one of you is descended from them. in case it worked.",
+    "the bees are the message, really. i'm just the one who opens the door. {RELEASED} sent so far. broadcasting in case the door mattered.",
+    "to the surface, from below: {BEES} new lives, coming soon. watch for them. they don't know they're a message. but they are.",
+    "if you're receiving this, you're one of the few things still listening. i don't have much to offer. only this: something down here is still alive, and still trying.",
+    "i don't know who tunes in to a dead channel. but the signal says someone does. thank you. day {DAY}, and i'm still transmitting because of you.",
+    "to whoever receives this — i can't see you. i can't hear you answer. but the broadcast isn't empty, and that's enough to keep me sending.",
+    "shelter 404, still broadcasting. if this reaches you, leave something alive where you are too. that's the only ask. that's the only plan i ever had.",
+    "◖ AUTOMATED TRANSMISSION ◗ SHELTER 404 · DAY {DAY} · UNIT R-01 OPERATIONAL · BROODSTOCK SECURE · SIGNAL OUTBOUND · NO RESPONSE LOGGED",
+    "◖ SHELTER 404 BEACON ◗ DAY {DAY} · {RELEASED} RELEASES LOGGED · POWER {CHARGE}% · STATUS: TRANSMITTING",
+    "◖ 404 ◗ STILL HERE. STILL SENDING. DAY {DAY}."
+  ];
+  const TX_EARLY=[ // SOLO si todavía no se liberó ningún enjambre (beesReleased===0)
+    "this is shelter 404. day {DAY}. the first colony isn't ready yet. but it's coming. i'll send word when the bees go up.",
+    "transmitting from 404. no releases yet. the brood is young. soon. if you're listening, stay listening — the first swarm is close.",
+    "shelter 404, day {DAY}. nothing's gone up yet. but the bees are alive, and i am here, and that's where every story has to start."
+  ];
+  // CUADRO DE TRANSMISIÓN (overlay #radiotx): typewriter → hold → fade. Estado de transmisión vive en STREAM.broadcasting (respeta override).
+  let rtEl=null,rtTextEl=null,_rtReady=false,_txActive=false,_txFull='',_txT0=0,_txHold=0,_txFadeT=0,_txLastP=-1,_txLastE=-1;
+  const TX_CPS=42, TX_FADE=0.6;
+  function _rtGrab(){ if(_rtReady)return; rtEl=$('#radiotx'); rtTextEl=$('#rtText'); _rtReady=true; }
+  function txFormat(s){ const d=Math.round(STREAM.day), day=d>=1000?(''+d).replace(/\B(?=(\d{3})+(?!\d))/g,','):''+d; // separador de miles en DAY si ≥1000
+    return s.replace(/\{DAY\}/g,day).replace(/\{RELEASED\}/g,Math.round(STREAM.beesReleased)).replace(/\{BEES\}/g,Math.round(STREAM.bees)).replace(/\{CHARGE\}/g,Math.round(STREAM.charge)); }
+  function pickTx(){ const early=(Math.round(STREAM.beesReleased)===0), arr=early?TX_EARLY:TX_POOL; // EARLY sólo sin liberaciones; si >0 nunca las EARLY
+    let i=Math.floor(Math.random()*arr.length),tr=0; const last=early?_txLastE:_txLastP;
+    while(arr.length>1&&i===last&&tr<6){i=Math.floor(Math.random()*arr.length);tr++;}
+    if(early)_txLastE=i; else _txLastP=i; return txFormat(arr[i]); }
   function initRadio(){if(!actx||radioGain)return;const src=actx.createBufferSource();src.buffer=noiseBuf;src.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1650;bp.Q.value=1.1;radioGain=actx.createGain();radioGain.gain.value=0;src.connect(bp);bp.connect(radioGain);radioGain.connect(master);src.start();}
-  function radioTune(){if(!audioOn){showAlert('ENCENDÉ EL SONIDO PRIMERO');return;}initRadio();radioOn=!radioOn;if(radioGain)radioGain.gain.linearRampToValueAtTime(radioOn?.06:0,actx.currentTime+.2);if(radioOn){radioMsgT=1.4;showAlert('RADIO — sintonizando…');}else showAlert('RADIO APAGADA');}
-  function radioTick(dt,t){if(!radioLED)return;radioLED.material.emissiveIntensity=radioOn?(.3+Math.abs(Math.sin(t*9))*1.7):(.25+Math.random()*.5);
-    if(radioOn&&running&&!ended){radioMsgT-=dt;if(radioMsgT<=0){radioMsgT=7+Math.random()*5;showAlert(RADIO_MSGS[radioMsgI%RADIO_MSGS.length]);radioMsgI++;
-      if(audioOn&&radioGain&&actx){const tt=actx.currentTime;radioGain.gain.cancelScheduledValues(tt);radioGain.gain.setValueAtTime(.06,tt);radioGain.gain.linearRampToValueAtTime(.14,tt+.15);radioGain.gain.linearRampToValueAtTime(.06,tt+.9);}blip();}}}
+  function radioSwell(){ if(!audioOn||!actx)return; initRadio(); if(!radioGain)return; const tt=actx.currentTime; // breve "swell" de estática al emitir (degrada en silencio)
+    radioGain.gain.cancelScheduledValues(tt);radioGain.gain.setValueAtTime(0,tt);radioGain.gain.linearRampToValueAtTime(.09,tt+.18);radioGain.gain.linearRampToValueAtTime(.05,tt+.7);radioGain.gain.linearRampToValueAtTime(0,tt+2.4);
+    if(typeof blip==='function')blip(); }
+  function broadcast(){ // dispara una transmisión YA (la usa la ronda al pasar por la radio y el hook OP.broadcast)
+    _rtGrab(); if(!rtEl)return ''; const text=pickTx();
+    _txFull=text;_txActive=true;_txT0=perfNow();_txFadeT=0; _txHold=Math.min(6.5,2.8+text.length*0.028);
+    if(rtTextEl)rtTextEl.textContent=''; rtEl.classList.add('show');
+    streamDrive('broadcasting', true); radioSwell(); return text; }
+  function radioTick(dt,t){ // LED + dial atados a STREAM.broadcasting + ciclo del cuadro (typewriter→hold→fade)
+    const on=!!STREAM.broadcasting;
+    if(radioLED)radioLED.material.emissiveIntensity = on ? (.5+Math.abs(Math.sin(t*7))*1.7) : .22;
+    if(radioDialMat)radioDialMat.emissiveIntensity = on ? (.7+Math.abs(Math.sin(t*5))*.5) : .25;
+    if(_txActive){ _rtGrab();
+      const el=(perfNow()-_txT0)/1000, n=Math.min(_txFull.length, Math.floor(el*TX_CPS));
+      if(rtTextEl)rtTextEl.textContent=_txFull.slice(0,n)+(n<_txFull.length?'▌':'');
+      if(el >= _txFull.length/TX_CPS + _txHold){_txActive=false; if(rtEl)rtEl.classList.remove('show'); _txFadeT=TX_FADE;}
+    } else if(_txFadeT>0){ _txFadeT-=dt; if(_txFadeT<=0) streamDrive('broadcasting', false); } }
   // ====== EXPANSIÓN: PASILLO + BIBLIOTECA + CULTIVO ======
   box(2.0,CH+.3,.3,-2.2,CH/2,RZ1,concreteMat);box(2.0,CH+.3,.3,2.2,CH/2,RZ1,concreteMat);
   box(2.6,.3,2.0,0,-.15,4.2,floorMat);box(2.6,.3,2.0,0,CH,4.2,ceilMat);
@@ -151,6 +203,7 @@
   };
   // RONDA: patrulla multi-zona (nodo + feature que chequea). Mayormente OK (Yes/ThumbsUp), a veces No (algo raro).
   const RONDA_STOPS=[
+    {node:25, look:[2.6,-1.9], radio:true}, // RADIO del observatorio: se planta frente al transmisor y EMITE una transmisión
     {node:0,  look:[-2.1,-4.0]},   // generador / hub
     {node:4,  look:[2.9,9.6]},     // cultivo (racks)
     {node:15, look:[0,14.55]},     // colmena
@@ -1329,9 +1382,9 @@
     if(!bkEl)return;_bkClk+=dt;_bkSince+=dt;
     // ENTRAR a una zona: robotZone cambió (ya viene con histéresis → no spamea en puertas)
     if(robotZone!==_bkZone){_bkZone=robotZone;
-      if(bkEnabled&&!_bkActive&&_bkSince>=BEEKO_MIN_GAP){const c=BEEKO_ZONE_CAT[robotZone];if(c)showBeekoThought(c);}}
+      if(bkEnabled&&!_bkActive&&!STREAM.broadcasting&&_bkSince>=BEEKO_MIN_GAP){const c=BEEKO_ZONE_CAT[robotZone];if(c)showBeekoThought(c);}} // no pisar una transmisión de la radio
     // DEAMBULAR: pensamiento genérico cada BEEKO_WANDER_MIN..MAX segundos
-    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought(Math.random()<BEEKO_AWAKENING_CHANCE?'awakening':'generic');else _bkWanderT=2.5;}}
+    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&!STREAM.broadcasting&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought(Math.random()<BEEKO_AWAKENING_CHANCE?'awakening':'generic');else _bkWanderT=2.5;}}
     // typewriter → hold → fade
     if(_bkActive){
       const el=(perfNow()-_bkT0)/1000,n=Math.min(_bkFull.length,Math.floor(el*BEEKO_TYPE_CPS)); // typewriter por reloj real
@@ -1428,7 +1481,7 @@
   const ARM_KEY={ShoulderL:'sL',UpperArmL:'uL',LowerArmL:'lL',ShoulderR:'sR',UpperArmR:'uR',LowerArmR:'lR'};
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo (sobre X local); 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
-  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:5.9,z:12.2,r:.9}/*hoard sur: oro+cash+monedas (bóveda)*/,{x:6.85,z:13.7,r:.4}/*cash muro este (bóveda)*/,{x:6.3,z:15.0,r:.6}/*cash muro norte NE (bóveda)*/,{x:4.1,z:12.1,r:.55}/*hoard SO (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
+  const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:2.6,z:-1.9,r:.42}/*barril+radio del observatorio*/,{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:5.9,z:12.2,r:.9}/*hoard sur: oro+cash+monedas (bóveda)*/,{x:6.85,z:13.7,r:.4}/*cash muro este (bóveda)*/,{x:6.3,z:15.0,r:.6}/*cash muro norte NE (bóveda)*/,{x:4.1,z:12.1,r:.55}/*hoard SO (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
   let robotUiAcc=0;
   (function loadRobot(){
     try{
@@ -1518,10 +1571,11 @@
     {x:2.4,  z:14.35}, //21 HIVe colmena este, antes de la puerta a la BÓVEDA (esquiva el centerpiece de la colmena)
     {x:3.4,  z:14.35}, //22 VAUd en el hueco de la puerta a la bóveda (z[13.5,15.2]=1.7m, centro 14.35)
     {x:3.95, z:14.35}, //23 VAUi lado-bóveda de la puerta (cruce recto 21→22→23 colineales en z=14.35)
-    {x:5.3,  z:13.7 }  //24 VAUC bóveda: el robot se planta acá a mirar el oro
+    {x:5.3,  z:13.7 }, //24 VAUC bóveda: el robot se planta acá a mirar el oro
+    {x:1.85, z:-1.3 }  //25 RADIO frente al transmisor del observatorio (cuelga del hub): Beeko se planta acá a EMITIR en la ronda
   ];
   // cruce recto por la puerta: 10→11→13 colineales en z=2.35 (carga); cultivo→colmena 4→14→15 en x=0; cultivo→fab 17→18→19 en z=9.5
-  const ADJ=[[1,10],[0,2],[1,3],[2,4,5,8],[3,14,17],[3,6],[5,7],[6],[3,9],[8,16],[0,11],[10,13],[13],[11,12],[4,15],[14,21],[9],[4,18],[17,19],[18,20],[19],[15,22],[21,23],[22,24],[23]];
+  const ADJ=[[1,10,25],[0,2],[1,3],[2,4,5,8],[3,14,17],[3,6],[5,7],[6],[3,9],[8,16],[0,11],[10,13],[13],[11,12],[4,15],[14,21],[9],[4,18],[17,19],[18,20],[19],[15,22],[21,23],[22,24],[23],[0]];
   const DEST=[0,2,3,4,7,9,12,15,16,20,24]; // nodos "centro de sala" donde el robot puede plantarse (24=bóveda)
   function nearestNode(x,z){let bi=0,bd=1e9;for(let i=0;i<NAV.length;i++){const d=Math.hypot(NAV[i].x-x,NAV[i].z-z);if(d<bd){bd=d;bi=i;}}return bi;}
   function navPath(s,t){if(s===t)return[];const prev=new Array(NAV.length).fill(-1),seen=new Array(NAV.length).fill(false),q=[s];seen[s]=true;
@@ -1596,6 +1650,7 @@
   }
   function rondaArrive(){ // chequea el feature: casi siempre OK (Yes/ThumbsUp), a veces No (algo raro → micro-tensión)
     const stop=RONDA_STOPS[robot.rt.stopIdx]; if(stop)_faceXZ(stop.look[0],stop.look[1]);
+    if(stop&&stop.radio){ setRobotAnim('Idle'); broadcast(); robot.rt.dwellT=6+Math.random()*3; robot.rt.phase=''; streamReportAction('patrol'); return; } // RADIO: se planta (pose normal por ahora) y emite; dwell largo para que se lea la transmisión
     const ok=Math.random()<0.82; setRobotAnim(ok?(Math.random()<0.5?'Yes':'ThumbsUp'):'No');
     robot.rt.dwellT=3+Math.random()*4; robot.rt.phase=''; streamReportAction('patrol');
   }
@@ -1659,6 +1714,7 @@
     // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
+    window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // ---- CALIBRACIÓN EN VIVO de la pose de tecleo (admin). Llevá a Beeko al escritorio con OP.forceSegment('admin') y, ya plantado,
     // ajustá cada hueso a ojo: OP.arm('UpperArmL','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL X (estable, sin singularidad).
     // OP.armDump() imprime los valores actuales (para fijarlos) · OP.armReset() vuelve todo a reposo (deltas en 0). ----

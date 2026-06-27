@@ -45,8 +45,11 @@
     // --- eventos aleatorios (temblor / fallo eléctrico) ---
     event: '',            // '' | 'quake' | 'blackout' — evento en curso (lo setea el controlador; '' = búnker tranquilo)
 
+    // --- radio del observatorio ---
+    broadcasting: false,  // true mientras Beeko emite una transmisión (la radio LO LEE para el LED/dial; la maneja el sistema de radio en la ronda)
+
     // --- override por campo: si un campo está forzado, el driver NO lo pisa ---
-    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false, tv:false, event:false }
+    _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false, tv:false, event:false, broadcasting:false }
   };
 
   // El driver escribe un campo SOLO si nadie lo forzó desde afuera (admin).
@@ -98,6 +101,7 @@
     setCharge: n => streamForce('charge', Math.max(0, Math.min(100, n))), // medidor del sector de carga (0..100)
     setPrint: n => streamForce('print', Math.max(0, Math.min(100, n))),   // progreso de impresión de la sala de fabricación (0..100)
     setTV: on => streamForce('tv', (on===undefined)?!STREAM.tv:!!on),     // televisor del observatorio: setTV(true)=prende · setTV(false)=apaga · setTV()=alterna (override del operador)
+    setBroadcast: on => streamForce('broadcasting', (on===undefined)?!STREAM.broadcasting:!!on), // radio: fuerza el estado de transmisión (LED/dial). release('broadcasting') lo devuelve al sistema
     // Encendido de audio del operador. sound(true)/sound(false) o toggle sound(). OJO: por la política de autoplay del navegador,
     // resume() desde la CONSOLA suele NO contar como gesto válido → ceba el AudioContext pero puede quedar 'suspended' (sin sonido)
     // hasta el 1er click/tecla en la página (que sí lo desbloquea, vía el listener global). Por eso van las dos vías.
