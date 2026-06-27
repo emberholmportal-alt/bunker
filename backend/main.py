@@ -17,6 +17,7 @@ import models
 import clock
 import events
 import counters
+import awakening
 
 # Token del operador. Si está VACÍO (default por ahora), las escrituras /op/* quedan ABIERTAS
 # (suficiente para probar la Fase 1). La seguridad real (token obligatorio) es la Fase 5: ese
@@ -53,8 +54,16 @@ def _payload(w) -> dict:
         "bees": round(w.bees or 0.0, 3),
         "bees_released": round(w.bees_released or 0.0, 3),
         "print": round(w.print_progress or 0.0, 3),
+        "awakening_progress": round(_awakening_progress(w), 5),  # FASE 4 — EL DESPERTAR (0..1, derivado de bees_released o el override)
+        "awakening_stage": awakening.stage_for(_awakening_progress(w)),
         "server_ms": now,                             # para que el frontend corrija el drift si quiere
     }
+
+
+def _awakening_progress(w) -> float:
+    ov = w.awakening_override
+    p = ov if ov is not None else awakening.progress_for(w.bees_released or 0.0)
+    return max(0.0, min(1.0, p))
 
 
 def _get_world(db: Session) -> "models.World":
@@ -103,6 +112,7 @@ def _ensure_columns():
         "ALTER TABLE world ADD COLUMN IF NOT EXISTS bees_released DOUBLE PRECISION DEFAULT 0",
         "ALTER TABLE world ADD COLUMN IF NOT EXISTS print_progress DOUBLE PRECISION DEFAULT 0",
         "ALTER TABLE world ADD COLUMN IF NOT EXISTS cnt_tick_ms BIGINT",
+        "ALTER TABLE world ADD COLUMN IF NOT EXISTS awakening_override DOUBLE PRECISION",
     ]
     with engine.begin() as conn:
         for a in alters:
@@ -379,6 +389,24 @@ def op_counter(body: SetCounter, db: Session = Depends(get_db), x_operator_token
         w.print_progress = v
     else:
         raise HTTPException(status_code=400, detail="counter debe ser 'charge'|'bees'|'beesReleased'|'print'")
+    db.commit()
+    db.refresh(w)
+    return _payload(w)
+
+
+# ---- FASE 4 — EL DESPERTAR: el operador fuerza/libera el progreso (para testear las etapas sin esperar meses) ----
+class SetAwakening(BaseModel):
+    progress: Optional[float] = None  # 0..1 fuerza la etapa · null = 'auto' (vuelve a la curva desde bees_released)
+
+
+@app.post("/op/awakening")
+def op_awakening(body: SetAwakening, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+    _require_op(x_operator_token)
+    w = _get_world(db)
+    if body.progress is None:
+        w.awakening_override = None  # auto: el progreso vuelve a derivarse de bees_released
+    else:
+        w.awakening_override = max(0.0, min(1.0, float(body.progress)))
     db.commit()
     db.refresh(w)
     return _payload(w)

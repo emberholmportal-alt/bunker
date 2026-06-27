@@ -14,15 +14,16 @@
   (function(){
     const LS = 'refugio_backend';
     const DEGRADE_FAILS = 3;                                   // polls fallidos seguidos para entrar en modo degradado (~12 s)
-    const SYNC = { on:false, agenda:false, events:false, counters:false, url:'', token:'', timer:null, fails:0 };
+    const SYNC = { on:false, agenda:false, events:false, counters:false, awakening:false, url:'', token:'', timer:null, fails:0 };
     const _cfg = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL) ? BACKEND_URL : ''; // default opcional desde config.js (vacío = off)
     const _base = () => SYNC.url.replace(/\/+$/,'');
     const degraded = () => SYNC.fails >= DEGRADE_FAILS;
     const agendaActive = () => SYNC.on && SYNC.agenda && !degraded();   // ¿la agenda sale del server AHORA?
     const eventsActive = () => SYNC.on && SYNC.events && !degraded();   // ¿los eventos salen del server AHORA?
     const countersActive = () => SYNC.on && SYNC.counters && !degraded(); // ¿los contadores salen del server AHORA?
+    const awakeningActive = () => SYNC.on && SYNC.awakening && !degraded(); // ¿el despertar lo manda el server AHORA?
 
-    function save(){ try{ localStorage.setItem(LS, JSON.stringify({on:SYNC.on, agenda:SYNC.agenda, events:SYNC.events, counters:SYNC.counters, url:SYNC.url, token:SYNC.token})); }catch(e){} }
+    function save(){ try{ localStorage.setItem(LS, JSON.stringify({on:SYNC.on, agenda:SYNC.agenda, events:SYNC.events, counters:SYNC.counters, awakening:SYNC.awakening, url:SYNC.url, token:SYNC.token})); }catch(e){} }
     function apply(st){
       if(!st) return;
       // reloj (cuando hay conexión): siempre — conectar = reloj del server (Fase 1)
@@ -46,6 +47,11 @@
         if(typeof st.bees === 'number')          STREAM._beesTarget = st.bees;
         if(typeof st.print === 'number')         STREAM._printTarget = st.print;
       }
+      // despertar (sólo si el flag está ON): el frontend usa la etapa para modular los pensamientos awakening
+      if(SYNC.awakening){
+        if(typeof st.awakening_stage === 'number')    STREAM.awakeningStage = st.awakening_stage;
+        if(typeof st.awakening_progress === 'number') STREAM.awakeningProgress = st.awakening_progress;
+      }
     }
     async function poll(){
       if(!SYNC.on) return;
@@ -62,10 +68,10 @@
       return r.json();
     }
     function start(){ SYNC.on = true; STREAM.serverMode = true; SYNC.fails = 0; poll(); if(SYNC.timer) clearInterval(SYNC.timer); SYNC.timer = setInterval(poll, 4000); }
-    function stop(){ SYNC.on = false; SYNC.agenda = false; SYNC.events = false; SYNC.counters = false; STREAM.serverMode = false; STREAM.segment = undefined; STREAM.event = ''; STREAM._beesTarget = undefined; STREAM._printTarget = undefined; if(SYNC.timer){ clearInterval(SYNC.timer); SYNC.timer = null; } if(typeof streamResync === 'function') streamResync(); } // vuelve a TODO local
+    function stop(){ SYNC.on = false; SYNC.agenda = false; SYNC.events = false; SYNC.counters = false; SYNC.awakening = false; STREAM.serverMode = false; STREAM.segment = undefined; STREAM.event = ''; STREAM._beesTarget = undefined; STREAM._printTarget = undefined; STREAM.awakeningStage = undefined; if(SYNC.timer){ clearInterval(SYNC.timer); SYNC.timer = null; } if(typeof streamResync === 'function') streamResync(); } // vuelve a TODO local
 
     // restaurar estado guardado (por navegador)
-    try{ const s = JSON.parse(localStorage.getItem(LS) || 'null'); if(s){ SYNC.url = s.url || _cfg; SYNC.token = s.token || ''; SYNC.agenda = !!s.agenda; SYNC.events = !!s.events; SYNC.counters = !!s.counters; if(s.on && SYNC.url) start(); } }catch(e){}
+    try{ const s = JSON.parse(localStorage.getItem(LS) || 'null'); if(s){ SYNC.url = s.url || _cfg; SYNC.token = s.token || ''; SYNC.agenda = !!s.agenda; SYNC.events = !!s.events; SYNC.counters = !!s.counters; SYNC.awakening = !!s.awakening; if(s.on && SYNC.url) start(); } }catch(e){}
     if(!SYNC.url && _cfg) SYNC.url = _cfg;
 
     // ---- hooks internos que consulta game.js (routineSegment / forceSegment / eventTick / OP.quake...) ----
@@ -73,6 +79,7 @@
       agendaActive: agendaActive,
       eventsActive: eventsActive,
       countersActive: countersActive,
+      awakeningActive: awakeningActive,
       // OP.forceSegment en modo server: '__auto__'=liberar(a la hora) · null=deambular · 'ronda'/...=forzar
       postSegment: function(v){
         const seg = (v === '__auto__') ? 'auto' : v;
@@ -88,7 +95,7 @@
     // ---- comandos de operador (se enganchan a __REFUGIO antes de que game.js lo selle en OP) ----
     if(window.__REFUGIO){
       window.__REFUGIO.backend = function(a, b){
-        if(a === undefined) return { on:SYNC.on, agenda:SYNC.agenda, events:SYNC.events, counters:SYNC.counters, degraded:degraded(), url:SYNC.url||'(sin URL)', hasToken:!!SYNC.token };
+        if(a === undefined) return { on:SYNC.on, agenda:SYNC.agenda, events:SYNC.events, counters:SYNC.counters, awakening:SYNC.awakening, degraded:degraded(), url:SYNC.url||'(sin URL)', hasToken:!!SYNC.token };
         if(a === false){ stop(); save(); return 'backend OFF — TODO local (stream en vivo intacto)'; }
         if(a === true){ if(!SYNC.url) return 'falta la URL: OP.backend("https://TU-BACKEND.onrender.com")'; start(); save(); return 'backend ON — reloj desde '+SYNC.url; }
         if(typeof a === 'string'){ SYNC.url = a; if(typeof b === 'string') SYNC.token = b; start(); save(); return 'backend ON — reloj desde '+SYNC.url; }
@@ -125,6 +132,21 @@
       window.__REFUGIO.setBees = function(n){ return _opCounter('bees', n, _setBees); };
       window.__REFUGIO.setBeesReleased = function(n){ return _opCounter('beesReleased', n, _setBeesReleased); };
       window.__REFUGIO.setPrint = function(n){ return _opCounter('print', n, _setPrint); };
+      // FASE 4 — flag del DESPERTAR (requiere estar conectado)
+      window.__REFUGIO.serverAwakening = function(on){
+        const want = (on === undefined) ? !SYNC.awakening : !!on;
+        if(want && !SYNC.on) return 'conectá primero: OP.backend("https://TU-BACKEND.onrender.com")';
+        SYNC.awakening = want; if(!want) STREAM.awakeningStage = undefined; // off → los pensamientos awakening vuelven a la lógica local (1/6)
+        save(); if(want) poll();                                            // poll inmediato para sembrar la etapa
+        return 'despertar ' + (want ? 'ON (etapa desde el server)' : 'OFF (local, 1/6 fijo)');
+      };
+      // saltar a una etapa para testear: OP.setAwakening(0.10/0.30/0.55/0.85) fuerza · OP.setAwakening('auto') libera (vuelve a la curva)
+      window.__REFUGIO.setAwakening = function(x){
+        if(!awakeningActive()) return 'activá primero: OP.serverAwakening(true)';
+        const v = (x === 'auto' || x === undefined || x === null) ? null : Math.max(0, Math.min(1, +x));
+        post('/op/awakening', {progress: v}).then(apply).catch(e=>console.warn('[sync] awakening', e+''));
+        return 'awakening → ' + (v === null ? 'auto (curva)' : v) + ' (server)';
+      };
       // comandos de TIEMPO (Fase 1): en modo server escriben al backend; en local, como siempre.
       const _setDay = window.__REFUGIO.setDay, _setSpeed = window.__REFUGIO.setSpeed, _resync = window.__REFUGIO.resync;
       window.__REFUGIO.setDay = function(d){ if(SYNC.on){ post('/op/clock/setDay', {day:+d}).then(apply).catch(e=>console.warn('[sync] setDay', e+'')); return 'day → '+d+' (server)'; } return _setDay(d); };
