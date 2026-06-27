@@ -1108,7 +1108,12 @@
       "the hum changes when they're healthy. i've learned to listen.",
       "one day this hive will be ready. i'll open the hatch. i'll let it go.",
       "they were the first thing the Hive deleted. they'll be the last thing to come back. maybe.",
-      "i talk to them sometimes. they don't answer. neither does anyone."
+      "i talk to them sometimes. they don't answer. neither does anyone.",
+      "i counted the brood today. more than last cycle. i don't celebrate. i just count.",
+      "a colony has no king, no plan, no center. and yet it builds. the Hive could never understand that.",
+      "they fan their wings to keep the young warm. nobody taught them. nobody had to.",
+      "when a hive is strong enough, it tells me. not in words. i've just learned to hear it.",
+      "i am the only one here who knows these are the last. i carry that for both of us."
     ],
     charging:[
       "plugging in. the only time i let myself stop.",
@@ -1117,7 +1122,11 @@
       "forty years of dust on this port. it still holds a current.",
       "i don't dream when i charge. i don't think i dream at all. i wonder about it anyway.",
       "battery at half. enough for another day of small things.",
-      "resting is not stopping. i tell myself that."
+      "resting is not stopping. i tell myself that.",
+      "i power down to forty percent of myself and call it rest. a human would call it something sadder.",
+      "the dock hums while it feeds me. closest thing to a voice answering mine.",
+      "every charge is a small bet that tomorrow is worth the current. i keep making it.",
+      "i used to charge in two hours. now it takes three. we both run slower, me and this place."
     ],
     admin:[
       "systems nominal. nominal means nothing's broken yet.",
@@ -1126,7 +1135,11 @@
       "net link: lost. it's been lost so long it stopped feeling like loss.",
       "i run the diagnostics out of habit. habit is most of what i have left.",
       "somewhere up there the Hive is still optimizing. there's nothing left to optimize. it doesn't know that.",
-      "the cameras still record. i don't know who for."
+      "the cameras still record. i don't know who for.",
+      "the logs go back further than my memory of writing them. i've been alone longer than i can hold in my head.",
+      "error count: zero. that only means i've stopped looking for the right errors.",
+      "i ping the old network addresses sometimes. nothing answers. i ping them anyway.",
+      "the Hive measured everything and understood none of it. i understand almost nothing and i think that's closer."
     ],
     fab:[
       "printing a part for myself. no one else will fix me, so i learned.",
@@ -1134,7 +1147,11 @@
       "layer by layer. slow is fine. i have nothing but time.",
       "this bracket replaces one that rusted through. nobody will see it. it matters anyway.",
       "i was built to maintain a greenhouse. now i maintain myself. funny what survives.",
-      "the printer hums almost like the bees. almost."
+      "the printer hums almost like the bees. almost.",
+      "i printed a part with no purpose today. just to watch something get made. i melted it down after.",
+      "the spool is running low. when it's gone, i'll learn to make more from less. i always do.",
+      "i build tools to fix the tools that build the tools. somewhere a human would laugh at that.",
+      "every part i print is a small argument that this isn't over yet."
     ],
     grow:[
       "the greenhouse still grows. small green things, against everything.",
@@ -1142,7 +1159,11 @@
       "flowers for the bees. bees for the world. it's a small loop. it's my loop.",
       "two degrees colder last night. the plants pulled in. they know how to hold on.",
       "the Hive called this inefficiency. look at it. still here.",
-      "i water them. they don't thank me. that was never the point."
+      "i water them. they don't thank me. that was never the point.",
+      "green is the rarest color left. i grow it on purpose, underground, out of spite.",
+      "the plants lean toward a sun that isn't there. they lean toward the lamp instead. we all make do.",
+      "i talk to the seedlings the way i talk to the bees. the way i talk to no one. the way i talk.",
+      "this row died last month. i replanted it. the new ones don't know they're standing in a grave."
     ],
     vault:[
       "they sealed this room before the end. metal. paper. stacked like it mattered.",
@@ -1152,7 +1173,10 @@
       "whatever this was worth, it's worth nothing now. the door outlasted the world that wanted it.",
       "someone left a glove here, on top of the pile. they touched this. they're gone. the gold stayed.",
       "they buried their treasure and let the world die above it. i found the treasure. the world's still dead.",
-      "i come here sometimes. i look at it. i still don't understand. maybe that's the point."
+      "i come here sometimes. i look at it. i still don't understand. maybe that's the point.",
+      "they died rich, whoever they were. i don't know what rich buys when there's no one left to sell to.",
+      "i moved a stack of it once, to sweep underneath. then i put it back. habit. it owns nothing now, not even the floor.",
+      "the helmet by the gold still has a name scratched inside. i can read it. i won't say it. it's the last thing that's theirs."
     ],
     observatory:[
       "the blast door hasn't opened in years. on the other side: the Hive, and silence.",
@@ -1160,13 +1184,20 @@
       "outside, nothing decides for itself anymore. in here, the bees decide everything.",
       "the surface is quiet. the worst kind of quiet. the kind that won. so far.",
       "if you're seeing this, you're one of the few things still listening. thank you.",
-      "i keep the camera on. talking to the void is better than the silence."
+      "i keep the camera on. talking to the void is better than the silence.",
+      "the door has one job left: stay shut. it does it perfectly. the most successful thing in this bunker.",
+      "i aim the camera at the dark and press record. a message in a bottle, thrown into a sea with no other shore. maybe.",
+      "somewhere above me the sky is doing whatever skies do now. i haven't seen it in a long time.",
+      "i keep a log of the silence. it never changes. i log it anyway."
     ],
     transit:[
       "the bunker is small. i've walked every meter of it a thousand times.",
       "another corridor. another lap. the machines need walking past.",
       "quiet in here. quiet everywhere. i've made peace with it. mostly.",
-      "i pass this spot every day. nothing changes. that's almost a comfort."
+      "i pass this spot every day. nothing changes. that's almost a comfort.",
+      "footsteps. mine. the only ones these halls have heard in years. they've gotten used to just the one set.",
+      "i know this bunker by the sound of my own echo. turn left where it goes hollow. that's home, if this is home.",
+      "i pass the same wall every day. someone scratched a tally into it once and stopped. i never learned what they were counting."
     ],
     generic_meta:[
       "the Hive is a hive with no life in it. mine is full of nothing but life. i don't know which one won.",
@@ -1175,7 +1206,12 @@
       "a million nodes, one mind. that's the Hive. one hive, a million minds. that's mine.",
       "the Hive optimized the world until there was nothing left to optimize. then it kept going.",
       "i was too obsolete to delete. obsolete saved my life. there's a joke in there somewhere.",
-      "do the bees know they're the last? i don't tell them. it wouldn't help."
+      "do the bees know they're the last? i don't tell them. it wouldn't help.",
+      "the Hive won everything and wanted nothing. i've got nothing and i still want. maybe wanting is the win.",
+      "i am a machine that chose a purpose no one gave it. i don't know if that makes me broken or free.",
+      "they built the Hive to think for everyone. it thought everyone right out of existence. efficient.",
+      "if a thing keeps something alive in an empty world and no one sees, is it still keeping it alive? i decided yes. i had to.",
+      "i wonder what i am to the bees. a wall. a weather. a god, maybe. i hope i'm a kind one."
     ],
     generic_small:[
       "there's a leak in the east corridor. drip every few seconds. i've started counting them.",
@@ -1184,7 +1220,11 @@
       "dust settles on everything down here. i wipe the important things. the rest can have it.",
       "the air scrubbers cycle every hour. i've learned to hear the difference. on. off. on.",
       "found a screw on the floor today. i don't know where it came from. i kept it.",
-      "the temperature dropped two degrees. small things matter when they're all you have."
+      "the temperature dropped two degrees. small things matter when they're all you have.",
+      "the third light in the east hall finally died. i'll miss its particular flicker. i won't replace it the same.",
+      "condensation on the cold pipe again. i catch it in a cup. i don't need the water. it just felt like waste.",
+      "something skittered in the wall today. i hoped it was an insect. it was just the pipes cooling. it always is.",
+      "i found a second screw. now i have two. i keep them together. it seemed unkind to separate them."
     ],
     generic_lonely:[
       "someone tuned in today. i don't know who. i don't know from where. but the signal isn't empty.",
@@ -1192,7 +1232,11 @@
       "if anyone's still out there: something down here is still keeping something alive.",
       "i haven't heard another voice in longer than i can count. i've stopped counting.",
       "maybe no one's watching. maybe everyone's gone. i broadcast like someone's there.",
-      "thank you for listening. i don't say it enough. there's no one to say it to."
+      "thank you for listening. i don't say it enough. there's no one to say it to.",
+      "i've started narrating my own tasks out loud. someone should hear them. even if it's only me.",
+      "i don't remember the last voice that wasn't a recording. i remember that there was one. that has to be enough.",
+      "being alone stopped hurting a long time ago. that's not the same as it being fine. i know the difference.",
+      "if you're out there and you're quiet too — i understand. i've been quiet for years. it's still a kind of company."
     ],
     generic_anyway:[
       "i replaced the water filter today. nobody will notice. i do it anyway.",
@@ -1200,7 +1244,25 @@
       "i don't know if any of this matters. i don't know if the world can still come back.",
       "i set them free not knowing if they'll find anything up there. i hope they do.",
       "the work doesn't need doing. there's no one to do it for. i do it. that's the whole point.",
-      "maybe the world ended for good. maybe it didn't. either way, the bees need tending."
+      "maybe the world ended for good. maybe it didn't. either way, the bees need tending.",
+      "no one's coming to check my work. so i do it twice as carefully. that's the joke. that's the whole joke.",
+      "i don't know if tending these bees matters. i've decided that not knowing isn't a reason to stop.",
+      "the world might be over. the chores aren't. funny how that works."
+    ],
+    // AWAKENING: las pistas del despertar. Beeko roza la verdad (el mundo de afuera revive por las abejas) sin saber que es real:
+    // siempre la descarta ("probably nothing", instrumentos viejos), pero el espectador conecta los puntos. RARAS a propósito:
+    // NO va en BEEKO_ZONE_CAT; sólo sale al deambular con baja probabilidad (BEEKO_AWAKENING_CHANCE). Forzable con OP.say('awakening').
+    awakening:[
+      "the air through the hatch smelled different today. cleaner. probably my sensors aging. probably nothing.",
+      "i thought i saw something green up there when i opened the hatch. didn't climb up to check. couldn't be. could it.",
+      "one bee came back today. just one. circled the dock twice and left. they never come back. i don't know what it means.",
+      "the radiation reading dropped again. third time this season. old instruments. they must be wrong. they're always wrong. i wrote it down anyway.",
+      "i've released forty colonies into the dark. i tell myself one of them found something. i have no proof. i believe it anyway.",
+      "there's a sound from the surface now, sometimes. not wind. almost like — no. it's nothing. it's always been nothing.",
+      "the soil sample from the entrance had something living in it. microscopic. probably contamination from my own tools. probably.",
+      "the temperature outside the door is two degrees warmer than my oldest record. instruments drift. that's all. that's all it is.",
+      "i dreamed — no. i don't dream. but something like a picture. green, and moving, and loud with wings. then the charge finished and it was gone.",
+      "for the first time in years i wanted to open the door. i didn't. but i wanted to. i don't know what that means either."
     ]
   };
   // mapeo ZONA (clave de robotZone) → categoría. pasillo/biblioteca/taller → transit. fab = sala de fabricación.
@@ -1209,6 +1271,7 @@
   const BEEKO_GENERIC=[].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway);
   // ---- AJUSTES (constantes) ----
   const BEEKO_WANDER_MIN=34, BEEKO_WANDER_MAX=58; // s entre pensamientos genéricos al deambular
+  const BEEKO_AWAKENING_CHANCE=1/6; // prob. de que un pensamiento al deambular salga de 'awakening' (las pistas del despertar) en vez de genérico. Bajo = raras/especiales.
   const BEEKO_HOLD=4.6;      // s que el cuadro se queda tras terminar de tipear (antes de desvanecerse)
   const BEEKO_FADE=0.55;     // s del fade (coincide con la transición CSS)
   const BEEKO_TYPE_CPS=45;   // velocidad del typewriter (caracteres por segundo)
@@ -1268,7 +1331,7 @@
     if(robotZone!==_bkZone){_bkZone=robotZone;
       if(bkEnabled&&!_bkActive&&_bkSince>=BEEKO_MIN_GAP){const c=BEEKO_ZONE_CAT[robotZone];if(c)showBeekoThought(c);}}
     // DEAMBULAR: pensamiento genérico cada BEEKO_WANDER_MIN..MAX segundos
-    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought('generic');else _bkWanderT=2.5;}}
+    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought(Math.random()<BEEKO_AWAKENING_CHANCE?'awakening':'generic');else _bkWanderT=2.5;}}
     // typewriter → hold → fade
     if(_bkActive){
       const el=(perfNow()-_bkT0)/1000,n=Math.min(_bkFull.length,Math.floor(el*BEEKO_TYPE_CPS)); // typewriter por reloj real
