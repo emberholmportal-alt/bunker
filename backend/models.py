@@ -32,6 +32,9 @@ class World(Base):
     bees_released = Column(Float, nullable=True)    # liberadas, acumulado PERSISTENTE (sube orgánico en 'colmena') — base del despertar (Fase 4)
     print_progress = Column(Float, nullable=True)  # impresora 3D 0..100 (diente de sierra en 'fabricacion')
     cnt_tick_ms = Column(BigInteger, nullable=True) # tiempo real del último tick del ticker (para el dt)
+    # FASE 4 — EL DESPERTAR. El progreso se DERIVA de bees_released (curva, on-read en /state); no necesita columna/ticker.
+    # awakening_override: si el operador fuerza una etapa para testear, el progreso = este valor (0..1) en vez de la curva.
+    awakening_override = Column(Float, nullable=True)
 
 
 class EventLog(Base):

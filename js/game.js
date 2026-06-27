@@ -1339,7 +1339,15 @@
   const BEEKO_GENERIC=[].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway);
   // ---- AJUSTES (constantes) ----
   const BEEKO_WANDER_MIN=34, BEEKO_WANDER_MAX=58; // s entre pensamientos genéricos al deambular
-  const BEEKO_AWAKENING_CHANCE=1/6; // prob. de que un pensamiento al deambular salga de 'awakening' (las pistas del despertar) en vez de genérico. Bajo = raras/especiales.
+  const BEEKO_AWAKENING_CHANCE=1/6; // LOCAL (flag off): prob. fija de que un pensamiento al deambular salga de 'awakening'. Bajo = raras/especiales.
+  // FASE 4 — EL DESPERTAR. Con OP.serverAwakening ON, la frecuencia y el carácter de los pensamientos 'awakening' se atan a la ETAPA del server (0-3):
+  const STAGE_CHANCE=[0.02, 0.08, 0.20, 0.45];        // prob. del awakening por etapa (0:casi nunca → 3:frecuente). Calibrable.
+  const AWAKENING_MIN_STAGE=[0,2,2,1,1,3,3,0,3,3];    // etapa MÍNIMA de cada frase (índice-alineado con BEEKO_THOUGHTS.awakening): ambiguas abajo, reveladoras arriba
+  function _awakeningServer(){ return !!(window.__SYNC && __SYNC.awakeningActive()); }            // ¿el despertar lo manda el server AHORA?
+  function _awakeningStage(){ const s=STREAM.awakeningStage; return (typeof s==='number')?(s|0):0; }
+  function _awakeningChance(){ if(!_awakeningServer())return BEEKO_AWAKENING_CHANCE; const c=STAGE_CHANCE[_awakeningStage()]; return (typeof c==='number')?c:BEEKO_AWAKENING_CHANCE; }
+  function _awakeningEligible(){ const all=BEEKO_THOUGHTS.awakening; if(!_awakeningServer())return all; // local: las 10
+    const st=_awakeningStage(), elig=all.filter((_,i)=>AWAKENING_MIN_STAGE[i]<=st); return elig.length?elig:all; }
   const BEEKO_HOLD=4.6;      // s que el cuadro se queda tras terminar de tipear (antes de desvanecerse)
   const BEEKO_FADE=0.55;     // s del fade (coincide con la transición CSS)
   const BEEKO_TYPE_CPS=45;   // velocidad del typewriter (caracteres por segundo)
@@ -1380,7 +1388,8 @@
     }catch(e){}
   }
   function pickBeeko(cat){
-    const arr=(cat==='generic')?BEEKO_GENERIC:BEEKO_THOUGHTS[cat];if(!arr||!arr.length)return '';
+    const arr=(cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():BEEKO_THOUGHTS[cat]; // awakening: sólo las frases elegibles por etapa (Fase 4)
+    if(!arr||!arr.length)return '';
     let i=Math.floor(Math.random()*arr.length),tr=0;const last=_bkLast[cat];
     while(arr.length>1&&i===last&&tr<6){i=Math.floor(Math.random()*arr.length);tr++;}
     _bkLast[cat]=i;return arr[i];
@@ -1399,7 +1408,7 @@
     if(robotZone!==_bkZone){_bkZone=robotZone;
       if(bkEnabled&&!_bkActive&&!STREAM.broadcasting&&_bkSince>=BEEKO_MIN_GAP){const c=BEEKO_ZONE_CAT[robotZone];if(c)showBeekoThought(c);}} // no pisar una transmisión de la radio
     // DEAMBULAR: pensamiento genérico cada BEEKO_WANDER_MIN..MAX segundos
-    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&!STREAM.broadcasting&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought(Math.random()<BEEKO_AWAKENING_CHANCE?'awakening':'generic');else _bkWanderT=2.5;}}
+    if(bkEnabled){_bkWanderT-=dt;if(_bkWanderT<=0){if(!_bkActive&&!STREAM.broadcasting&&_bkSince>=BEEKO_MIN_GAP)showBeekoThought(Math.random()<_awakeningChance()?'awakening':'generic');else _bkWanderT=2.5;}} // Fase 4: la prob. del awakening usa la etapa del server (o 1/6 local)
     // typewriter → hold → fade
     if(_bkActive){
       const el=(perfNow()-_bkT0)/1000,n=Math.min(_bkFull.length,Math.floor(el*BEEKO_TYPE_CPS)); // typewriter por reloj real
@@ -1756,6 +1765,9 @@
     window.__REFUGIO.quake=function(){ if(window.__SYNC && __SYNC.eventsActive()) return __SYNC.postEvent('quake'); return startEvent('quake'); };       // temblor YA (server en modo server → lo ven todos; local con fallback)
     window.__REFUGIO.blackout=function(){ if(window.__SYNC && __SYNC.eventsActive()) return __SYNC.postEvent('blackout'); return startEvent('blackout'); }; // fallo eléctrico YA
     window.__REFUGIO.events=function(on){ if(window.__SYNC && __SYNC.eventsActive()) return __SYNC.postEvents(on===undefined?undefined:!!on); evEnabled=(on===undefined)?!evEnabled:!!on; return evEnabled; }; // on/off del dado automático (server en modo server, local si no)
+    // FASE 4 — debug del despertar: etapa actual, prob. del awakening y cuántas/ cuáles frases están elegibles en esta etapa
+    window.__REFUGIO.awakening=function(){ const srv=_awakeningServer(),st=_awakeningStage(),elig=_awakeningEligible();
+      return { fuente: srv?'server':'local', stage: srv?st:'(1/6 fijo)', progress: srv?STREAM.awakeningProgress:undefined, chance: _awakeningChance(), frasesElegibles: elig.length, frases: elig }; };
     // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream

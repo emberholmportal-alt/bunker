@@ -36,6 +36,8 @@ construyen después — ver `../BACKEND_ARCHITECTURE.md`.
   Un scheduler de fondo tira el dado (gap 180-360 s) y registra cada evento en `events_log`.
 - **Contadores (Fase 3):** `POST /op/counter {counter:'charge'|'bees'|'beesReleased'|'print', value}` ajusta un contador.
   Un ticker de fondo (~1 s) los avanza por dt real según el segment (charge en 'carga', bees/bees_released en 'colmena', print en 'fabricacion'). `bees_released` es persistente (base del despertar, Fase 4).
+- **Despertar (Fase 4):** `/state` agrega `awakening_progress` (0..1, = `1−exp(−bees_released/15000)`, on-read) y `awakening_stage` (0-3).
+  `POST /op/awakening {progress}` — número `0..1` fuerza la etapa (para testear) · `null` = auto (vuelve a la curva).
 
 ## Probar local (opcional, con SQLite, sin Postgres)
 
