@@ -2,7 +2,7 @@
 # FASE 1: sólo el RELOJ central. La tabla `world` es el singleton del estado del mundo
 # (por ahora únicamente los campos del tiempo). En fases siguientes se le agregan los
 # contadores, el evento activo, etc. (ver BACKEND_ARCHITECTURE.md).
-from sqlalchemy import Column, Integer, BigInteger
+from sqlalchemy import Column, Integer, BigInteger, String
 from database import Base
 
 
@@ -14,3 +14,6 @@ class World(Base):
     anchor_wall_ms = Column(BigInteger, nullable=False)  # tiempo real (ms UTC) en el último anclaje
     anchor_now_ms = Column(BigInteger, nullable=False)   # 'now' del stream en ese anclaje
     day_override = Column(Integer, nullable=True)        # día forzado por el operador (equivale a streamForce('day'))
+    # FASE 2 — AGENDA: tramo forzado por el operador. NULL = auto (según la hora) · 'off' = deambular (null en el frontend)
+    # · 'carga'/'colmena'/'admin'/'fabricacion'/'ronda'/'ocio' = ese tramo. Equivale al _forceSeg del frontend.
+    seg_override = Column(String, nullable=True)

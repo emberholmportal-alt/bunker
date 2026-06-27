@@ -34,3 +34,16 @@ def derive(world):
     clock = "%02d:%02d:%02d" % (g.tm_hour, g.tm_min, g.tm_sec)
     hour = g.tm_hour + g.tm_min / 60.0 + g.tm_sec / 3600.0
     return n, int(day), clock, hour
+
+
+# FASE 2 — AGENDA: el tramo de rutina según la hora UTC del reloj central. MISMOS cortes que el
+# frontend (routineSegment): carga 00-06 · colmena 06-10 · admin 10-13 · fabricación 13-17 ·
+# ronda 17-20 · ocio 20-21 · carga 21-00.
+def segment_for_hour(h: float) -> str:
+    if h < 6:  return "carga"
+    if h < 10: return "colmena"
+    if h < 13: return "admin"
+    if h < 17: return "fabricacion"
+    if h < 20: return "ronda"
+    if h < 21: return "ocio"
+    return "carga"
