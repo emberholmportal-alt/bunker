@@ -1413,24 +1413,18 @@
   // (BANCO DE CRAFTEO del modo jugable — jubilado: recetas/materiales/categorías del survival viejo.)
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,rt:null};
   const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
-  // ===== POSE "TECLEO" del robot en el escritorio (action='admin') — TODOS los ángulos para calibrar, en un solo lugar.
-  // Son DELTAS en RADIANES desde la pose de REPOSO de cada hueso (0 = brazo al costado, como viene). Se SUMAN al reposo y
-  // sobrescriben el mixer de Idle cada frame, SÓLO cuando el robot está en el escritorio (atDesk). Cadena por brazo:
-  // Shoulder → UpperArm → LowerArm(+mano). x=pitch (adelante/atrás), y=yaw (afuera/adentro), z=roll. Ajustar mirando Render.
-  // POSE REAL DE TECLEO (1ª pasada, calibrando). Eje X = swing confirmado (Y=twist, evitar). Simétrica los dos brazos:
-  // upper-arm con leve inclinación adelante/abajo, el grueso de la flexión en el CODO (LowerArm) para llevar las manos al
-  // teclado. Si en Render los brazos van para arriba/atrás en vez de abajo/adelante → invertir el signo de X (mismo en ambos).
+  // ===== POSE "TECLEO" del robot en el escritorio (action='admin') — calibrable EN VIVO desde la consola del operador.
+  // Cada entrada es una rotación LOCAL en RADIANES (x,y,z) que se aplica SOBRE el reposo del hueso vía QUATERNION
+  // (quaternion del reposo × quaternion del delta) → estable, SIN la singularidad de Euler (el brazo derecho está en X≈±π).
+  // applyAdminPose la reescribe cada frame DESPUÉS del mixer, SÓLO cuando el robot está en el escritorio (atDesk).
+  // Arranca todo en 0 = reposo. Se calibra a ojo con OP.arm('UpperArmL','x',0.5) etc.; cuando queda bien, OP.armDump()
+  // imprime los valores y se pegan acá como la pose definitiva. ARM_KEY mapea el nombre del hueso → clave de robot.armBones.
   const ADMIN_POSE={
-    // ---- brazo IZQUIERDO (.L) — rig ESPEJADO: X invertido respecto del derecho para que vaya igual hacia adelante ----
-    SHOULDER_L:{x: 0.00, y: 0.00, z: 0.00},
-    UPPERARM_L:{x:-0.35, y: 0.00, z: 0.00},   // leve adelante/abajo (X invertido por el espejo)
-    LOWERARM_L:{x:-1.20, y: 0.00, z: 0.00},   // flexión del codo → antebrazo/mano hacia el teclado (X invertido)
-    // ---- brazo DERECHO (.R) — espejo (mismo signo de X; Z/Y se mirrorearían si hicieran falta) ----
-    SHOULDER_R:{x: 0.00, y: 0.00, z: 0.00},
-    UPPERARM_R:{x: 0.35, y: 0.00, z: 0.00},
-    LOWERARM_R:{x: 1.20, y: 0.00, z: 0.00}
+    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0}, LowerArmL:{x:0,y:0,z:0},
+    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0,y:0,z:0}, LowerArmR:{x:0,y:0,z:0}
   };
-  const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo; 0 = ESTÁTICO (calibramos la pose primero)
+  const ARM_KEY={ShoulderL:'sL',UpperArmL:'uL',LowerArmL:'lL',ShoulderR:'sR',UpperArmR:'uR',LowerArmR:'lR'};
+  const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo (sobre X local); 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
   const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:5.9,z:12.2,r:.9}/*hoard sur: oro+cash+monedas (bóveda)*/,{x:6.85,z:13.7,r:.4}/*cash muro este (bóveda)*/,{x:6.3,z:15.0,r:.6}/*cash muro norte NE (bóveda)*/,{x:4.1,z:12.1,r:.55}/*hoard SO (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
   let robotUiAcc=0;
@@ -1450,7 +1444,7 @@
         const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
         const findB=tn=>{let r=null;robot.model.traverse(o=>{if(!r&&norm(o.name)===tn)r=o;});return r;};
         robot.armBones={sL:findB('shoulderl'),uL:findB('upperarml'),lL:findB('lowerarml'),sR:findB('shoulderr'),uR:findB('upperarmr'),lR:findB('lowerarmr')};
-        if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={};for(const k in robot.armBones)R[k]=robot.armBones[k].rotation.clone();robot.armRest=R;}else robot.armBones=null;
+        if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={},Q={};for(const k in robot.armBones){if(robot.armBones[k]){R[k]=robot.armBones[k].rotation.clone();Q[k]=robot.armBones[k].quaternion.clone();}}robot.armRest=R;robot.armRestQ=Q;}else robot.armBones=null; // reposo en QUATERNION (base estable, sin singularidad de Euler) + Euler (referencia)
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
@@ -1663,17 +1657,31 @@
     // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
+    // ---- CALIBRACIÓN EN VIVO de la pose de tecleo (admin). Llevá a Beeko al escritorio con OP.forceSegment('admin') y, ya plantado,
+    // ajustá cada hueso a ojo: OP.arm('UpperArmL','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL X (estable, sin singularidad).
+    // OP.armDump() imprime los valores actuales (para fijarlos) · OP.armReset() vuelve todo a reposo (deltas en 0). ----
+    window.__REFUGIO.arm=function(bone,axis,val){
+      if(bone===undefined) return 'uso: OP.arm("UpperArmL"|"LowerArmL"|"UpperArmR"|"LowerArmR"|"ShoulderL"|"ShoulderR", "x"|"y"|"z", radianes)';
+      if(!(bone in ADMIN_POSE)) return 'hueso inválido. opciones: '+Object.keys(ADMIN_POSE).join(', ');
+      if(axis!=='x'&&axis!=='y'&&axis!=='z') return 'eje inválido: usá "x", "y" o "z"';
+      ADMIN_POSE[bone][axis]=+val||0;
+      if(robot.atDesk)applyAdminPose(clk.elapsedTime); // re-aplica YA → visible al instante en Render
+      return {bone:bone, delta:Object.assign({},ADMIN_POSE[bone]), aplicando:!!robot.atDesk}; // aplicando=false → Beeko todavía no llegó al escritorio
+    };
+    window.__REFUGIO.armDump=function(){const o={};for(const k in ADMIN_POSE)o[k]=Object.assign({},ADMIN_POSE[k]);return o;}; // copiá esto como la pose definitiva
+    window.__REFUGIO.armReset=function(){for(const k in ADMIN_POSE){ADMIN_POSE[k].x=0;ADMIN_POSE[k].y=0;ADMIN_POSE[k].z=0;}if(robot.atDesk)applyAdminPose(clk.elapsedTime);return 'pose reseteada a reposo (todos los deltas en 0)';};
   }
-  // POSE DE TECLEO: sobrescribe las rotaciones de los huesos de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
-  // Deltas de ADMIN_POSE sumados al reposo capturado. Sólo se llama cuando el robot está en el escritorio (atDesk).
-  function applyAdminPose(t){const B=robot.armBones,R=robot.armRest,P=ADMIN_POSE;if(!B||!R)return;
-    const b=ADMIN_TYPING_BOB,bL=b?Math.sin(t*ADMIN_TYPING_SPD)*b:0,bR=b?Math.sin(t*ADMIN_TYPING_SPD+Math.PI)*b:0; // codos alternados (tecleo)
-    B.sL.rotation.set(R.sL.x+P.SHOULDER_L.x, R.sL.y+P.SHOULDER_L.y, R.sL.z+P.SHOULDER_L.z);
-    B.uL.rotation.set(R.uL.x+P.UPPERARM_L.x, R.uL.y+P.UPPERARM_L.y, R.uL.z+P.UPPERARM_L.z);
-    B.lL.rotation.set(R.lL.x+P.LOWERARM_L.x+bL, R.lL.y+P.LOWERARM_L.y, R.lL.z+P.LOWERARM_L.z);
-    B.sR.rotation.set(R.sR.x+P.SHOULDER_R.x, R.sR.y+P.SHOULDER_R.y, R.sR.z+P.SHOULDER_R.z);
-    B.uR.rotation.set(R.uR.x+P.UPPERARM_R.x, R.uR.y+P.UPPERARM_R.y, R.uR.z+P.UPPERARM_R.z);
-    B.lR.rotation.set(R.lR.x+P.LOWERARM_R.x+bR, R.lR.y+P.LOWERARM_R.y, R.lR.z+P.LOWERARM_R.z);}
+  // POSE DE TECLEO: sobrescribe las rotaciones de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
+  // Aplica el delta de ADMIN_POSE en ESPACIO LOCAL del hueso vía quaternion: rot = reposoQ × quat(delta). Post-multiplicar
+  // = rotar sobre los ejes LOCALES del hueso → estable incluso en la singularidad de Euler (brazo derecho en X≈±π).
+  const _apQ=new THREE.Quaternion(), _apE=new THREE.Euler();
+  function applyAdminPose(t){const B=robot.armBones,Rq=robot.armRestQ;if(!B||!Rq)return;
+    const b=ADMIN_TYPING_BOB; // tecleo: bob alternado L/R sumado al X local de los codos (LowerArm)
+    for(const name in ADMIN_POSE){const key=ARM_KEY[name],bone=B[key],rq=Rq[key];if(!bone||!rq)continue;
+      const d=ADMIN_POSE[name];let dx=d.x;
+      if(b){if(name==='LowerArmL')dx+=Math.sin(t*ADMIN_TYPING_SPD)*b;else if(name==='LowerArmR')dx+=Math.sin(t*ADMIN_TYPING_SPD+Math.PI)*b;}
+      _apE.set(dx,d.y,d.z,'XYZ');_apQ.setFromEuler(_apE);
+      bone.quaternion.copy(rq).multiply(_apQ);}}
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
