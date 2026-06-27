@@ -1705,21 +1705,32 @@
   function evEnvelope(p){return p<EV_ARC_UP?p/EV_ARC_UP:p<EV_ARC_UP+EV_ARC_HOLD?1:Math.max(0,(1-p)/(1-EV_ARC_UP-EV_ARC_HOLD));} // sube → pico breve → baja largo (mantiene la forma al estirar la duración)                                                              // arco: sube (0–.3) · pico (.3–.7) · baja (.7–1)
   function reactBeeko(cat){const mode=Math.floor(Math.random()*3);evHoldT=EV_REACT_HOLD[mode]; // 0 leve (mantiene) / 1 mira ('No') / 2 melancólico ('Idle' quieto)
     if(robot.model){if(mode===1)setRobotAnim('No');else if(mode===2)setRobotAnim('Idle');} showBeekoThought(cat);}
-  function startEvent(type){if(evType!=='')return false;evType=type;evClock=0;_evRumbleT=0;streamDrive('event',type); // un solo evento a la vez
+  // ARCO VISUAL del evento (shake / luces rojas / alarma / emergencia ámbar). Se SEPARA del scheduler para poder
+  // dispararlo desde el server (Fase 2 — Parte A): el arco no cambia, solo cambia QUIÉN decide cuándo empieza/termina.
+  function startEventVisual(type){evType=type;evClock=0;_evRumbleT=0; // estado visual + kickoff. NO toca STREAM.event (la ownership es del caller: el scheduler local o el server)
     if(type==='quake'){showAlert(QUAKE_ALERTS[Math.floor(Math.random()*QUAKE_ALERTS.length)]);alarm();}
     else{showAlert(BLACKOUT_ALERTS[Math.floor(Math.random()*BLACKOUT_ALERTS.length)]);eclick();genDuck(0.04,0.35);} // generador tose y se apaga
-    reactBeeko(type);return true;}
-  function endEvent(){evType='';evClock=0;shake=0;evRestoreLights();emergLights.forEach(l=>l.intensity=0);genDuck(undefined,0.5);streamDrive('event',''); // CANDADO: todo a base
-    evT=EV_GAP_MIN+Math.random()*(EV_GAP_MAX-EV_GAP_MIN);}
-  function eventTick(dt,t,mv){
-    if(evType===''){ if(evEnabled&&!STREAM._force.event){evT-=dt;if(evT<=0)startEvent(Math.random()<0.5?'quake':'blackout');} return; } // scheduler (no corre con evento activo → no se solapan)
+    reactBeeko(type);}
+  function endEventVisual(){evType='';evClock=0;shake=0;evRestoreLights();emergLights.forEach(l=>l.intensity=0);genDuck(undefined,0.5);} // CANDADO: todo a base. NO toca STREAM.event ni evT
+  function eventArc(dt,t,mv){ // UN frame del arco (avanza evClock + aplica el efecto según el envelope)
     evClock+=dt;const DUR=evType==='quake'?EV_QUAKE_DUR:EV_BLACKOUT_DUR,p=Math.min(1,evClock/DUR),env=evEnvelope(p);
     if(evType==='quake'){ shake=EV_SHAKE_MAX*env*(mv?1:0.3); evApplyLights(env*EV_QUAKE_RED,0); // shake (respeta reduced-motion) + luces a rojo
       _evRumbleT-=dt; if(env>0.35&&_evRumbleT<=0){rumble();_evRumbleT=0.6+Math.random()*0.3;} }                                        // retumbo intermitente en el pico
     else{ let cut; if(p<0.12)cut=(Math.random()<0.5?1:0.2)*EV_BLACKOUT_CUT; else if(p>0.86)cut=(Math.random()<0.5?1:0.35)*EV_BLACKOUT_CUT; else cut=EV_BLACKOUT_CUT; // flicker caída → corte → flicker reencendido
       evApplyLights(0,mv?cut:cut*0.9);
-      const em=Math.min(1,env*1.4); emergLights.forEach((l,i)=>l.intensity=(1.15+(mv?Math.sin(t*7+i)*0.18:0))*em); emer.intensity=(1.7+(mv?Math.sin(t*9)*0.3:0))*em; } // emergencia ámbar/roja
-    if(evClock>=DUR)endEvent();
+      const em=Math.min(1,env*1.4); emergLights.forEach((l,i)=>l.intensity=(1.15+(mv?Math.sin(t*7+i)*0.18:0))*em); emer.intensity=(1.7+(mv?Math.sin(t*9)*0.3:0))*em; } } // emergencia ámbar/roja
+  // LOCAL: el scheduler local es DUEÑO de STREAM.event (lo setea/limpia) y reprograma el próximo (evT).
+  function startEvent(type){if(evType!=='')return false;streamDrive('event',type);startEventVisual(type);return true;} // un solo evento a la vez
+  function endEvent(){streamDrive('event','');endEventVisual();evT=EV_GAP_MIN+Math.random()*(EV_GAP_MAX-EV_GAP_MIN);}
+  function eventTick(dt,t,mv){
+    if(window.__SYNC && __SYNC.eventsActive()){ // SERVER manda: sin dado local; el arco SIGUE a STREAM.event (lo setea el sync desde /state)
+      if(STREAM.event && evType===''){ startEventVisual(STREAM.event); if(typeof STREAM.eventElapsed==='number') evClock=STREAM.eventElapsed/1000; } // arranca (seedea elapsed si te sumás a mitad)
+      else if(!STREAM.event && evType!==''){ endEventVisual(); }                                                                                   // el server limpió el evento → cierra el arco
+      if(evType!=='') eventArc(dt,t,mv);
+      return;
+    }
+    if(evType===''){ if(evEnabled&&!STREAM._force.event){evT-=dt;if(evT<=0)startEvent(Math.random()<0.5?'quake':'blackout');} return; } // LOCAL: scheduler (no corre con evento activo → no se solapan)
+    eventArc(dt,t,mv); if(evClock>=(evType==='quake'?EV_QUAKE_DUR:EV_BLACKOUT_DUR))endEvent();
   }
   // Hooks de operador/testeo (extienden el __REFUGIO del backbone).
   // forceSegment('carga'|'colmena'|'admin'|'fabricacion'|'ronda'|'ocio') fuerza el tramo · forceSegment(null) lo apaga (deambula) · forceSegment() vuelve a auto(hora). releaseSwarm() libera a mano.
@@ -1728,9 +1739,9 @@
       if(window.__SYNC && __SYNC.agendaActive()) return __SYNC.postSegment(auto?'__auto__':s); // modo server: forzar/liberar el tramo en el backend (lo ven todos)
       _forceSeg=auto?undefined:s; return _forceSeg; };                                          // local: como siempre
     window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
-    window.__REFUGIO.quake=function(){return startEvent('quake');};        // dispara un temblor YA (no-op si hay un evento en curso)
-    window.__REFUGIO.blackout=function(){return startEvent('blackout');};  // dispara un fallo eléctrico YA
-    window.__REFUGIO.events=function(on){evEnabled=(on===undefined)?!evEnabled:!!on;return evEnabled;}; // on/off del scheduler automático (override del operador)
+    window.__REFUGIO.quake=function(){ if(window.__SYNC && __SYNC.eventsActive()) return __SYNC.postEvent('quake'); return startEvent('quake'); };       // temblor YA (server en modo server → lo ven todos; local con fallback)
+    window.__REFUGIO.blackout=function(){ if(window.__SYNC && __SYNC.eventsActive()) return __SYNC.postEvent('blackout'); return startEvent('blackout'); }; // fallo eléctrico YA
+    window.__REFUGIO.events=function(on){ if(window.__SYNC && __SYNC.eventsActive()) return __SYNC.postEvents(on===undefined?undefined:!!on); evEnabled=(on===undefined)?!evEnabled:!!on; return evEnabled; }; // on/off del dado automático (server en modo server, local si no)
     // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream

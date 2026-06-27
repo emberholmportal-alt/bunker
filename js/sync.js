@@ -14,13 +14,14 @@
   (function(){
     const LS = 'refugio_backend';
     const DEGRADE_FAILS = 3;                                   // polls fallidos seguidos para entrar en modo degradado (~12 s)
-    const SYNC = { on:false, agenda:false, url:'', token:'', timer:null, fails:0 };
+    const SYNC = { on:false, agenda:false, events:false, url:'', token:'', timer:null, fails:0 };
     const _cfg = (typeof BACKEND_URL !== 'undefined' && BACKEND_URL) ? BACKEND_URL : ''; // default opcional desde config.js (vacío = off)
     const _base = () => SYNC.url.replace(/\/+$/,'');
     const degraded = () => SYNC.fails >= DEGRADE_FAILS;
     const agendaActive = () => SYNC.on && SYNC.agenda && !degraded(); // ¿la agenda sale del server AHORA?
+    const eventsActive = () => SYNC.on && SYNC.events && !degraded(); // ¿los eventos salen del server AHORA?
 
-    function save(){ try{ localStorage.setItem(LS, JSON.stringify({on:SYNC.on, agenda:SYNC.agenda, url:SYNC.url, token:SYNC.token})); }catch(e){} }
+    function save(){ try{ localStorage.setItem(LS, JSON.stringify({on:SYNC.on, agenda:SYNC.agenda, events:SYNC.events, url:SYNC.url, token:SYNC.token})); }catch(e){} }
     function apply(st){
       if(!st) return;
       // reloj (cuando hay conexión): siempre — conectar = reloj del server (Fase 1)
@@ -29,6 +30,13 @@
       if(typeof st.speed === 'number') STREAM.speed = st.speed;
       // agenda (sólo si el flag está ON): string = tramo · null = deambular
       if(SYNC.agenda && ('segment' in st)) STREAM.segment = st.segment;
+      // eventos (sólo si el flag está ON): el arco visual del frontend sigue a STREAM.event
+      if(SYNC.events && ('event' in st)){
+        STREAM.event = st.event || '';
+        STREAM.eventElapsed = st.event_elapsed_ms || 0;
+        STREAM.eventDur = st.event_dur_ms || 0;
+        STREAM.eventsEnabled = !!st.events_enabled;
+      }
     }
     async function poll(){
       if(!SYNC.on) return;
@@ -45,27 +53,32 @@
       return r.json();
     }
     function start(){ SYNC.on = true; STREAM.serverMode = true; SYNC.fails = 0; poll(); if(SYNC.timer) clearInterval(SYNC.timer); SYNC.timer = setInterval(poll, 4000); }
-    function stop(){ SYNC.on = false; SYNC.agenda = false; STREAM.serverMode = false; STREAM.segment = undefined; if(SYNC.timer){ clearInterval(SYNC.timer); SYNC.timer = null; } if(typeof streamResync === 'function') streamResync(); } // vuelve a TODO local
+    function stop(){ SYNC.on = false; SYNC.agenda = false; SYNC.events = false; STREAM.serverMode = false; STREAM.segment = undefined; STREAM.event = ''; if(SYNC.timer){ clearInterval(SYNC.timer); SYNC.timer = null; } if(typeof streamResync === 'function') streamResync(); } // vuelve a TODO local
 
     // restaurar estado guardado (por navegador)
-    try{ const s = JSON.parse(localStorage.getItem(LS) || 'null'); if(s){ SYNC.url = s.url || _cfg; SYNC.token = s.token || ''; SYNC.agenda = !!s.agenda; if(s.on && SYNC.url) start(); } }catch(e){}
+    try{ const s = JSON.parse(localStorage.getItem(LS) || 'null'); if(s){ SYNC.url = s.url || _cfg; SYNC.token = s.token || ''; SYNC.agenda = !!s.agenda; SYNC.events = !!s.events; if(s.on && SYNC.url) start(); } }catch(e){}
     if(!SYNC.url && _cfg) SYNC.url = _cfg;
 
-    // ---- hooks internos que consulta game.js (routineSegment / forceSegment) ----
+    // ---- hooks internos que consulta game.js (routineSegment / forceSegment / eventTick / OP.quake...) ----
     window.__SYNC = {
       agendaActive: agendaActive,
+      eventsActive: eventsActive,
       // OP.forceSegment en modo server: '__auto__'=liberar(a la hora) · null=deambular · 'ronda'/...=forzar
       postSegment: function(v){
         const seg = (v === '__auto__') ? 'auto' : v;
         post('/op/segment', {segment: seg}).then(apply).catch(e=>console.warn('[sync] segment', e+''));
         return 'segment → ' + (v === '__auto__' ? 'auto' : (v === null ? 'off (deambular)' : v)) + ' (server)';
-      }
+      },
+      // OP.quake/blackout en modo server → fuerza el evento en el backend (lo ven todos)
+      postEvent: function(kind){ post('/op/event', {kind: kind}).then(apply).catch(e=>console.warn('[sync] event', e+'')); return kind + ' (server)'; },
+      // OP.events(on/off) en modo server → togglea el dado automático del server
+      postEvents: function(v){ const en = (v === undefined) ? !STREAM.eventsEnabled : !!v; post('/op/events', {enabled: en}).then(apply).catch(e=>console.warn('[sync] events', e+'')); return 'dado automático del server → ' + (en ? 'ON' : 'OFF'); }
     };
 
     // ---- comandos de operador (se enganchan a __REFUGIO antes de que game.js lo selle en OP) ----
     if(window.__REFUGIO){
       window.__REFUGIO.backend = function(a, b){
-        if(a === undefined) return { on:SYNC.on, agenda:SYNC.agenda, degraded:degraded(), url:SYNC.url||'(sin URL)', hasToken:!!SYNC.token };
+        if(a === undefined) return { on:SYNC.on, agenda:SYNC.agenda, events:SYNC.events, degraded:degraded(), url:SYNC.url||'(sin URL)', hasToken:!!SYNC.token };
         if(a === false){ stop(); save(); return 'backend OFF — TODO local (stream en vivo intacto)'; }
         if(a === true){ if(!SYNC.url) return 'falta la URL: OP.backend("https://TU-BACKEND.onrender.com")'; start(); save(); return 'backend ON — reloj desde '+SYNC.url; }
         if(typeof a === 'string'){ SYNC.url = a; if(typeof b === 'string') SYNC.token = b; start(); save(); return 'backend ON — reloj desde '+SYNC.url; }
@@ -78,6 +91,14 @@
         SYNC.agenda = want; if(!want) STREAM.segment = undefined; // off → routineSegment vuelve a lo local
         save(); if(want) poll();                                  // poll inmediato para sembrar el tramo
         return 'agenda ' + (want ? 'ON (desde el server)' : 'OFF (local)');
+      };
+      // FASE 2 — flag de EVENTOS (requiere estar conectado)
+      window.__REFUGIO.serverEvents = function(on){
+        const want = (on === undefined) ? !SYNC.events : !!on;
+        if(want && !SYNC.on) return 'conectá primero: OP.backend("https://TU-BACKEND.onrender.com")';
+        SYNC.events = want; if(!want) STREAM.event = '';          // off → el badge/arco vuelven a lo local
+        save(); if(want) poll();                                  // poll inmediato para sembrar el evento activo
+        return 'eventos ' + (want ? 'ON (desde el server)' : 'OFF (local)');
       };
       // comandos de TIEMPO (Fase 1): en modo server escriben al backend; en local, como siempre.
       const _setDay = window.__REFUGIO.setDay, _setSpeed = window.__REFUGIO.setSpeed, _resync = window.__REFUGIO.resync;
