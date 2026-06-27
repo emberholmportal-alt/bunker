@@ -1419,9 +1419,11 @@
   // applyAdminPose la reescribe cada frame DESPUÉS del mixer, SÓLO cuando el robot está en el escritorio (atDesk).
   // Arranca todo en 0 = reposo. Se calibra a ojo con OP.arm('UpperArmL','x',0.5) etc.; cuando queda bien, OP.armDump()
   // imprime los valores y se pegan acá como la pose definitiva. ARM_KEY mapea el nombre del hueso → clave de robot.armBones.
+  // POSE DEFINITIVA de tecleo (calibrada en vivo en Render con OP.arm y volcada con OP.armDump). Simétrica: hombro x:0.7 + codo x:0.9
+  // en ambos brazos lleva las manos al frente sobre el teclado. Se puede re-calibrar con la herramienta OP.arm/armDump/armReset.
   const ADMIN_POSE={
-    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0}, LowerArmL:{x:0,y:0,z:0},
-    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0,y:0,z:0}, LowerArmR:{x:0,y:0,z:0}
+    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0.7,y:0,z:0}, LowerArmL:{x:0.9,y:0,z:0},
+    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0.7,y:0,z:0}, LowerArmR:{x:0.9,y:0,z:0}
   };
   const ARM_KEY={ShoulderL:'sL',UpperArmL:'uL',LowerArmL:'lL',ShoulderR:'sR',UpperArmR:'uR',LowerArmR:'lR'};
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo (sobre X local); 0 = ESTÁTICO (calibramos la pose primero)
