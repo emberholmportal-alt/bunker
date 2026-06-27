@@ -68,7 +68,7 @@
     "shelter 404, day {DAY}. nothing's gone up yet. but the bees are alive, and i am here, and that's where every story has to start."
   ];
   // CUADRO DE TRANSMISIÓN (overlay #radiotx): typewriter → hold → fade. Estado de transmisión vive en STREAM.broadcasting (respeta override).
-  let rtEl=null,rtTextEl=null,_rtReady=false,_txActive=false,_txFull='',_txT0=0,_txHold=0,_txFadeT=0,_txLastP=-1,_txLastE=-1;
+  let rtEl=null,rtTextEl=null,_rtReady=false,_txActive=false,_txFull='',_txT0=0,_txHold=0,_txFadeT=0,_txLastP=-1,_txLastE=-1,_txDur=0;
   const TX_CPS=42, TX_FADE=0.6;
   function _rtGrab(){ if(_rtReady)return; rtEl=$('#radiotx'); rtTextEl=$('#rtText'); _rtReady=true; }
   function txFormat(s){ const d=Math.round(STREAM.day), day=d>=1000?(''+d).replace(/\B(?=(\d{3})+(?!\d))/g,','):''+d; // separador de miles en DAY si ≥1000
@@ -84,6 +84,7 @@
   function broadcast(){ // dispara una transmisión YA (la usa la ronda al pasar por la radio y el hook OP.broadcast)
     _rtGrab(); if(!rtEl)return ''; const text=pickTx();
     _txFull=text;_txActive=true;_txT0=perfNow();_txFadeT=0; _txHold=Math.min(6.5,2.8+text.length*0.028);
+    _txDur=text.length/TX_CPS + _txHold + TX_FADE; // duración total de la transmisión (typewriter+hold+fade) → la ronda usa esto para el dwell
     if(rtTextEl)rtTextEl.textContent=''; rtEl.classList.add('show');
     streamDrive('broadcasting', true); radioSwell(); return text; }
   function radioTick(dt,t){ // LED + dial atados a STREAM.broadcasting + ciclo del cuadro (typewriter→hold→fade)
@@ -1479,15 +1480,17 @@
     ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0.7,y:0,z:0}, LowerArmR:{x:0.9,y:0,z:0}
   };
   const ARM_KEY={ShoulderL:'sL',UpperArmL:'uL',LowerArmL:'lL',ShoulderR:'sR',UpperArmR:'uR',LowerArmR:'lR'};
-  // POSE DE LA RADIO (separada de ADMIN_POSE): brazo DERECHO levantado hacia el transmisor, izquierdo al costado. Misma técnica
-  // (delta local por quaternion), pero applyRadioPose SÓLO pisa los huesos con delta ≠ 0 → los que dejás en 0 quedan en su Idle natural
-  // (así el brazo izquierdo se ve normal sin calibrarlo). Se aplica mientras Beeko transmite (robot.atRadio). Arranca en 0 = reposo.
+  // POSE DE LA RADIO (separada de ADMIN_POSE) — DEFINITIVA, calibrada en vivo (OP.arm) y volcada con OP.armDump. Brazo DERECHO
+  // levantado/extendido hacia el transmisor (hombro x:-0.5 z:-0.7 + codo x:2.1), izquierdo en reposo. Misma técnica (delta local por
+  // quaternion); applyRadioPose SÓLO pisa los huesos con delta ≠ 0 → el brazo izquierdo (en 0) conserva su Idle natural. Se aplica
+  // SÓLO mientras Beeko transmite en la radio (atRadio && STREAM.broadcasting) → pose + LED/dial + cuadro empiezan y terminan juntos.
   const RADIO_POSE={
-    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0}, LowerArmL:{x:0,y:0,z:0},
-    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0,y:0,z:0}, LowerArmR:{x:0,y:0,z:0}
+    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0},   LowerArmL:{x:0,y:0,z:0},
+    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:-0.5,y:0,z:-0.7}, LowerArmR:{x:2.1,y:0,z:0}
   };
   let poseTarget='admin'; // a qué pose apuntan OP.arm/armDump/armReset: 'admin' (teclado) o 'radio'. OP.poseTarget(...) lo cambia; holdRadio() lo pone en 'radio'.
   let _radioHold=false;   // modo calibración: Beeko fijado en la radio en pose (no corre la rutina)
+  let _radioPosed=false;  // ¿se está aplicando la pose de la radio? (para BAJAR el brazo una vez al terminar la transmisión — el clip Idle no anima los brazos)
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo (sobre X local); 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
   const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:2.6,z:-1.9,r:.42}/*barril+radio del observatorio*/,{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:5.9,z:12.2,r:.9}/*hoard sur: oro+cash+monedas (bóveda)*/,{x:6.85,z:13.7,r:.4}/*cash muro este (bóveda)*/,{x:6.3,z:15.0,r:.6}/*cash muro norte NE (bóveda)*/,{x:4.1,z:12.1,r:.55}/*hoard SO (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
@@ -1660,7 +1663,7 @@
   }
   function rondaArrive(){ // chequea el feature: casi siempre OK (Yes/ThumbsUp), a veces No (algo raro → micro-tensión)
     const stop=RONDA_STOPS[robot.rt.stopIdx]; if(stop)_faceXZ(stop.look[0],stop.look[1]);
-    if(stop&&stop.radio){ setRobotAnim('Idle'); robot.atRadio=true; broadcast(); robot.rt.dwellT=6+Math.random()*3; robot.rt.phase=''; streamReportAction('patrol'); return; } // RADIO: se planta, pose de la radio (applyRadioPose) y emite; dwell largo para que se lea la transmisión
+    if(stop&&stop.radio){ setRobotAnim('Idle'); robot.atRadio=true; broadcast(); robot.rt.dwellT=_txDur+1.2; robot.rt.phase=''; streamReportAction('patrol'); return; } // RADIO: se planta, emite y adopta la pose; el dwell = duración de la transmisión (+ buffer) → no se va a mitad de emitir
     const ok=Math.random()<0.82; setRobotAnim(ok?(Math.random()<0.5?'Yes':'ThumbsUp'):'No');
     robot.rt.dwellT=3+Math.random()*4; robot.rt.phase=''; streamReportAction('patrol');
   }
@@ -1773,11 +1776,15 @@
     for(const name in RADIO_POSE){const d=RADIO_POSE[name];if(d.x===0&&d.y===0&&d.z===0)continue; // hueso sin calibrar → lo deja el mixer (reposo natural)
       const key=ARM_KEY[name],bone=B[key],rq=Rq[key];if(!bone||!rq)continue;
       _apE.set(d.x,d.y,d.z,'XYZ');_apQ.setFromEuler(_apE);bone.quaternion.copy(rq).multiply(_apQ);}}
+  // BAJA el brazo: restaura los huesos al reposo (≈ Idle natural). Necesario porque el clip Idle NO anima los brazos → sin esto la pose
+  // quedaría "pegada" tras terminar la transmisión. Se llama UNA vez al apagarse la pose de la radio (no fightea clips de gesto/caminata).
+  function releaseArmPose(){const B=robot.armBones,Rq=robot.armRestQ;if(!B||!Rq)return;for(const k in B){if(B[k]&&Rq[k])B[k].quaternion.copy(Rq[k]);}}
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
     if(robot.atDesk)applyAdminPose(clk.elapsedTime); // pose de tecleo en el escritorio (después del mixer)
-    if(robot.atRadio)applyRadioPose();               // pose de la radio (brazo derecho al transmisor), después del mixer
+    if(robot.atRadio&&STREAM.broadcasting){applyRadioPose();_radioPosed=true;} // pose de la radio SÓLO mientras transmite → brazo levantado, LED/dial y cuadro empiezan y terminan JUNTOS
+    else if(_radioPosed){releaseArmPose();_radioPosed=false;}                    // transmisión terminó / dejó la radio → BAJA el brazo una vez (el Idle no lo hace solo)
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
