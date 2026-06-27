@@ -25,13 +25,15 @@ construyen después — ver `../BACKEND_ARCHITECTURE.md`.
 | `ALLOWED_ORIGINS` | no | CORS. Default `*` (read-only público). Se puede restringir al dominio del búnker. |
 | `OPERATOR_TOKEN` | no (Fase 5) | si se setea, las escrituras `/op/*` exigen el header `X-Operator-Token`. |
 
-## Endpoints (Fase 1)
+## Endpoints
 
 - `GET /health` → `{ ok, db }` (no toca la DB; confirma que el servicio levantó).
-- `GET /state` → `{ now_ms, day, clock, hour, speed, server_ms }` (el reloj central; el frontend lo lee).
-- `POST /op/clock/setDay` `{ "day": 120 }` → fuerza el día.
-- `POST /op/clock/setSpeed` `{ "speed": 800 }` → acelera/normaliza el reloj.
-- `POST /op/clock/resync` → vuelve al tiempo real (speed 1, sin día forzado).
+- `GET /state` → reloj + agenda + evento (lo lee el frontend cada ~4 s):
+  `{ now_ms, day, clock, hour, speed, segment, event, event_elapsed_ms, event_dur_ms, events_enabled, server_ms }`.
+- **Reloj (Fase 1):** `POST /op/clock/setDay {day}` · `/op/clock/setSpeed {speed}` · `/op/clock/resync`.
+- **Agenda (Fase 2-B):** `POST /op/segment {segment}` — `'ronda'|...` fuerza · `'auto'` libera (a la hora) · `null` deambula.
+- **Eventos (Fase 2-A):** `POST /op/event {kind:'quake'|'blackout'}` fuerza un evento · `POST /op/events {enabled}` prende/apaga el dado automático.
+  Un scheduler de fondo tira el dado (gap 180-360 s) y registra cada evento en `events_log`.
 
 ## Probar local (opcional, con SQLite, sin Postgres)
 
