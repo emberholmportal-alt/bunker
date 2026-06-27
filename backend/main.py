@@ -21,6 +21,16 @@ import clock
 OPERATOR_TOKEN = os.environ.get("OPERATOR_TOKEN", "").strip()
 
 
+def _segment(w, hour):
+    # AGENDA: seg_override del operador (NULL=auto · 'off'=deambular) o el tramo según la hora.
+    ov = w.seg_override
+    if ov is None:
+        return clock.segment_for_hour(hour)
+    if ov == "off":
+        return None  # deambular (el frontend lo lee como null)
+    return ov
+
+
 def _payload(w) -> dict:
     n, day, clk, hour = clock.derive(w)
     return {
@@ -29,6 +39,7 @@ def _payload(w) -> dict:
         "clock": clk,
         "hour": round(hour, 5),
         "speed": w.speed,
+        "segment": _segment(w, hour),  # FASE 2 — AGENDA (string o null=deambular)
         "server_ms": clock.real_ms(),  # para que el frontend corrija el drift si quiere
     }
 
@@ -57,12 +68,25 @@ def _require_op(token: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="token de operador inválido")
 
 
+def _ensure_columns():
+    # MIGRACIÓN idempotente (sin terminal): create_all crea tablas NUEVAS pero NO agrega columnas a
+    # una tabla ya existente. Para la fila `world` que ya existe desde la Fase 1, agregamos las
+    # columnas nuevas con ADD COLUMN IF NOT EXISTS (Postgres). En SQLite (test local) la tabla se
+    # crea fresca con la columna, así que este paso se saltea.
+    if engine is None or engine.dialect.name != "postgresql":
+        return
+    from sqlalchemy import text
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE world ADD COLUMN IF NOT EXISTS seg_override VARCHAR"))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Crea las tablas (Fase 1: alcanza con create_all; Alembic entra cuando el esquema crezca)
-    # y siembra la fila singleton del mundo.
+    # Crea las tablas (alcanza con create_all; Alembic entra cuando el esquema crezca), corre la
+    # migración idempotente y siembra la fila singleton del mundo.
     if engine is not None:
         Base.metadata.create_all(bind=engine)
+        _ensure_columns()
         db = SessionLocal()
         try:
             _get_world(db)
@@ -149,6 +173,28 @@ def op_resync(db: Session = Depends(get_db), x_operator_token: Optional[str] = H
     w.day_override = None
     w.anchor_wall_ms = now
     w.anchor_now_ms = now
+    db.commit()
+    db.refresh(w)
+    return _payload(w)
+
+
+# ---- FASE 2 — AGENDA: el operador fuerza/libera el tramo de rutina (equivale a OP.forceSegment) ----
+class SetSegment(BaseModel):
+    # 'ronda'/'carga'/... = forzar ese tramo · 'auto' = liberar (vuelve a la hora) · null = deambular (off)
+    segment: Optional[str] = None
+
+
+@app.post("/op/segment")
+def op_set_segment(body: SetSegment, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+    _require_op(x_operator_token)
+    w = _get_world(db)
+    seg = body.segment
+    if seg == "auto":
+        w.seg_override = None    # vuelve a la agenda por hora
+    elif seg is None:
+        w.seg_override = "off"   # deambula
+    else:
+        w.seg_override = seg     # fuerza el tramo
     db.commit()
     db.refresh(w)
     return _payload(w)

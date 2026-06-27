@@ -1606,7 +1606,12 @@
   // CARGA 00–06 + 21–24 (durmiendo en el dock) · COLMENA 06–10 · ADMIN 10–13 · FABRICACIÓN 13–17 · RONDA 17–20 · OCIO 20–21.
   // OCIO = el "ratito" de Beeko: va al observatorio, prende el TV y mira ESTÁTICA (lo único que hay). Tono melancólico.
   // _forceSeg (testeo): undefined=auto(hora) · null=off(deambula) · 'carga'/'colmena'/'admin'/'fabricacion'/'ronda'/'ocio'=forzar el tramo.
-  function routineSegment(){ if(_forceSeg!==undefined) return _forceSeg; const h=streamHourUTC();
+  function routineSegment(){
+    // FASE 2 — AGENDA desde el server: si OP.serverAgenda está ON (y no degradado), el tramo lo dicta el backend
+    // (incluye el override del operador). STREAM.segment: string = tramo · null = deambular. Si todavía no llegó
+    // (undefined), o el flag está OFF/degradado, se usa el cálculo LOCAL de siempre.
+    if(window.__SYNC && __SYNC.agendaActive() && STREAM.segment!==undefined) return STREAM.segment;
+    if(_forceSeg!==undefined) return _forceSeg; const h=streamHourUTC();
     if(h<6)return'carga'; if(h<10)return'colmena'; if(h<13)return'admin'; if(h<17)return'fabricacion'; if(h<20)return'ronda'; if(h<21)return'ocio'; return'carga'; }
   function _faceXZ(fx,fz){ if(robot.model) robot.model.rotation.y=Math.atan2(fx-robot.model.position.x, fz-robot.model.position.z); }
   function weightedPick(sts){ let tot=0;for(const s of sts)tot+=(s.w||1); let r=Math.random()*tot;
@@ -1719,7 +1724,9 @@
   // Hooks de operador/testeo (extienden el __REFUGIO del backbone).
   // forceSegment('carga'|'colmena'|'admin'|'fabricacion'|'ronda'|'ocio') fuerza el tramo · forceSegment(null) lo apaga (deambula) · forceSegment() vuelve a auto(hora). releaseSwarm() libera a mano.
   if(window.__REFUGIO){
-    window.__REFUGIO.forceSegment=function(s){_forceSeg=(arguments.length===0)?undefined:s;return _forceSeg;};
+    window.__REFUGIO.forceSegment=function(s){ const auto=(arguments.length===0);
+      if(window.__SYNC && __SYNC.agendaActive()) return __SYNC.postSegment(auto?'__auto__':s); // modo server: forzar/liberar el tramo en el backend (lo ven todos)
+      _forceSeg=auto?undefined:s; return _forceSeg; };                                          // local: como siempre
     window.__REFUGIO.releaseSwarm=function(){triggerRelease();return STREAM.beesReleased;};
     window.__REFUGIO.quake=function(){return startEvent('quake');};        // dispara un temblor YA (no-op si hay un evento en curso)
     window.__REFUGIO.blackout=function(){return startEvent('blackout');};  // dispara un fallo eléctrico YA
