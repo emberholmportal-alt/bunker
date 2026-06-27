@@ -2,7 +2,7 @@
 # FASE 1: sólo el RELOJ central. La tabla `world` es el singleton del estado del mundo
 # (por ahora únicamente los campos del tiempo). En fases siguientes se le agregan los
 # contadores, el evento activo, etc. (ver BACKEND_ARCHITECTURE.md).
-from sqlalchemy import Column, Integer, BigInteger, String, Boolean
+from sqlalchemy import Column, Integer, BigInteger, String, Boolean, Float
 from database import Base
 
 
@@ -26,6 +26,12 @@ class World(Base):
     evt_force_kind = Column(String, nullable=True)
     evt_force_start_ms = Column(BigInteger, nullable=True)
     evt_force_end_ms = Column(BigInteger, nullable=True)
+    # FASE 3 — CONTADORES (los avanza el ticker de fondo según el segment; el frontend los LEE).
+    charge = Column(Float, nullable=True)          # carga de Beeko 0..100 (sube en 'carga', baja trabajando)
+    bees = Column(Float, nullable=True)            # cría en la colmena 0..60 (diente de sierra en 'colmena')
+    bees_released = Column(Float, nullable=True)    # liberadas, acumulado PERSISTENTE (sube orgánico en 'colmena') — base del despertar (Fase 4)
+    print_progress = Column(Float, nullable=True)  # impresora 3D 0..100 (diente de sierra en 'fabricacion')
+    cnt_tick_ms = Column(BigInteger, nullable=True) # tiempo real del último tick del ticker (para el dt)
 
 
 class EventLog(Base):

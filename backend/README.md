@@ -34,6 +34,8 @@ construyen después — ver `../BACKEND_ARCHITECTURE.md`.
 - **Agenda (Fase 2-B):** `POST /op/segment {segment}` — `'ronda'|...` fuerza · `'auto'` libera (a la hora) · `null` deambula.
 - **Eventos (Fase 2-A):** `POST /op/event {kind:'quake'|'blackout'}` fuerza un evento · `POST /op/events {enabled}` prende/apaga el dado automático.
   Un scheduler de fondo tira el dado (gap 180-360 s) y registra cada evento en `events_log`.
+- **Contadores (Fase 3):** `POST /op/counter {counter:'charge'|'bees'|'beesReleased'|'print', value}` ajusta un contador.
+  Un ticker de fondo (~1 s) los avanza por dt real según el segment (charge en 'carga', bees/bees_released en 'colmena', print en 'fabricacion'). `bees_released` es persistente (base del despertar, Fase 4).
 
 ## Probar local (opcional, con SQLite, sin Postgres)
 
