@@ -1,0 +1,9 @@
+# nada de credenciales ni artefactos en el repo
+.env
+*.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.db
+*.sqlite3

@@ -48,6 +48,9 @@
     // --- radio del observatorio ---
     broadcasting: false,  // true mientras Beeko emite una transmisión (la radio LO LEE para el LED/dial; la maneja el sistema de radio en la ronda)
 
+    // --- modo server (FASE 1: reloj central) ---
+    serverMode: false,    // false = reloj local (driver por defecto, idéntico a siempre). true = el reloj lo siembra el backend (js/sync.js)
+
     // --- override por campo: si un campo está forzado, el driver NO lo pisa ---
     _force: { day:false, zone:false, action:false, bees:false, beesReleased:false, charge:false, print:false, tv:false, event:false, broadcasting:false }
   };
@@ -59,6 +62,10 @@
   // Avanza el tiempo (UTC real con speed=1; acelerado para testear con speed>1) y deriva el día.
   // zone/action/bees los escriben sus dueños (game.js / rutina / F3), no este tick.
   function streamTick(dtSec){
+    if(STREAM.serverMode){                                               // MODO SERVER (Fase 1): el backend siembra now/day/speed (js/sync.js); entre
+      if(dtSec > 0) STREAM.now += dtSec * 1000 * (STREAM.speed || 1);    // polls avanzamos 'now' local (reloj suave) y re-sincronizamos en cada poll.
+      return;                                                            // 'day' lo setea el sync desde /state. No tocamos el reloj local.
+    }
     if(!STREAM.driveFromClock) return;                                   // la admin tomó control: no piso nada
     if(STREAM.speed !== 1 && dtSec > 0) STREAM.offsetMs += dtSec * 1000 * (STREAM.speed - 1); // acumula SOLO el extra
     STREAM.now = Date.now() + STREAM.offsetMs;                           // speed=1 y offset=0 => UTC real exacto, sin drift
