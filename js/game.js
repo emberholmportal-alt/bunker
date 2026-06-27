@@ -855,14 +855,31 @@
   // cuenta. Por eso __REFUGIO.setZone('taller') / setDay(120) se reflejan al toque. ======
   const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging',colmena:'room_hive',fab:'room_fab',vault:'room_vault'}; // nombre de sala vía i18n (todo el overlay en inglés)
   const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07',colmena:'08',fab:'09',vault:'10'}; // número de cámara FIJO por sala
-  let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1,_ovEvent=null;
+  let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1,_ovEvent=null,_ovStatus='';
   const EV_BADGE={quake:'⚠ SEISMIC EVENT', blackout:'⚠ POWER FAILURE'};
+  // LÍNEA DE ESTADO de la unidad (telemetría CCTV, segunda línea bajo "CAM XX"). LEE de STREAM (action + contadores) → tiempo real.
+  function _statBar(p){const N=8,f=Math.max(0,Math.min(N,Math.round((p||0)/100*N)));return '▓'.repeat(f)+'░'.repeat(N-f);}
+  function beekoStatus(){const r=robot;
+    if(r.status==='broken') return 'UNIT OFFLINE';                                  // batería/HP a 0 (Death)
+    // IN TRANSIT (sin barra): viajando a la zona de un tramo (rt.phase 'travel') o deambulando caminando (sin rt). La RONDA
+    // (phase 'ronda', action 'patrol') NO entra acá → patrullar ES la tarea y muestra INSPECTION ROUNDS aunque camine.
+    if((r.rt && r.rt.phase==='travel') || (!r.rt && r.model && r.moving)) return 'IN TRANSIT';
+    switch(STREAM.action){
+      case 'charging':    return 'CHARGING '+_statBar(STREAM.charge)+' '+Math.round(STREAM.charge)+'%';                         // lee STREAM.charge
+      case 'fabricating': return 'FABRICATING '+_statBar(STREAM.print)+' '+Math.round(STREAM.print)+'%';                        // lee STREAM.print
+      case 'tending':     {const b=STREAM.bees/BEE_CAP*100; return 'RAISING BROOD '+_statBar(b)+' '+Math.round(b)+'%';}        // lee STREAM.bees (cría 0..BEE_CAP)
+      case 'admin':       return 'SYSTEM DIAGNOSTICS';
+      case 'patrol':      return 'INSPECTION ROUNDS';
+      case 'watching':    return 'STANDBY';
+      default:            return 'OPERATIONAL';                                     // fallback (idle/deambular/desconocido) → nunca vacío
+    }}
   function updateOverlay(dt){
     const z=STREAM.zone;
     if(z!==_ovZone){_ovZone=z;const e=$('#ch-cam');if(e)e.textContent=T('ov_cam')+' '+(ZONE_CAM[z]||'00')+' — '+(ZONE_I18N[z]?T(ZONE_I18N[z]):(''+z).toUpperCase());} // CAM 0X — ZONA (inglés vía i18n), cambia al cambiar STREAM.zone
     if(STREAM.event!==_ovEvent){_ovEvent=STREAM.event;const e=$('#ch-event');if(e){ // INDICADOR DE EVENTO: aparece/desaparece SOLO según STREAM.event (no un timer) → acompaña la duración real y se va limpio al terminar
       if(STREAM.event){e.textContent=EV_BADGE[STREAM.event]||'⚠ ALERT';e.className='on '+STREAM.event;}else e.className='';}}
-    _ovAcc+=dt;if(_ovAcc<.25)return;_ovAcc=0;                  // timestamp/día ~4 veces/s (sin escribir DOM de más)
+    _ovAcc+=dt;if(_ovAcc<.25)return;_ovAcc=0;                  // timestamp/día/estado ~4 veces/s (sin escribir DOM de más)
+    const st='STATUS: '+beekoStatus();if(st!==_ovStatus){_ovStatus=st;const e=$('#ch-status');if(e)e.textContent=st;} // línea de estado de la unidad (bajo el CAM)
     const tm=streamClock();if(tm!==_ovTime){_ovTime=tm;const e=$('#ch-time');if(e)e.textContent=tm;} // HH:MM:SS UTC desde STREAM.now
     if(STREAM.day!==_ovDay){_ovDay=STREAM.day;const e=$('#ch-day');if(e)e.textContent=STREAM.day;}    // DAY N desde STREAM.day
     if(STREAM.beesReleased!==_ovBees){_ovBees=STREAM.beesReleased;const e=$('#ch-bees');if(e)e.textContent=STREAM.beesReleased;} // BEES RELEASED N (telemetría, lee STREAM.beesReleased)
