@@ -135,6 +135,8 @@
   /* ===== OVERLAY DE CÁMARA DE SEGURIDAD (sub-paso 6) — bordes, no tapa el búnker. Lee de STREAM. ===== */
   #camhud{position:fixed;inset:0;z-index:8;pointer-events:none;font-family:'VT323',monospace;letter-spacing:1px}
   #camhud .ch-tl{position:absolute;left:16px;top:12px;font-size:22px;color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.45),0 0 3px #000}
+  /* LÍNEA DE ESTADO de la unidad: 2ª línea bajo "CAM XX — ZONA" (telemetría verde, monoespaciada). No choca: va en el bloque top-left, debajo del CAM. */
+  #camhud #ch-status{font-size:16px;letter-spacing:1px;line-height:1.1;margin-top:3px;color:var(--screen);text-shadow:0 0 7px rgba(143,255,176,.4),0 0 3px #000;white-space:nowrap}
   #camhud .ch-rec{color:#ff3b3b;text-shadow:0 0 8px rgba(255,59,59,.6),0 0 3px #000;margin-right:7px;animation:recBlink 1.5s steps(1,end) infinite}
   @keyframes recBlink{0%,58%{opacity:1}59%,100%{opacity:.16}}
   #camhud .ch-tr{position:absolute;right:16px;top:12px;text-align:right;line-height:1.1}
@@ -179,4 +181,8 @@
     #beeko{bottom:30px;width:94vw}
     #beeko .bk-portrait{flex:0 0 84px;width:84px;height:84px}
     #beeko .bk-text{font-size:18px}
+    /* overlay top comprimido en pantalla angosta: achicamos las dos columnas para que la 2ª línea (STATUS) no choque con DAY/BEES ni con la badge de evento */
+    #camhud .ch-tl{font-size:15px} #camhud #ch-status{font-size:12px;margin-top:2px}
+    #camhud #ch-time{font-size:18px} #camhud .ch-day{font-size:12px;letter-spacing:1px} #camhud .ch-bee-line{font-size:11px}
+    #camhud #ch-event{top:62px;font-size:15px;padding:1px 8px} /* baja la badge para librar el bloque top-left de 2 líneas */
   }
