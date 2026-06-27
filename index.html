@@ -18,6 +18,12 @@
     <div id="ch-event"></div><!-- indicador PERMANENTE de evento (temblor/fallo): centro-arriba, bajo el CAM, atado a STREAM.event -->
   </div>
 
+  <!-- Cuadro de TRANSMISIÓN de la radio (señal saliente). Distinto del cuadro de pensamiento: SIN retrato, encabezado de "log de radio". Arriba-centro, bajo los badges. -->
+  <div id="radiotx"><div class="rt-frame">
+    <div class="rt-head"><span class="rt-sig"><i></i><i></i><i></i><i></i></span><span class="rt-title" data-i18n="ov_outbound">◖ OUTBOUND TRANSMISSION ◗</span><span class="rt-dot"></span></div>
+    <div class="rt-text" id="rtText"></div>
+  </div></div>
+
   <!-- Cuadro de pensamientos de Beeko (overlay tipo diálogo, estética CCTV). El retrato es un mini-render del robot. -->
   <div id="beeko"><div class="bk-frame">
     <div class="bk-portrait"><canvas id="bkPortrait" width="256" height="256"></canvas></div>
