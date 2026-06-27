@@ -113,7 +113,9 @@
   // Sala x[-6.6,-3.2] z[-1.0,3.2]. El medidor LEE STREAM.charge (0..100); se alimenta con __REFUGIO.setCharge
   // ahora y con la rutina del robot en F2. Estética cámara de seguridad: la riqueza viene de luces/glow, no de
   // modelos pesados → 100% procedural (0 GLB, 0 peso de assets). 9 estructuras enganchadas + dock + medidor + blueprint.
-  let chargeFillG=null,chargeNumX=null,chargeNumTex=null,_chargeShown=-1,dockHaze=null,dockGlow=null,chargeLeds=[];
+  let chargeFillG=null,chargeNumX=null,chargeNumTex=null,_chargeShown=-1,dockGlow=null,chargeLeds=[];
+  // PLACA DE CARGA en el piso bajo el dock: se ILUMINA sólo cuando Beeko está parado encima cargándose (reemplaza al viejo halo cian que lo envolvía).
+  let plateMat=null,platePulse=null,_plateLvl=0; const PLATE_CX=-5.75,PLATE_CZ=1.3,PLATE_HX=.7,PLATE_HZ=.78, PLATE_GLOW=.9; // PLATE_GLOW = pico del glow emisivo (ajustable; subir = más brillante)
   let diagRT=null,diagScene=null,diagCam=null,diagPivot=null; // pantalla de diagnóstico (render-to-texture del robot girando)
   // ---- COLMENA (HIVE): enjambre de abejas (Points) + contadores. El enjambre LEE STREAM.bees; los contadores LEEN STREAM.beesReleased.
   let beeSwarm=null,beeData=[],beeNumX=null,beeNumTex=null,_beesRelShown=-1,hiveGlow=null,hiveHaze=null;
@@ -185,8 +187,21 @@
     // (4) LEDs del dock (cian + verde alternados) en la columna — vida visual barata
     for(let i=0;i<6;i++){const c=i%2?0x39ff66:0x39ffd0;const l=new THREE.Mesh(new THREE.SphereGeometry(.022,8,8),new THREE.MeshBasicMaterial({color:c}));l.position.set(-.05+.18,.45+i*.18,.255);dock.add(l);chargeLeds.push(l);}
     dock.children.forEach(c=>{if(c.isMesh&&!c.material.color)c.castShadow=true;});
-    dockGlow=new THREE.PointLight(0x39ffd0,1.1,3.2,2);dockGlow.position.set(-6.0,1.0,1.1);scene.add(dockGlow); // glow del acople
-    dockHaze=new THREE.Mesh(new THREE.SphereGeometry(.55,12,12),new THREE.MeshBasicMaterial({color:0x39ffd0,transparent:true,opacity:.12,depthWrite:false}));dockHaze.position.set(-6.0,.9,1.1);scene.add(dockHaze); // vapor/halo barato
+    dockGlow=new THREE.PointLight(0x39ffd0,.28,3.2,2);dockGlow.position.set(-6.0,1.0,1.1);scene.add(dockGlow); // glow del acople (acompaña a la placa: tenue en reposo → brillante al cargar)
+    // (3b) PLACA DE CARGA en el piso, bajo el dock y donde Beeko se planta. Plataforma metálica con líneas/contactos que se encienden al cargar. SIN collider (Beeko se para encima).
+    const plate=new THREE.Group();plate.position.set(PLATE_CX,0,PLATE_CZ);scene.add(plate);
+    const plSteel=new THREE.MeshStandardMaterial({color:0x2c3238,metalness:.8,roughness:.5,normalMap:metalN}); // chapa superior un poco más clara
+    plate.add(meshBox(1.5,.05,1.62,0,.025,0,steelD));               // slab base (acero oscuro)
+    plate.add(meshBox(1.34,.02,1.46,0,.052,0,plSteel));             // panel superior (chapa)
+    for(const[bx,bz,sx,sz]of[[0,.79,1.5,.06],[0,-.79,1.5,.06],[.72,0,.06,1.62],[-.72,0,.06,1.62]])plate.add(meshBox(sx,.07,sz,bx,.035,bz,steelD)); // lip/borde elevado (4 barras)
+    for(const sx of[-.6,.6])for(const sz of[-.66,.66]){const bolt=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.024,6),steelD);bolt.position.set(sx,.06,sz);plate.add(bolt);} // tornillos en esquinas (detalle técnico)
+    // --- elementos que SE ILUMINAN (líneas de energía + contactos): material emisivo compartido, modulado en el loop ---
+    plateMat=new THREE.MeshStandardMaterial({color:0x0c1a17,emissive:0x39ffd0,emissiveIntensity:0,roughness:.35,metalness:.2});
+    plate.add(meshBox(.05,.012,1.34,-.42,.063,0,plateMat));plate.add(meshBox(.05,.012,1.34,.42,.063,0,plateMat));plate.add(meshBox(1.16,.012,.05,0,.063,0,plateMat)); // 2 líneas longitudinales + 1 transversal
+    for(const[bx,bz,sx,sz]of[[0,.62,1.2,.03],[0,-.62,1.2,.03],[.58,0,.03,1.27],[-.58,0,.03,1.27]])plate.add(meshBox(sx,.012,sz,bx,.063,bz,plateMat)); // rectángulo-guía interior (borde luminoso)
+    for(const cz of[-.3,0,.3]){const pad=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.014,16),plateMat);pad.position.set(0,.064,cz);plate.add(pad);} // 3 contactos de carga centrales
+    plate.traverse(c=>{if(c.isMesh){c.castShadow=false;c.receiveShadow=true;}}); // placa baja: recibe la sombra de Beeko, no proyecta
+    platePulse=new THREE.PointLight(0x39ffd0,0,2.6,2);platePulse.position.set(PLATE_CX,.5,PLATE_CZ);scene.add(platePulse); // pulso que sube de la placa al cargar
     // (5) MEDIDOR DE CARGA en el muro oeste — LEE STREAM.charge. Barra vertical que crece + lectura % en canvas.
     const gx=-6.42,gz=2.0,gy0=.75,gH=.85;
     box(.16,gH+.12,.12,gx,gy0+gH/2,gz,steelD);              // carcasa del medidor
@@ -950,8 +965,16 @@
     // SECTOR DE CARGA: el medidor LEE STREAM.charge (no calcula). Barra crece + lectura % se redibuja al cambiar el entero.
     if(chargeFillG){const c=Math.max(0,Math.min(100,STREAM.charge));chargeFillG.scale.y=Math.max(.001,c/100);
       const ci=Math.round(c);if(ci!==_chargeShown&&chargeNumX){_chargeShown=ci;chargeNumX.clearRect(0,0,128,64);chargeNumX.fillStyle='#39ff88';chargeNumX.shadowColor='#39ff88';chargeNumX.shadowBlur=8;chargeNumX.font='44px VT323, monospace';chargeNumX.textAlign='center';chargeNumX.textBaseline='middle';chargeNumX.fillText(ci+'%',64,34);chargeNumTex.needsUpdate=true;}
-      if(dockGlow)dockGlow.intensity=.7+(c/100)*.8+(mv?Math.sin(t*2.4)*.12:0);}
-    if(dockHaze)dockHaze.material.opacity=.10+(mv?Math.abs(Math.sin(t*1.5))*.06:.03);
+      }
+    // PLACA DE CARGA: glow + pulso + luz del dock se encienden SÓLO cuando Beeko está PARADO sobre la placa y la acción es 'charging'
+    // (respeta el override del operador vía STREAM.action). Reemplaza al viejo halo como indicador visual de "transferencia de energía activa".
+    {const onP=robot.model&&Math.abs(robot.model.position.x-PLATE_CX)<PLATE_HX&&Math.abs(robot.model.position.z-PLATE_CZ)<PLATE_HZ;
+     const act=onP&&STREAM.action==='charging';
+     _plateLvl+=((act?1:0)-_plateLvl)*Math.min(1,dt*3.5);                       // fundido suave: enciende al pisarla, se apaga gradual al irse
+     const g=_plateLvl*(mv?(.78+.22*Math.sin(t*3.0)):1);                        // pulso suave de transferencia (respeta reduced-motion)
+     if(plateMat)plateMat.emissiveIntensity=g*PLATE_GLOW;                       // glow contenido (no neón de videojuego); PLATE_GLOW = pico ajustable
+     if(platePulse)platePulse.intensity=g*.42;
+     if(dockGlow)dockGlow.intensity=.28+g*.9;}                                  // el dock acompaña: tenue en reposo → brillante al cargar
     if(mv)for(let i=0;i<chargeLeds.length;i++)chargeLeds[i].visible=(Math.sin(t*2.6+i*1.1)>-.2);
     // CARGA: en el tramo 'carga' (durmiendo en el dock) la carga sube hacia 100 y la batería del robot queda full;
     // el resto del día drena lento hacia un piso de 50 → la curva oscila 50–100 (respeta override de admin vía streamDrive).
@@ -1235,7 +1258,9 @@
     if(!bkEl)return '';const text=pickBeeko(cat);if(!text)return '';
     _bkFull=text;_bkActive=true;_bkT0=perfNow();_bkSince=0;_bkRenderHold=999; // render mientras está activo
     _bkWanderT=BEEKO_WANDER_MIN+Math.random()*(BEEKO_WANDER_MAX-BEEKO_WANDER_MIN);
-    if(bkTextEl)bkTextEl.textContent='';bkEl.classList.add('show');return text;
+    if(bkTextEl)bkTextEl.textContent='';bkEl.classList.add('show');
+    if(audioOn)bkBlip(); // feedback sonoro sutil al APARECER el cuadro (una sola vez; el typewriter no suena por letra). Degrada en silencio si el audio está off.
+    return text;
   }
   function tickBeeko(dt){
     if(!bkEl)return;_bkClk+=dt;_bkSince+=dt;
