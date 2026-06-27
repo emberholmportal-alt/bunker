@@ -1464,7 +1464,7 @@
   function applyCel(){celReg.forEach(r=>{r.m.material=celOn?r.toon:r.std;});celOutlines.forEach(o=>{o.visible=celOn;});_celAmb.intensity=celOn?0.34:0.05;if(renderer)renderer.toneMappingExposure=celOn?0.95:0.86;const b=$('#cel');if(b){b.textContent=celOn?T('btn_style_cel'):T('btn_style_real');b.classList.toggle('on',celOn);}}
   // ====== UNIDAD R-01 (robot) ======
   // (BANCO DE CRAFTEO del modo jugable — jubilado: recetas/materiales/categorías del survival viejo.)
-  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,rt:null};
+  const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,atRadio:false,rt:null};
   const NODE_DESK=16;     // nodo NAV de la estación de cómputo (el robot se para a administrar, mirando la pantalla)
   // ===== POSE "TECLEO" del robot en el escritorio (action='admin') — calibrable EN VIVO desde la consola del operador.
   // Cada entrada es una rotación LOCAL en RADIANES (x,y,z) que se aplica SOBRE el reposo del hueso vía QUATERNION
@@ -1479,6 +1479,15 @@
     ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0.7,y:0,z:0}, LowerArmR:{x:0.9,y:0,z:0}
   };
   const ARM_KEY={ShoulderL:'sL',UpperArmL:'uL',LowerArmL:'lL',ShoulderR:'sR',UpperArmR:'uR',LowerArmR:'lR'};
+  // POSE DE LA RADIO (separada de ADMIN_POSE): brazo DERECHO levantado hacia el transmisor, izquierdo al costado. Misma técnica
+  // (delta local por quaternion), pero applyRadioPose SÓLO pisa los huesos con delta ≠ 0 → los que dejás en 0 quedan en su Idle natural
+  // (así el brazo izquierdo se ve normal sin calibrarlo). Se aplica mientras Beeko transmite (robot.atRadio). Arranca en 0 = reposo.
+  const RADIO_POSE={
+    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0}, LowerArmL:{x:0,y:0,z:0},
+    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:0,y:0,z:0}, LowerArmR:{x:0,y:0,z:0}
+  };
+  let poseTarget='admin'; // a qué pose apuntan OP.arm/armDump/armReset: 'admin' (teclado) o 'radio'. OP.poseTarget(...) lo cambia; holdRadio() lo pone en 'radio'.
+  let _radioHold=false;   // modo calibración: Beeko fijado en la radio en pose (no corre la rutina)
   const ADMIN_TYPING_BOB=0.00;  // amplitud (rad) del tecleo sutil alternado L/R en el codo (sobre X local); 0 = ESTÁTICO (calibramos la pose primero)
   const ADMIN_TYPING_SPD=9.0;   // velocidad del tecleo (cuando BOB>0)
   const COLLIDERS=[{x:-2.1,z:-4.0,r:1.1},{x:-1.3,z:-4.55,r:.7},{x:1.9,z:-4.55,r:.6},{x:2.3,z:-4.3,r:.6},{x:2.8,z:1.6,r:.55},{x:-1.2,z:2.7,r:.45},{x:1.95,z:2.55,r:.5},{x:2.6,z:-1.9,r:.42}/*barril+radio del observatorio*/,{x:-2.85,z:10.3,r:.65},{x:-2.0,z:5.55,r:.55},{x:-2.6,z:11.3,r:.55},{x:2.6,z:11.3,r:.55},{x:-7.1,z:7.0,r:.32}/*cajonero (ex-sofá)*/,{x:-4.0,z:8.2,r:.45},{x:5.9,z:6.3,r:.95}/*banco de crafteo*/,{x:2.9,z:9.6,r:.7}/*racks hidropónicos cultivo*/,{x:-6.30,z:1.10,r:.35}/*dock del sector de carga*/,{x:0,z:14.55,r:.8}/*colmena (centerpiece)*/,{x:2.75,z:7.6,r:.35}/*cajas frente al taller*/,{x:1.95,z:7.65,r:.33}/*cajas frente al taller*/,{x:-5.4,z:11.35,r:.5}/*impresora 3D (fabricación)*/,{x:5.9,z:12.2,r:.9}/*hoard sur: oro+cash+monedas (bóveda)*/,{x:6.85,z:13.7,r:.4}/*cash muro este (bóveda)*/,{x:6.3,z:15.0,r:.6}/*cash muro norte NE (bóveda)*/,{x:4.1,z:12.1,r:.55}/*hoard SO (bóveda)*/,{x:6.7,z:14.2,r:.45}/*strongbox (bóveda)*/];
@@ -1615,7 +1624,7 @@
     if(seg!=='ocio')streamDrive('tv',false);          // fuera del tramo de ocio: TV apagado (respeta override del operador)
     if(seg==='ronda'){rondaTick(dt);return;}
     if(!cfg){robot.wanderT=0.5;return;}
-    if(!robot.rt||robot.rt.seg!==seg){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; // cambio de tramo: limpia poses fijas
+    if(!robot.rt||robot.rt.seg!==seg){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; if(robot.atRadio)robot.atRadio=false; // cambio de tramo: limpia poses fijas
       robot.rt={seg:seg,phase:'',station:null,dwellT:0,stopIdx:-1}; }
     if(robotZone!==cfg.zone){travelTo(cfg.node);return;} // todavía no llegó a la zona del tramo
     // OCIO: el TV NO se prende acá (todavía está cruzando la sala hacia el TV). Se prende al LLEGAR a la station (routineArrive·choreo).
@@ -1640,8 +1649,9 @@
     else{ rt.phase='';setRobotAnim('Idle'); } // station-seg: el próximo tick elige la primera station
   }
   function rondaTick(dt){ // RONDA: patrulla los stops en orden (el tramo más MÓVIL)
-    if(!robot.rt||robot.rt.seg!=='ronda'){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; robot.rt={seg:'ronda',phase:'',station:null,dwellT:0,stopIdx:-1}; }
+    if(!robot.rt||robot.rt.seg!=='ronda'){ if(robot.atDesk)robot.atDesk=false; if(robot.atFab)robot.atFab=false; if(robot.atRadio)robot.atRadio=false; robot.rt={seg:'ronda',phase:'',station:null,dwellT:0,stopIdx:-1}; }
     if(robot.rt.dwellT>0){robot.rt.dwellT-=dt;return;}
+    if(robot.atRadio)robot.atRadio=false; // sale de la radio → deja la pose; el mixer retoma la animación al caminar
     const ni=(robot.rt.stopIdx+1)%RONDA_STOPS.length; robot.rt.stopIdx=ni; const stop=RONDA_STOPS[ni];
     const s=nearestNode(robot.model.position.x,robot.model.position.z),p=navPath(s,stop.node);
     robot.rt.phase='ronda';robot.dest=stop.node; streamReportAction('patrol');
@@ -1650,7 +1660,7 @@
   }
   function rondaArrive(){ // chequea el feature: casi siempre OK (Yes/ThumbsUp), a veces No (algo raro → micro-tensión)
     const stop=RONDA_STOPS[robot.rt.stopIdx]; if(stop)_faceXZ(stop.look[0],stop.look[1]);
-    if(stop&&stop.radio){ setRobotAnim('Idle'); broadcast(); robot.rt.dwellT=6+Math.random()*3; robot.rt.phase=''; streamReportAction('patrol'); return; } // RADIO: se planta (pose normal por ahora) y emite; dwell largo para que se lea la transmisión
+    if(stop&&stop.radio){ setRobotAnim('Idle'); robot.atRadio=true; broadcast(); robot.rt.dwellT=6+Math.random()*3; robot.rt.phase=''; streamReportAction('patrol'); return; } // RADIO: se planta, pose de la radio (applyRadioPose) y emite; dwell largo para que se lea la transmisión
     const ok=Math.random()<0.82; setRobotAnim(ok?(Math.random()<0.5?'Yes':'ThumbsUp'):'No');
     robot.rt.dwellT=3+Math.random()*4; robot.rt.phase=''; streamReportAction('patrol');
   }
@@ -1715,19 +1725,36 @@
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
-    // ---- CALIBRACIÓN EN VIVO de la pose de tecleo (admin). Llevá a Beeko al escritorio con OP.forceSegment('admin') y, ya plantado,
-    // ajustá cada hueso a ojo: OP.arm('UpperArmL','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL X (estable, sin singularidad).
-    // OP.armDump() imprime los valores actuales (para fijarlos) · OP.armReset() vuelve todo a reposo (deltas en 0). ----
+    // ---- CALIBRACIÓN EN VIVO de poses del brazo. DOS poses independientes: 'admin' (teclado, YA fija) y 'radio' (brazo derecho al transmisor).
+    // OP.poseTarget('radio'|'admin') elige cuál edita OP.arm/armDump/armReset. OP.holdRadio(true) lleva a Beeko a la radio y lo FIJA en pose
+    // (y pone el target en 'radio') para calibrar cómodo. OP.arm('UpperArmR','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL (estable). ----
+    function _poseObj(){return poseTarget==='radio'?RADIO_POSE:ADMIN_POSE;}
+    function _poseReapply(){ if(poseTarget==='radio'){ if(robot.atRadio)applyRadioPose(); } else { if(robot.atDesk)applyAdminPose(clk.elapsedTime); } }
+    function _poseApplying(){ return poseTarget==='radio'?!!robot.atRadio:!!robot.atDesk; } // ¿la pose editada se está viendo ahora?
+    window.__REFUGIO.poseTarget=function(which){ if(which==='radio'||which==='admin'){poseTarget=which;} return 'editando pose: '+poseTarget; };
     window.__REFUGIO.arm=function(bone,axis,val){
-      if(bone===undefined) return 'uso: OP.arm("UpperArmL"|"LowerArmL"|"UpperArmR"|"LowerArmR"|"ShoulderL"|"ShoulderR", "x"|"y"|"z", radianes)';
-      if(!(bone in ADMIN_POSE)) return 'hueso inválido. opciones: '+Object.keys(ADMIN_POSE).join(', ');
+      const P=_poseObj();
+      if(bone===undefined) return 'uso: OP.arm("UpperArmR"|"LowerArmR"|"UpperArmL"|"LowerArmL"|"ShoulderR"|"ShoulderL", "x"|"y"|"z", radianes) · editando: '+poseTarget;
+      if(!(bone in P)) return 'hueso inválido. opciones: '+Object.keys(P).join(', ');
       if(axis!=='x'&&axis!=='y'&&axis!=='z') return 'eje inválido: usá "x", "y" o "z"';
-      ADMIN_POSE[bone][axis]=+val||0;
-      if(robot.atDesk)applyAdminPose(clk.elapsedTime); // re-aplica YA → visible al instante en Render
-      return {bone:bone, delta:Object.assign({},ADMIN_POSE[bone]), aplicando:!!robot.atDesk}; // aplicando=false → Beeko todavía no llegó al escritorio
+      P[bone][axis]=+val||0;
+      _poseReapply(); // re-aplica la pose editada YA → visible al instante en Render
+      return {pose:poseTarget, bone:bone, delta:Object.assign({},P[bone]), aplicando:_poseApplying()}; // aplicando=false → Beeko todavía no está en esa pose (llevalo: admin→forceSegment('admin'), radio→holdRadio(true))
     };
-    window.__REFUGIO.armDump=function(){const o={};for(const k in ADMIN_POSE)o[k]=Object.assign({},ADMIN_POSE[k]);return o;}; // copiá esto como la pose definitiva
-    window.__REFUGIO.armReset=function(){for(const k in ADMIN_POSE){ADMIN_POSE[k].x=0;ADMIN_POSE[k].y=0;ADMIN_POSE[k].z=0;}if(robot.atDesk)applyAdminPose(clk.elapsedTime);return 'pose reseteada a reposo (todos los deltas en 0)';};
+    window.__REFUGIO.armDump=function(){const P=_poseObj(),o={};for(const k in P)o[k]=Object.assign({},P[k]);return {pose:poseTarget, values:o};}; // copiá 'values' como la pose definitiva
+    window.__REFUGIO.armReset=function(){const P=_poseObj();for(const k in P){P[k].x=0;P[k].y=0;P[k].z=0;}_poseReapply();return 'pose "'+poseTarget+'" reseteada a reposo (todos los deltas en 0)';};
+    // FIJAR a Beeko en la radio en pose (para calibrar sin que se vaya): lo planta en la station de la radio, cara al transmisor,
+    // enciende la transmisión (LED/dial) y CONGELA la rutina. holdRadio(false) lo libera. También pone el target en 'radio'.
+    window.__REFUGIO.holdRadio=function(on){
+      const want=(on===undefined)?!_radioHold:!!on; _radioHold=want;
+      if(want){ poseTarget='radio';
+        if(robot.model){robot.model.position.set(NAV[25].x,0,NAV[25].z); _faceXZ(2.6,-1.9); setRobotAnim('Idle');}
+        robot.atRadio=true; robot.moving=false; robot.status='idle'; robot.path=null; robot.dest=-1; robot.rt={seg:'ronda',phase:'',station:null,dwellT:9999,stopIdx:0};
+        streamForce('zone','observatorio'); streamForce('broadcasting',true); // CAM 01 + LED/dial encendidos mientras calibrás
+        return 'Beeko FIJADO en la radio (target=radio). Ajustá con OP.arm("UpperArmR","x",..). holdRadio(false) lo libera.';
+      } else { robot.atRadio=false; streamRelease('zone'); streamRelease('broadcasting'); streamDrive('broadcasting',false);
+        return 'radio liberada — Beeko retoma la rutina'; }
+    };
   }
   // POSE DE TECLEO: sobrescribe las rotaciones de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
   // Aplica el delta de ADMIN_POSE en ESPACIO LOCAL del hueso vía quaternion: rot = reposoQ × quat(delta). Post-multiplicar
@@ -1740,10 +1767,18 @@
       if(b){if(name==='LowerArmL')dx+=Math.sin(t*ADMIN_TYPING_SPD)*b;else if(name==='LowerArmR')dx+=Math.sin(t*ADMIN_TYPING_SPD+Math.PI)*b;}
       _apE.set(dx,d.y,d.z,'XYZ');_apQ.setFromEuler(_apE);
       bone.quaternion.copy(rq).multiply(_apQ);}}
+  // POSE DE LA RADIO: igual técnica (delta local por quaternion) pero SÓLO pisa los huesos con delta ≠ 0 → los que quedan en 0
+  // conservan su pose de Idle (el mixer ya los escribió) y se ven naturales (p. ej. el brazo izquierdo al costado, sin calibrarlo).
+  function applyRadioPose(){const B=robot.armBones,Rq=robot.armRestQ;if(!B||!Rq)return;
+    for(const name in RADIO_POSE){const d=RADIO_POSE[name];if(d.x===0&&d.y===0&&d.z===0)continue; // hueso sin calibrar → lo deja el mixer (reposo natural)
+      const key=ARM_KEY[name],bone=B[key],rq=Rq[key];if(!bone||!rq)continue;
+      _apE.set(d.x,d.y,d.z,'XYZ');_apQ.setFromEuler(_apE);bone.quaternion.copy(rq).multiply(_apQ);}}
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
     if(robot.atDesk)applyAdminPose(clk.elapsedTime); // pose de tecleo en el escritorio (después del mixer)
+    if(robot.atRadio)applyRadioPose();               // pose de la radio (brazo derecho al transmisor), después del mixer
+    if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
     if(robot.status==='mission'){robot.mT-=dt*speed;robot.temp=clamp(robot.temp+dt*1.2,0,100);if(robot.mT<=0)robotReturn();return;}
