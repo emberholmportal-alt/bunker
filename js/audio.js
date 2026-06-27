@@ -4,7 +4,7 @@
   const HUM_BASE=.5; // gain de reposo del zumbido del generador (para el duck del fallo eléctrico)
   // VOLÚMENES por sonido (0..~1, ajustables en vivo con __REFUGIO.vol('paso',0.08)). 'master' = volumen general.
   // step/creak = pasos y crujidos de Beeko. El resto son los SFX existentes (cada función multiplica por su entrada).
-  const AVOL={master:.55, step:.05, creak:.045, camclick:1, flap:1, blip:1, alarm:1, rumble:1, thud:1};
+  const AVOL={master:.55, step:.20, creak:.13, camclick:1, flap:1, blip:1, alarm:1, rumble:1, thud:1};
   function mkNoise(){const b=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
   function startAudio(){if(!actx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();noiseBuf=mkNoise();
       master=actx.createGain();master.gain.value=0;master.connect(actx.destination);
