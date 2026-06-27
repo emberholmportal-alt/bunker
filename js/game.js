@@ -1345,7 +1345,6 @@
         const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
         const findB=tn=>{let r=null;robot.model.traverse(o=>{if(!r&&norm(o.name)===tn)r=o;});return r;};
         robot.armBones={sL:findB('shoulderl'),uL:findB('upperarml'),lL:findB('lowerarml'),sR:findB('shoulderr'),uR:findB('upperarmr'),lR:findB('lowerarmr')};
-        console.log('[R-01] armBones al cargar:',Object.entries(robot.armBones).map(([k,v])=>k+'='+(v?v.name:'NULL')).join('  '),'| '+Object.values(robot.armBones).filter(Boolean).length+'/6'); // DIAG temporal
         if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={};for(const k in robot.armBones)R[k]=robot.armBones[k].rotation.clone();robot.armRest=R;}else robot.armBones=null;
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
@@ -1563,7 +1562,6 @@
   // POSE DE TECLEO: sobrescribe las rotaciones de los huesos de los brazos DESPUÉS del mixer (si no, Idle los devuelve al costado).
   // Deltas de ADMIN_POSE sumados al reposo capturado. Sólo se llama cuando el robot está en el escritorio (atDesk).
   function applyAdminPose(t){const B=robot.armBones,R=robot.armRest,P=ADMIN_POSE;if(!B||!R)return;
-    if(!robot._adminLogged){robot._adminLogged=true;console.log('[R-01] POSE ADMIN ACTIVA — atDesk='+robot.atDesk+' action='+STREAM.action+' | huesos: '+Object.entries(B).map(([k,v])=>k+'='+v.name).join(' ')+' (6/6) | aplicando ADMIN_POSE c/frame');} // DIAG temporal (una vez)
     const b=ADMIN_TYPING_BOB,bL=b?Math.sin(t*ADMIN_TYPING_SPD)*b:0,bR=b?Math.sin(t*ADMIN_TYPING_SPD+Math.PI)*b:0; // codos alternados (tecleo)
     B.sL.rotation.set(R.sL.x+P.SHOULDER_L.x, R.sL.y+P.SHOULDER_L.y, R.sL.z+P.SHOULDER_L.z);
     B.uL.rotation.set(R.uL.x+P.UPPERARM_L.x, R.uL.y+P.UPPERARM_L.y, R.uL.z+P.UPPERARM_L.z);
@@ -1696,4 +1694,14 @@
   }
 
   buildCel();applyCel();initBeeko();
+  // ---- SELLO DE LA CONSOLA DE OPERADOR (discreción, no seguridad) ----
+  // __REFUGIO se SACA de window: tipear "__REFUGIO" en la consola ya no devuelve los comandos (filtra al curioso casual).
+  // Se reabre con la LLAVE → __r01('colmena-404') devuelve el panel de comandos Y lo deja en window.OP para toda la sesión.
+  // (Corre al final: todos los scripts —stream/audio/game— ya colgaron sus comandos de __REFUGIO antes de este punto.)
+  (function(){ var _ctl=window.__REFUGIO; if(!_ctl) return;
+    try{ delete window.__REFUGIO; }catch(e){ window.__REFUGIO=undefined; }
+    var open=function(k){ if(k==='colmena-404'){ window.OP=_ctl; return _ctl; } }; // llave correcta → expone OP y devuelve el panel; llave incorrecta → undefined (sin pistas)
+    try{ Object.defineProperty(window,'__r01',{value:open,writable:false,enumerable:false,configurable:false}); } // no-enumerable: no aparece en Object.keys(window)
+    catch(e){ window.__r01=open; }
+  })();
   loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);
