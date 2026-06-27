@@ -16,6 +16,7 @@ from database import engine, SessionLocal, Base
 import models
 import clock
 import events
+import counters
 
 # Token del operador. Si está VACÍO (default por ahora), las escrituras /op/* quedan ABIERTAS
 # (suficiente para probar la Fase 1). La seguridad real (token obligatorio) es la Fase 5: ese
@@ -48,6 +49,10 @@ def _payload(w) -> dict:
         "event_elapsed_ms": (now - ev_start) if kind else 0,  # cuánto lleva (para sincronizar el arco si te sumás a mitad)
         "event_dur_ms": (ev_end - ev_start) if kind else 0,
         "events_enabled": bool(w.evt_enabled),        # ¿el dado automático del server está prendido?
+        "charge": round(w.charge or 0.0, 3),          # FASE 3 — CONTADORES (los avanza el ticker)
+        "bees": round(w.bees or 0.0, 3),
+        "bees_released": round(w.bees_released or 0.0, 3),
+        "print": round(w.print_progress or 0.0, 3),
         "server_ms": now,                             # para que el frontend corrija el drift si quiere
     }
 
@@ -58,7 +63,8 @@ def _get_world(db: Session) -> "models.World":
         now = clock.real_ms()
         env = os.environ.get("LORE_EPOCH_MS", "").strip()
         epoch = int(env) if env else now  # placeholder: arranca en día 0 (la fecha real de lanzamiento se fija después)
-        w = models.World(id=1, lore_epoch_ms=epoch, speed=1, anchor_wall_ms=now, anchor_now_ms=now)
+        w = models.World(id=1, lore_epoch_ms=epoch, speed=1, anchor_wall_ms=now, anchor_now_ms=now,
+                         charge=0.0, bees=0.0, bees_released=0.0, print_progress=0.0, cnt_tick_ms=now)
         db.add(w)
         db.commit()
         db.refresh(w)
@@ -92,6 +98,11 @@ def _ensure_columns():
         "ALTER TABLE world ADD COLUMN IF NOT EXISTS evt_force_kind VARCHAR",
         "ALTER TABLE world ADD COLUMN IF NOT EXISTS evt_force_start_ms BIGINT",
         "ALTER TABLE world ADD COLUMN IF NOT EXISTS evt_force_end_ms BIGINT",
+        "ALTER TABLE world ADD COLUMN IF NOT EXISTS charge DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE world ADD COLUMN IF NOT EXISTS bees DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE world ADD COLUMN IF NOT EXISTS bees_released DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE world ADD COLUMN IF NOT EXISTS print_progress DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE world ADD COLUMN IF NOT EXISTS cnt_tick_ms BIGINT",
     ]
     with engine.begin() as conn:
         for a in alters:
@@ -135,10 +146,36 @@ def _advance_events(db: Session):
         db.commit()
 
 
+def _advance_counters(db: Session):
+    # TICKER de contadores (lo corre la tarea de fondo cada ~1s): avanza charge/bees/bees_released/print
+    # por dt REAL (capeado) según el segment del server. /state los LEE; ESTA función es la única que los muta.
+    w = _get_world(db)
+    now = clock.real_ms()
+    if w.charge is None: w.charge = 0.0          # filas viejas (tras el ALTER pueden venir NULL)
+    if w.bees is None: w.bees = 0.0
+    if w.bees_released is None: w.bees_released = 0.0
+    if w.print_progress is None: w.print_progress = 0.0
+    if w.cnt_tick_ms is None:
+        w.cnt_tick_ms = now  # primer tick: sólo anclar
+        db.commit()
+        return
+    dt = (now - w.cnt_tick_ms) / 1000.0
+    if dt <= 0:
+        return
+    dt = min(dt, counters.DT_CAP)  # capear (sleep del Free)
+    _, _, _, hour = clock.derive(w)
+    seg = _segment(w, hour)        # mismo segment que /state (respeta seg_override)
+    w.charge, w.bees, w.bees_released, w.print_progress = counters.advance(
+        w.charge, w.bees, w.bees_released, w.print_progress, seg, dt)
+    w.cnt_tick_ms = now
+    db.commit()
+
+
 def _advance_once():
     db = SessionLocal()
     try:
         _advance_events(db)
+        _advance_counters(db)
     finally:
         db.close()
 
@@ -316,6 +353,32 @@ def op_events(body: SetEnabled, db: Session = Depends(get_db), x_operator_token:
         now = clock.real_ms()
         w.evt_next_at_ms = now + events.random_gap_ms()
         w.evt_next_kind = events.random_kind()
+    db.commit()
+    db.refresh(w)
+    return _payload(w)
+
+
+# ---- FASE 3 — CONTADORES: el operador ajusta un contador (el ticker sigue avanzando desde ahí) ----
+class SetCounter(BaseModel):
+    counter: str   # 'charge' | 'bees' | 'beesReleased' | 'print'
+    value: float
+
+
+@app.post("/op/counter")
+def op_counter(body: SetCounter, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+    _require_op(x_operator_token)
+    w = _get_world(db)
+    name, v = body.counter, float(body.value)
+    if name == "charge":
+        w.charge = v
+    elif name == "bees":
+        w.bees = v
+    elif name == "beesReleased":
+        w.bees_released = v
+    elif name == "print":
+        w.print_progress = v
+    else:
+        raise HTTPException(status_code=400, detail="counter debe ser 'charge'|'bees'|'beesReleased'|'print'")
     db.commit()
     db.refresh(w)
     return _payload(w)

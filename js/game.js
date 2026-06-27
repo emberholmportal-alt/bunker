@@ -175,7 +175,7 @@
   const BEES_MAX=80, hiveC=new THREE.Vector3(0,1.3,14.4); // pool del enjambre y centro de órbita (frente a la colmena)
   // ---- FASE 2 · TRAMO COLMENA (rutina de stations + liberación de enjambre). Corrida única → variación con Math.random. ----
   let _forceSeg=undefined;                 // testeo: undefined=auto(hora) · null=off(deambula) · 'colmena'=forzar el tramo
-  let beeReleaseT=0,_beesResetPending=false;
+  let beeReleaseT=0,_beesResetPending=false,_beesPending=null; // _beesPending: valor del server a aplicar TRAS el surge (modo contadores-server)
   const BEE_CAP=60, BEE_RATE=0.5, BEE_RELEASE_DUR=3.6; // cría tope, crecimiento por seg, duración del surge de liberación
   const CHARGE_UP=0.5, CHARGE_DOWN=0.08; // carga: sube en el dock / drena lento el resto del día (piso 50)
   const COLMENA_STATIONS=[ // {punto donde se para, feature que mira, subset de gestos}
@@ -1032,9 +1032,11 @@
     if(mv)for(let i=0;i<chargeLeds.length;i++)chargeLeds[i].visible=(Math.sin(t*2.6+i*1.1)>-.2);
     // CARGA: en el tramo 'carga' (durmiendo en el dock) la carga sube hacia 100 y la batería del robot queda full;
     // el resto del día drena lento hacia un piso de 50 → la curva oscila 50–100 (respeta override de admin vía streamDrive).
+    const _srvCnt=(window.__SYNC&&__SYNC.countersActive()); // FASE 3: en modo server los NÚMEROS vienen del server (los siembra el sync); el loop deja de escribirlos
     {const _seg=routineSegment();
-     if(_seg==='carga'){streamDrive('charge',Math.min(100,STREAM.charge+dt*CHARGE_UP));robot.bat=100;}
-     else if(_seg)streamDrive('charge',Math.max(50,STREAM.charge-dt*CHARGE_DOWN));}
+     if(_seg==='carga')robot.bat=100;                                                                                  // batería del robot (visual) — en carga, full, en los dos modos
+     if(!_srvCnt){ if(_seg==='carga')streamDrive('charge',Math.min(100,STREAM.charge+dt*CHARGE_UP));                    // charge: sólo LOCAL escribe; en server lo trae el sync
+                   else if(_seg)streamDrive('charge',Math.max(50,STREAM.charge-dt*CHARGE_DOWN)); }}
     // TELEVISOR: lee STREAM.tv (lo maneja la rutina en OCIO / el operador con setTV). ON = ESTÁTICA animada + glow frío; OFF = negra.
     {const on=!!STREAM.tv;
      if(on!==tvOn){tvOn=on;tvScrMat.color.setHex(on?0xffffff:0x242424);tvScrFrozen=false; // flanco: pantalla viva ↔ apagada
@@ -1046,9 +1048,16 @@
      else tvGlow.intensity=0;}
     // COLMENA: el enjambre LEE STREAM.bees (cantidad visible) y orbita la colmena con ruido de darteo. El latido pulsa.
     // RUTINA COLMENA — la cría crece (STREAM.bees) mientras el tramo está activo; al llenarse, libera un enjambre.
-    if(routineSegment()==='colmena'&&beeReleaseT<=0){streamDrive('bees',Math.min(BEE_CAP,STREAM.bees+dt*BEE_RATE));
-      if(STREAM.bees>=BEE_CAP-0.5&&robotZone==='colmena')triggerRelease();}
-    if(beeReleaseT>0){beeReleaseT-=dt;if(beeReleaseT<=0&&_beesResetPending){_beesResetPending=false;streamDrive('bees',4);}} // tras el surge quedan pocas
+    if(!_srvCnt){ // LOCAL: la cría crece y, al llenarse con el robot en la colmena, libera
+      if(routineSegment()==='colmena'&&beeReleaseT<=0){streamDrive('bees',Math.min(BEE_CAP,STREAM.bees+dt*BEE_RATE));
+        if(STREAM.bees>=BEE_CAP-0.5&&robotZone==='colmena')triggerRelease();}
+    } else if(beeReleaseT<=0){ // SERVER: el número viene del server; si CAYÓ de casi lleno a casi vacío (liberó) → surge (manteniendo el enjambre alto)
+      const tgt=(typeof STREAM._beesTarget==='number')?STREAM._beesTarget:STREAM.bees;
+      if(STREAM.bees>40&&tgt<15){beeReleaseT=BEE_RELEASE_DUR;_beesPending=tgt;} else STREAM.bees=tgt; // 60→4 = liberación (evita falsos surges al prender el flag)
+    }
+    if(beeReleaseT>0){beeReleaseT-=dt;
+      if(beeReleaseT<=0&&_beesResetPending){_beesResetPending=false;streamDrive('bees',4);}        // LOCAL: tras el surge quedan pocas
+      if(beeReleaseT<=0&&_beesPending!=null){STREAM.bees=_beesPending;_beesPending=null;}}          // SERVER: tras el surge, asienta al valor del server
     if(beeSwarm){const n=Math.max(0,Math.min(BEES_MAX,Math.round(STREAM.bees))),a=beeSwarm.geometry.attributes.position.array;
       if(beeReleaseT>0){const k=1-Math.max(0,beeReleaseT)/BEE_RELEASE_DUR,spr=1+k*3.4; // LIBERACIÓN: el enjambre sale por la puerta sur (z≈11.8) y se dispersa
         for(let i=0;i<n;i++){const d=beeData[i];if(mv)d.a+=d.w*dt*2.4;
@@ -1071,7 +1080,12 @@
     // el cabezal barre XY sobre la capa actual; el filamento sigue al cabezal; el panel se redibuja al cambiar de capa.
     if(printHead){
       // STREAM.print avanza en el tramo 'fabricacion' (la rutina) y como fallback cuando la rutina está apagada (forceSegment(null)); pausa fuera de esos casos.
-      if(!STREAM._force.print&&(routineSegment()==='fabricacion'||routineSegment()===null)){_printT+=dt;if(_printT>=PRINT_SECS){_printT-=PRINT_SECS;_printPart^=1;partBracket.visible=(_printPart===0);partHex.visible=(_printPart===1);}streamDrive('print',(_printT/PRINT_SECS)*100);}
+      if(!_srvCnt){ // LOCAL: el ciclo avanza acá
+        if(!STREAM._force.print&&(routineSegment()==='fabricacion'||routineSegment()===null)){_printT+=dt;if(_printT>=PRINT_SECS){_printT-=PRINT_SECS;_printPart^=1;partBracket.visible=(_printPart===0);partHex.visible=(_printPart===1);}streamDrive('print',(_printT/PRINT_SECS)*100);}
+      } else { // SERVER: el número viene del server; si DA EL WRAP (100→0) → cambiamos la pieza, como hoy
+        const pt=STREAM._printTarget;
+        if(typeof pt==='number'){ if(pt<STREAM.print-50){_printPart^=1;partBracket.visible=(_printPart===0);partHex.visible=(_printPart===1);} STREAM.print=pt; }
+      }
       const pv=Math.max(0,Math.min(100,STREAM.print)),layer=Math.floor(pv/100*PRINT_LAYERS),frac=Math.max(.001,layer/PRINT_LAYERS); // capas discretas (look "capa a capa")
       (partBracket.visible?partBracket:partHex).scale.y=frac;
       gantry.position.y=.16+frac*PART_MAXH;gantry.position.z=mv?Math.sin(t*0.6)*.14:0; // sube con la pieza + barre en Y(z)
