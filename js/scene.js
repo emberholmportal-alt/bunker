@@ -255,10 +255,13 @@
   let alertMsg='';
 
   // ---- post ----
-  let composer=null,filmPass=null,rgbPass=null;
+  let composer=null,filmPass=null,rgbPass=null,psxPass=null;
   try{composer=new THREE.EffectComposer(renderer);composer.addPass(new THREE.RenderPass(scene,camera));
     const bloom=new THREE.UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),SMALL?.12:.18,.45,.85);composer.addPass(bloom);
     rgbPass=new THREE.ShaderPass(THREE.RGBShiftShader);rgbPass.uniforms.amount.value=.0014;composer.addPass(rgbPass); // aberración cromática (base; game.js la spikea en el glitch)
     const vigPass=new THREE.ShaderPass(THREE.VignetteShader);vigPass.uniforms.offset.value=.72;vigPass.uniforms.darkness.value=1.0;composer.addPass(vigPass); // viñeta CCTV marcada (esquinas ~26%, bordes ~13%) — túnel
     filmPass=new THREE.ShaderPass(THREE.FilmShader);filmPass.uniforms.nIntensity.value=.42;filmPass.uniforms.sIntensity.value=.18;filmPass.uniforms.sCount.value=SMALL?320:480;filmPass.uniforms.grayscale.value=0;filmPass.renderToScreen=true;composer.addPass(filmPass); // grano + scanlines marcados (2a pasada; el grano real lo fija GRAIN_BASE en game.js)
-  }catch(e){composer=null;rgbPass=null;filmPass=null;}
+    // FILTRO PSX (capa 1: dither 15-bit + Bayer). enabled=false → la cadena queda IDÉNTICA cuando el PSX está apagado (el composer saltea passes deshabilitados).
+    // Va ANTES del filmPass (las scanlines del film quedan ENCIMA del dither) y NO renderToScreen (el filmPass sigue siendo el último). OP.psx lo prende/apaga.
+    if(THREE.PSXDitherShader){ psxPass=new THREE.ShaderPass(THREE.PSXDitherShader); psxPass.uniforms.uLevels.value=32; psxPass.uniforms.uDither.value=1; psxPass.enabled=false; composer.insertPass(psxPass, composer.passes.indexOf(filmPass)); }
+  }catch(e){composer=null;rgbPass=null;filmPass=null;psxPass=null;}
