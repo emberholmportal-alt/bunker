@@ -1051,7 +1051,7 @@
   function loop(){requestAnimationFrame(loop);
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
-    tickRobot(dt);tickRobotAudio(dt);radioTick(dt,t);ambientTick(dt);
+    tickRobot(dt);tickRobotAudio(dt);radioTick(dt,t);ambientTick(dt);tickExpressive(dt);
     mapAcc+=dt;if(mapAcc>.16){const rm=robot.model;drawMapPlan(rm?rm.position.x:0,rm?rm.position.z:0,rm?rm.rotation.y:0);mapAcc=0;} // minimapa: marca la posición del ROBOT (ya no hay jugador)
     updateUptimeBoard(streamUptime(),dt); // contador de pared: cronómetro del LIVE (HH:MM:SS desde LORE_EPOCH), lee de STREAM
     // dashboard de la estación de cómputo (sólo cuando la cámara activa es la del descanso, ~3/s): alimenta el log y redibuja
@@ -1902,6 +1902,13 @@
       const st=(stage===undefined)?3:(stage|0); ambientSound(type, st); beekoReactToSound(st); // el manual también dispara la reacción de Beeko (para probarla sin esperar), con la intensidad de esa etapa
       return 'sonido sin fuente: '+type+' (distante/amortiguado · etapa '+st+' · Beeko reacciona según REACT_* de esa etapa)'; };
     window.__REFUGIO.ambient=function(type,stage){ return window.__REFUGIO.sfx(type,stage); }; // alias de OP.sfx
+    // MOMENTOS EXPRESIVOS (personalidad, independiente del despertar): sub-flag + disparo manual de cualquier clip para probarlo.
+    window.__REFUGIO.expressive=function(on){ _exprEnabled=(on===undefined)?!_exprEnabled:!!on; if(!_exprEnabled&&_exprActive)_exprEnd(); _exprNextT=EXPR_GAP[0]; _exprRun=false;
+      return 'momentos expresivos '+(_exprEnabled?'ON (personalidad; independiente del despertar; sólo en ocio/dwell)':'OFF'); };
+    window.__REFUGIO.anim=function(name){ if(!robot.act||!robot.act[name]) return 'animaciones: '+(robot.act?Object.keys(robot.act).join(', '):'(el modelo todavía no cargó)')+' · uso: OP.anim("Dance")';
+      const once=(name==='Death'||name==='Sitting'); const dur=(robot.act[name].getClip&&robot.act[name].getClip().duration)||1.5;
+      _exprPlay({a:name, hold:dur+(once?1.4:0.3), once:once}); // lo trata como momento expresivo → se recompone solo a Idle. Mejor con Beeko quieto.
+      return 'animación "'+name+'" forzada'+(once?' (once+clamp → se recompone a Idle)':'')+(robot.moving?' · OJO: Beeko se está moviendo (probala quieto para verla entera)':''); };
     // ---- CALIBRACIÓN EN VIVO de poses del brazo. DOS poses independientes: 'admin' (teclado, YA fija) y 'radio' (brazo derecho al transmisor).
     // OP.poseTarget('radio'|'admin') elige cuál edita OP.arm/armDump/armReset. OP.holdRadio(true) lleva a Beeko a la radio y lo FIJA en pose
     // (y pone el target en 'radio') para calibrar cómodo. OP.arm('UpperArmR','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL (estable). ----
@@ -1989,6 +1996,39 @@
       _luE.set(d.x,d.y,d.z,'XYZ'); _luQ.setFromEuler(_luE);
       _luTmp.copy(bone.quaternion).multiply(_luQ);                                // lookQ = lo que dejó el mixer × delta local
       bone.quaternion.slerp(_luTmp, _luAmt); } }                                  // fade in/out; en _luAmt=0 no toca nada → el mixer manda
+  // ====== MOMENTOS EXPRESIVOS (personalidad de Beeko; INDEPENDIENTE del despertar — sistema aparte) ======
+  // Aprovecha animaciones que la rutina no usa para darle vida emocional. PRIORIDAD MENOR QUE TODO (rutina/segmentos/despertar/eventos): sólo
+  // dispara en ventanas LIBRES de ocio/dwell. Additivo: extiende el dwell para no irse a mitad y vuelve a Idle sin tocar rt/path/status.
+  const EXPR_GAP=[20,35];        // rango (s) de cooldown entre momentos expresivos. CALIBRABLE.
+  const EXPR_CHANCE=0.6;         // prob. de expresarse al abrir una ventana libre (tras el cooldown). CALIBRABLE.
+  const EXPR_RUN_CHANCE=0.25;    // prob. de que un VIAJE se haga TROTANDO (Running) en vez de caminando. CALIBRABLE.
+  // pool con PESO por repetición: gestos comunes frecuentes; Death ("desarmarse") y Sitting raros/especiales. {a:clip, hold:s, once?:LoopOnce+clamp}
+  const EXPR_POOL=[
+    {a:'Yes',hold:1.6}, {a:'Yes',hold:1.6}, {a:'No',hold:1.6}, {a:'No',hold:1.6},
+    {a:'ThumbsUp',hold:1.5}, {a:'Wave',hold:1.8}, {a:'Dance',hold:4.2}, {a:'Dance',hold:4.2},
+    {a:'Sitting',hold:3.2,once:true}, {a:'Death',hold:2.2,once:true}  // Death = DESARMARSE (colapsa una vez, sostiene y se recompone a Idle; NUNCA setea status broken)
+  ];
+  let _exprEnabled=true, _exprActive=false, _exprT=0, _exprNextT=EXPR_GAP[0], _exprRun=false, _exprWasMoving=false, _exprOnce=false, _exprClip='';
+  function _exprPlay(item){ const a=robot.act&&robot.act[item.a]; if(!a)return false;
+    if(item.once){ if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.3); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.3).play(); robot.cur=a; } // play once + clamp: colapso/sentado que SE SOSTIENE (si looping repetiría la caída)
+    else setRobotAnim(item.a);                                  // gestos que loopean lindo durante el hold
+    _exprActive=true; _exprT=item.hold; _exprOnce=!!item.once; _exprClip=item.a;
+    if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0, item.hold+0.5); robot.wanderT=Math.max(robot.wanderT||0, item.hold+0.5); // extiende el dwell → no se va a mitad del momento
+    return true; }
+  function _exprEnd(){ if(_exprOnce&&_exprClip&&robot.act[_exprClip]){ const a=robot.act[_exprClip]; a.setLoop(THREE.LoopRepeat,Infinity); a.clampWhenFinished=false; } // RESTAURA el loop del clip (p.ej. Death del estado roto real no debe quedar en LoopOnce)
+    setRobotAnim('Idle'); _exprActive=false; _exprOnce=false; _exprClip=''; }                 // recompone: Idle lo levanta del colapso/lo para de la silla
+  function _exprFree(){ return _exprEnabled && robot.model && robot.status==='idle' && !robot.moving // ¿ventana LIBRE? (prioridad menor que TODO lo importante)
+    && !robot.atDesk && !robot.atFab && !robot.atRadio && !_radioHold
+    && evHoldT<=0 && _soundPauseT<=0 && !_luPhase && !STREAM.broadcasting && !ended && running; }
+  function tickExpressive(dt){
+    if(robot.moving && !_exprWasMoving) _exprRun = _exprEnabled && (Math.random()<EXPR_RUN_CHANCE); // inicio de viaje → decide trotar
+    if(!robot.moving) _exprRun=false; _exprWasMoving=!!robot.moving;
+    if(_exprActive){ if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,_exprT); robot.wanderT=Math.max(robot.wanderT||0,_exprT); // mantiene el dwell mientras dura
+      _exprT-=dt; if(_exprT<=0)_exprEnd(); return; }
+    if(!_exprFree())return;
+    _exprNextT-=dt; if(_exprNextT>0)return; _exprNextT=EXPR_GAP[0]+Math.random()*(EXPR_GAP[1]-EXPR_GAP[0]);
+    if(Math.random()>=EXPR_CHANCE)return;
+    _exprPlay(EXPR_POOL[Math.floor(Math.random()*EXPR_POOL.length)]); }
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
@@ -2021,9 +2061,9 @@
                 robot.atFab=true;robot.model.rotation.y=0;setRobotAnim('Idle');streamReportAction('fabricating');robot.wanderT=12+Math.random()*8; // mira al norte (+z) a la impresora
               }else{robot.wanderT=1.5+Math.random()*3;if(Math.random()<0.45){const _ra=['Wave','ThumbsUp','Yes','No','Dance'];setRobotAnim(_ra[Math.floor(Math.random()*_ra.length)]);}else setRobotAnim('Idle');}}
           }
-          else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=0.6*dt;let nx=px+mx*sp,nz=pz+mz*sp;
+          else{let mx=dx/d,mz=dz/d;for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const f=(rng-od)/rng*1.8;mx+=ox/od*f;mz+=oz/od*f;}}const ml=Math.hypot(mx,mz)||1;mx/=ml;mz/=ml;const sp=(_exprRun?0.95:0.6)*dt;let nx=px+mx*sp,nz=pz+mz*sp; // _exprRun = trote expresivo (más rápido)
             if(!inArea(nx,nz)){if(inArea(nx,pz))nz=pz;else if(inArea(px,nz))nx=px;else{nx=px;nz=pz;}} // contención por AREAS (paredes+puertas), igual que el jugador
-            robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);setRobotAnim('Walking');}
+            robot.model.position.x=nx;robot.model.position.z=nz;for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}}const ang=Math.atan2(mx,mz);robot.model.rotation.y+=((ang-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*6);if(!_exprActive)setRobotAnim(_exprRun?'Running':'Walking');} // momento expresivo en curso → no lo pisa; si no, camina o trota
         }else if(routineSegment()){routineTick(dt); // RUTINA F2 es el driver durante TODO el día (reemplaza a robotWander)
         }else{ if(robot.rt){robot.rt=null;streamReportAction('idle');streamDrive('tv',false);} // tramo apagado (forceSegment(null)) → vuelve a deambular como antes (y apaga el TV por las dudas)
             robot.wanderT-=dt;if(robot.wanderT<=0){
