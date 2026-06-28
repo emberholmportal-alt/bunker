@@ -140,12 +140,19 @@
   // ====== 4ª SEÑAL DEL DESPERTAR: SONIDOS SIN FUENTE ======
   // Audio ambiental sin fuente visible (síntesis en audio.js, todo "a través del concreto"). Atado a la etapa del despertar del server:
   // frecuencia por AMBIENT_CHANCE, y TIPOS por etapa (AMBIENT_POOL) — crujidos/golpes desde et.1, arrastres desde et.2, raspados desde et.3.
-  // Beeko por defecto NO reacciona (más inquietante): AMBIENT_NOTICE en 0. Sub-flag propio. Fallback: sin etapa del server no dispara auto.
+  // Cuando suena un sonido sin fuente, BEEKO REACCIONA y la intensidad ESCALA con la etapa (es lo que le da claridad narrativa: el espectador
+  // entiende que registró algo del exterior). Reacción = (a) micro-pausa en lo que hace, (b) gesto de mirar arriba YA existente (reutilizado),
+  // (c) pensamiento del set BEEKO_HEARD. Sub-flag propio. Fallback: sin etapa del server no dispara auto.
   const AMBIENT_CHANCE=[0, 0.05, 0.12, 0.26];      // prob. por INTENTO, por etapa (0:nunca · 3:más seguido). CALIBRABLE.
   const AMBIENT_GAP=26;                            // s entre intentos (se tira el dado). CALIBRABLE.
   const AMBIENT_POOL=[ [], ['creak','creak','thud'], ['creak','thud','thud','drag'], ['creak','thud','drag','scratch','scratch'] ]; // tipos elegibles por etapa (con peso por repetición). CALIBRABLE.
-  const AMBIENT_NOTICE=[0, 0, 0, 0];               // prob. de que Beeko "lo note" (pensamiento) por etapa. DEFAULT 0 = no reacciona. Subir p.ej. a [0,0,0,.05] para una reacción rara en et.3.
-  let _ambEnabled=true, _ambNextT=AMBIENT_GAP;
+  // REACCIÓN DE BEEKO AL SONIDO (escala por etapa). et.1 sutil (se detiene, rara vez mira, casi nunca comenta) → et.3 explícito (casi siempre
+  // se detiene + mira arriba + más seguido comenta). Las 3 probabilidades son INDEPENDIENTES (pueden combinarse). CALIBRABLES, todas acá:
+  const REACT_PAUSE  = [0, 0.40, 0.70, 0.90];      // prob. de la MICRO-PAUSA por etapa
+  const REACT_LOOKUP = [0, 0.10, 0.40, 0.70];      // prob. de disparar el GESTO mirar-arriba (reutiliza startLookUp)
+  const REACT_THINK  = [0, 0.05, 0.15, 0.30];      // prob. de un PENSAMIENTO ('heard') tras registrar
+  const REACT_PAUSE_DUR=[0.6, 1.0];                // rango (s) de la micro-pausa (freeze breve del movimiento; la rutina lo retoma idéntico)
+  let _ambEnabled=true, _ambNextT=AMBIENT_GAP, _soundPauseT=0;
   function ambientTick(dt){
     if(!_ambEnabled || !_awakeningServer()) return;                 // sin server-despertar activo no dispara auto (fallback: nunca rompe)
     _ambNextT-=dt; if(_ambNextT>0) return; _ambNextT=AMBIENT_GAP;
@@ -153,8 +160,18 @@
     const pool=AMBIENT_POOL[st]||[]; if(!pool.length) return;
     const type=pool[Math.floor(Math.random()*pool.length)];
     if(typeof ambientSound==='function') ambientSound(type, st);
-    // Beeko casi nunca reacciona (insinuación): sólo si AMBIENT_NOTICE>0 para la etapa, suelta un pensamiento ambiguo del despertar
-    if((AMBIENT_NOTICE[st]||0)>0 && Math.random()<AMBIENT_NOTICE[st] && typeof showBeekoThought==='function' && bkEnabled && !_bkActive && !STREAM.broadcasting) showBeekoThought('awakening');
+    beekoReactToSound(st);                                          // Beeko reacciona (pausa/mirada/pensamiento), con intensidad escalada por etapa
+  }
+  // Reacción de Beeko a un sonido sin fuente. NO gatea por _ambEnabled (ambientTick ya lo hace; el manual OP.sfx la quiere disparar igual).
+  function beekoReactToSound(stage){
+    const st=Math.max(0,Math.min(3,stage|0)); if(st<=0)return;
+    // (a) MICRO-PAUSA: se detiene un instante. Si venía caminando, frena a Idle (la rutina vuelve a Walking sola al terminar la pausa).
+    if(Math.random()<(REACT_PAUSE[st]||0)){ _soundPauseT=REACT_PAUSE_DUR[0]+Math.random()*(REACT_PAUSE_DUR[1]-REACT_PAUSE_DUR[0]);
+      if(robot.model && robot.moving && robot.act && robot.cur===robot.act['Walking']) setRobotAnim('Idle'); }
+    // (b) MIRA ARRIBA: reutiliza el gesto. manual=true → no se autocancela por caminar (está en pausa). noThought=true → el pensamiento lo decide REACT_THINK ('heard'), no el set 'lookup'.
+    if(Math.random()<(REACT_LOOKUP[st]||0)) startLookUp(true, true);
+    // (c) PENSAMIENTO 'heard' (escuché/sentí algo): no pisa uno activo ni una transmisión
+    if(Math.random()<(REACT_THINK[st]||0) && typeof showBeekoThought==='function' && bkEnabled && !_bkActive && !STREAM.broadcasting) showBeekoThought('heard');
   }
   // ====== EXPANSIÓN: PASILLO + BIBLIOTECA + CULTIVO ======
   box(2.0,CH+.3,.3,-2.2,CH/2,RZ1,concreteMat);box(2.0,CH+.3,.3,2.2,CH/2,RZ1,concreteMat);
@@ -1421,6 +1438,19 @@
   const LOOKUP_MIN_STAGE=[1,1,2,2,3,3]; // etapa MÍNIMA de cada frase (alineada con BEEKO_LOOKUP)
   function _lookupEligible(){ const all=BEEKO_LOOKUP; if(!_awakeningServer())return all; // local: las 6
     const st=_awakeningStage(), elig=all.filter((_,i)=>LOOKUP_MIN_STAGE[i]<=st); return elig.length?elig:all; }
+  // 4ª SEÑAL — REACCIÓN A "SONIDOS SIN FUENTE": pensamientos de "escuché/sentí algo" (el disparador es un SONIDO, distinto de mirar arriba).
+  // Tiering por etapa-mínima: ambiguas/atribuibles a la estructura abajo, explícitas ("algo lo hace a propósito") arriba.
+  const BEEKO_HEARD=[
+    "i registered a sound just now. structural, probably. the building talks to itself down here. logged it. moved on.",       // 0
+    "something settled. or shifted. i paused — old subroutine, checking. nothing on the sensors. back to it.",                 // 1
+    "that wasn't the structure. i've catalogued every sound this place makes. that one's new. i don't have a label for it.",   // 2
+    "i stopped. i heard — something. above me, i think. through the concrete. it didn't repeat. i waited. it didn't repeat.",  // 3
+    "there it is again. the sound with no source. i've stopped pretending it's the building. something up there is making it.", // 4
+    "i heard it and i froze. the way an animal freezes. i'm not an animal. but something old in me says: stay still. listen."   // 5
+  ];
+  const HEARD_MIN_STAGE=[1,1,2,2,3,3]; // etapa MÍNIMA de cada frase (alineada con BEEKO_HEARD)
+  function _heardEligible(){ const all=BEEKO_HEARD; if(!_awakeningServer())return all; // local: las 6
+    const st=_awakeningStage(), elig=all.filter((_,i)=>HEARD_MIN_STAGE[i]<=st); return elig.length?elig:all; }
   const BEEKO_HOLD=4.6;      // s que el cuadro se queda tras terminar de tipear (antes de desvanecerse)
   const BEEKO_FADE=0.55;     // s del fade (coincide con la transición CSS)
   const BEEKO_TYPE_CPS=45;   // velocidad del typewriter (caracteres por segundo)
@@ -1461,7 +1491,7 @@
     }catch(e){}
   }
   function pickBeeko(cat){
-    const arr=(cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():BEEKO_THOUGHTS[cat]; // awakening/lookup: sólo las frases elegibles por etapa
+    const arr=(cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():(cat==='heard')?_heardEligible():BEEKO_THOUGHTS[cat]; // awakening/lookup/heard: sólo las frases elegibles por etapa
     if(!arr||!arr.length)return '';
     let i=Math.floor(Math.random()*arr.length),tr=0;const last=_bkLast[cat];
     while(arr.length>1&&i===last&&tr<6){i=Math.floor(Math.random()*arr.length);tr++;}
@@ -1869,7 +1899,8 @@
       if(T.indexOf(type)<0) return 'tipos: '+T.join(', ')+' · uso: OP.sfx("thud"[,etapa 1-3]). Distantes/amortiguados (vienen de arriba, a través del concreto).';
       if(!audioOn) return 'activá el sonido primero (botón ♪ SONIDO), si no no se oye nada';
       if(typeof ambientSound!=='function') return 'audio no disponible';
-      ambientSound(type, (stage===undefined)?3:(stage|0)); return 'sonido sin fuente: '+type+' (distante/amortiguado · etapa '+((stage===undefined)?3:(stage|0))+')'; };
+      const st=(stage===undefined)?3:(stage|0); ambientSound(type, st); beekoReactToSound(st); // el manual también dispara la reacción de Beeko (para probarla sin esperar), con la intensidad de esa etapa
+      return 'sonido sin fuente: '+type+' (distante/amortiguado · etapa '+st+' · Beeko reacciona según REACT_* de esa etapa)'; };
     window.__REFUGIO.ambient=function(type,stage){ return window.__REFUGIO.sfx(type,stage); }; // alias de OP.sfx
     // ---- CALIBRACIÓN EN VIVO de poses del brazo. DOS poses independientes: 'admin' (teclado, YA fija) y 'radio' (brazo derecho al transmisor).
     // OP.poseTarget('radio'|'admin') elige cuál edita OP.arm/armDump/armReset. OP.holdRadio(true) lleva a Beeko a la radio y lo FIJA en pose
@@ -1932,10 +1963,10 @@
   const LOOKUP_GAP=22;        // s entre oportunidades (se tira el dado). CALIBRABLE.
   const LOOKUP_MIN_GAP=14;    // s mínimos entre gestos (no spamea). CALIBRABLE.
   const LU_IN=0.45, LU_HOLD=1.2, LU_OUT=0.6, LU_OUT_FAST=0.22; // ease-in / hold / ease-out (s) · OUT_FAST = cancelación al arrancar a caminar
-  let _luEnabled=true, _luPhase='', _luT=0, _luAmt=0, _luNextT=LOOKUP_GAP, _luSince=999, _luThought=false, _luManual=false, _luFast=false;
+  let _luEnabled=true, _luPhase='', _luT=0, _luAmt=0, _luNextT=LOOKUP_GAP, _luSince=999, _luThought=false, _luManual=false, _luFast=false, _luNoThought=false;
   function _robotWalking(){ return !!robot.moving || robot.status==='leaving' || robot.status==='returning' || robot.status==='mission'; } // ¿en movimiento? (el gesto auto sólo dispara quieto/dwell)
-  function startLookUp(manual){ if(!robot.headBones||!robot.headBones.head)return false; if(_luPhase&&_luPhase!=='out')return false; // ya hay un gesto en curso
-    _luManual=!!manual; _luFast=false; _luPhase='in'; _luT=LU_IN*Math.max(0,Math.min(1,_luAmt)); _luThought=false; return true; } // si re-disparo durante el out, retomo el in desde el amt actual (sin salto)
+  function startLookUp(manual,noThought){ if(!robot.headBones||!robot.headBones.head)return false; if(_luPhase&&_luPhase!=='out')return false; // ya hay un gesto en curso
+    _luManual=!!manual; _luNoThought=!!noThought; _luFast=false; _luPhase='in'; _luT=LU_IN*Math.max(0,Math.min(1,_luAmt)); _luThought=false; return true; } // noThought: lo dispara la reacción al sonido (el pensamiento lo decide REACT_THINK)
   function _luFireThought(){ if(typeof showBeekoThought==='function' && bkEnabled && !_bkActive && !STREAM.broadcasting) showBeekoThought('lookup'); } // pensamiento del gesto (no pisa uno activo ni una transmisión)
   function tickLookUp(dt){
     if(!_luPhase){ _luSince+=dt;
@@ -1950,8 +1981,8 @@
     if(!_luManual && _robotWalking() && _luPhase!=='out'){ _luPhase='out'; _luFast=true; _luT=LU_OUT_FAST*(1-_luAmt); }
     _luT+=dt;
     if(_luPhase==='in'){ _luAmt=Math.min(1,_luT/LU_IN); if(_luT>=LU_IN){_luPhase='hold';_luT=0;_luAmt=1;} }
-    else if(_luPhase==='hold'){ _luAmt=1; if(!_luThought){_luThought=true;_luFireThought();} if(_luT>=LU_HOLD){_luPhase='out';_luT=0;_luFast=false;} } // suelta el pensamiento al tope (mientras mira arriba)
-    else if(_luPhase==='out'){ const od=_luFast?LU_OUT_FAST:LU_OUT; _luAmt=Math.max(0,1-_luT/od); if(_luT>=od){_luPhase='';_luAmt=0;_luT=0;_luSince=0;_luManual=false;_luFast=false;} } }
+    else if(_luPhase==='hold'){ _luAmt=1; if(!_luThought){_luThought=true; if(!_luNoThought)_luFireThought();} if(_luT>=LU_HOLD){_luPhase='out';_luT=0;_luFast=false;} } // suelta el pensamiento al tope (salvo que lo dispare la reacción al sonido → lo decide REACT_THINK)
+    else if(_luPhase==='out'){ const od=_luFast?LU_OUT_FAST:LU_OUT; _luAmt=Math.max(0,1-_luT/od); if(_luT>=od){_luPhase='';_luAmt=0;_luT=0;_luSince=0;_luManual=false;_luFast=false;_luNoThought=false;} } }
   const _luQ=new THREE.Quaternion(), _luE=new THREE.Euler(), _luTmp=new THREE.Quaternion();
   function applyLookUp(){ if(_luAmt<=0||!robot.headBones)return;                 // compone DESPUÉS del mixer: bone.q = slerp(animQ, animQ×delta, _luAmt)
     for(const k in LOOKUP_POSE){ const bone=robot.headBones[k]; if(!bone)continue; const d=LOOKUP_POSE[k];
@@ -1965,6 +1996,7 @@
     if(robot.atRadio&&STREAM.broadcasting){applyRadioPose();_radioPosed=true;} // pose de la radio SÓLO mientras transmite → brazo levantado, LED/dial y cuadro empiezan y terminan JUNTOS
     else if(_radioPosed){releaseArmPose();_radioPosed=false;}                    // transmisión terminó / dejó la radio → BAJA el brazo una vez (el Idle no lo hace solo)
     tickLookUp(dt); applyLookUp();                   // 3ª SEÑAL: mirar arriba (compone sobre el mixer en cabeza/cuello; no toca status/path/rutina ni las poses del brazo)
+    if(_soundPauseT>0){_soundPauseT-=dt;return;}     // REACCIÓN AL SONIDO: micro-pausa — congela el movimiento un instante (el gesto lookUp YA se aplicó arriba); al expirar la rutina retoma idéntico (no toca rt/path)
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
