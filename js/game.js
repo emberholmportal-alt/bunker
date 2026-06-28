@@ -1593,7 +1593,7 @@
   // Capa 1: psxPass (dither 15-bit + Bayer, en scene.js) + PIXELACIÓN (baja el backing del renderer + image-rendering:pixelated → nearest). Capa 2:
   // WOBBLE de vértices (installPSX; sólo wobble en r128). Toggle LIMPIO/REVERSIBLE: lazy install en el 1er ON → OFF deja el búnker IDÉNTICO a ahora
   // (resolución normal, materiales sin parche activo, pass deshabilitado). No toca lógica/rutina/señales/backend. Parchea AMBAS variantes del CEL.
-  let PSX_PIX=3;                 // factor de pixelación (1 nítido · 3-4 bien PSX). CALIBRABLE.
+  let PSX_PIX=2;                 // factor de pixelación (1 nítido · 2 = default de fábrica · 3-4 más PSX). CALIBRABLE.
   let _psxOn=false, _psx=null, _psxWobble=0.85, _psxGrid=160;
   function _psxPatchAll(){ if(!_psx||!_psx.patch)return;
     scene.traverse(o=>{ if(o.isMesh&&o.material){ if(Array.isArray(o.material))o.material.forEach(m=>_psx.patch(m)); else _psx.patch(o.material); } }); // materiales activos (incl. GLB ya cargados)
@@ -1606,7 +1606,10 @@
     if(_psxOn){ _psxInstall(); if(_psx)_psx.setEnabled(true); if(typeof psxPass!=='undefined'&&psxPass)psxPass.enabled=true; }
     else { if(_psx)_psx.setEnabled(false); if(typeof psxPass!=='undefined'&&psxPass)psxPass.enabled=false; }
     _psxApplySize(); try{ localStorage.setItem('refugio_psx', _psxOn?'1':'0'); }catch(e){} return _psxOn; }
-  try{ if(localStorage.getItem('refugio_psx')==='1') setTimeout(()=>{ try{_psxSet(true);}catch(e){} }, 2000); }catch(e){} // restaura el estado (tras cargar los GLB para parchear todo)
+  // DEFAULT DE FÁBRICA: PSX ON con pixel 2. El localStorage manda SÓLO si el usuario lo cambió a propósito (clave presente '1'/'0'); sesión limpia
+  // (sin clave) → ON. Se llama en el KICKOFF, ANTES del primer render → el búnker arranca en PSX desde el primer frame (sin parpadeo nítido).
+  function _psxBoot(){ let wantOn=true; try{ const s=localStorage.getItem('refugio_psx'); if(s!==null) wantOn=(s==='1'); }catch(e){}
+    if(wantOn){ _psxSet(true); setTimeout(_psxPatchAll,1500); setTimeout(_psxPatchAll,4000); } } // re-parchea para cubrir los GLB (robot/props) que cargan async (idempotente)
   // ====== UNIDAD R-01 (robot) ======
   // (BANCO DE CRAFTEO del modo jugable — jubilado: recetas/materiales/categorías del survival viejo.)
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,atRadio:false,rt:null};
@@ -2195,4 +2198,5 @@
     try{ Object.defineProperty(window,'__r01',{value:open,writable:false,enumerable:false,configurable:false}); } // no-enumerable: no aparece en Object.keys(window)
     catch(e){ window.__r01=open; }
   })();
+  try{_psxBoot();}catch(e){} // PSX por defecto ON (pixel 2) — ANTES del primer render para que el búnker arranque en PSX sin parpadeo nítido
   loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);
