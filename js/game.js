@@ -1570,7 +1570,7 @@
   // RESTART: reinicia al robot a su pose/posición base y resincroniza el reloj del stream a UTC real (speed 1, sin offset).
   function rst(){ended=false;running=true;resetRobot();streamResync();
     speed=1;document.querySelectorAll('[data-spd]').forEach((x,i)=>x.classList.toggle('on',i===0));}
-  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);if(composer)composer.setSize(innerWidth,innerHeight);});
+  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();_psxApplySize();}); // _psxApplySize respeta el factor de pixelación si el PSX está prendido (y aplica la resolución normal si no)
 
   // ====== CEL-SHADING + CONTORNOS (toggle CEL/REAL) ======
   function _gradMap(st){const cn=document.createElement('canvas');cn.width=st;cn.height=1;const x=cn.getContext('2d');for(let i=0;i<st;i++){const v=Math.round(255*Math.pow(i/(st-1),0.8));x.fillStyle='rgb('+v+','+v+','+v+')';x.fillRect(i,0,1,1);}const t=new THREE.CanvasTexture(cn);t.minFilter=THREE.NearestFilter;t.magFilter=THREE.NearestFilter;t.generateMipmaps=false;return t;}
@@ -1589,6 +1589,24 @@
   const _celAmb=new THREE.AmbientLight(0x7a8a9a,0);scene.add(_celAmb);
   let celOn=false;
   function applyCel(){celReg.forEach(r=>{r.m.material=celOn?r.toon:r.std;});celOutlines.forEach(o=>{o.visible=celOn;});_celAmb.intensity=celOn?0.34:0.05;if(renderer)renderer.toneMappingExposure=celOn?0.95:0.86;const b=$('#cel');if(b){b.textContent=celOn?T('btn_style_cel'):T('btn_style_real');b.classList.toggle('on',celOn);}}
+  // ====== FILTRO PSX (efecto visual PURO; toggle OP.psx) ======
+  // Capa 1: psxPass (dither 15-bit + Bayer, en scene.js) + PIXELACIÓN (baja el backing del renderer + image-rendering:pixelated → nearest). Capa 2:
+  // WOBBLE de vértices (installPSX; sólo wobble en r128). Toggle LIMPIO/REVERSIBLE: lazy install en el 1er ON → OFF deja el búnker IDÉNTICO a ahora
+  // (resolución normal, materiales sin parche activo, pass deshabilitado). No toca lógica/rutina/señales/backend. Parchea AMBAS variantes del CEL.
+  let PSX_PIX=3;                 // factor de pixelación (1 nítido · 3-4 bien PSX). CALIBRABLE.
+  let _psxOn=false, _psx=null, _psxWobble=0.85, _psxGrid=160;
+  function _psxPatchAll(){ if(!_psx||!_psx.patch)return;
+    scene.traverse(o=>{ if(o.isMesh&&o.material){ if(Array.isArray(o.material))o.material.forEach(m=>_psx.patch(m)); else _psx.patch(o.material); } }); // materiales activos (incl. GLB ya cargados)
+    for(const e of celReg){ if(e.std)_psx.patch(e.std); if(e.toon)_psx.patch(e.toon); } } // AMBAS variantes del CEL (la inactiva no está en un mesh) → STYLE sigue andando con PSX on
+  function _psxInstall(){ if(!THREE.installPSX)return null; if(!_psx)_psx=THREE.installPSX(scene,{enabled:_psxOn,wobble:_psxWobble,grid:_psxGrid}); _psxPatchAll(); return _psx; }
+  function _psxApplySize(){ const W=innerWidth,H=innerHeight;
+    if(_psxOn){ renderer.setPixelRatio(1); const w=Math.max(1,Math.round(W/PSX_PIX)),h=Math.max(1,Math.round(H/PSX_PIX)); renderer.setSize(w,h,false); if(composer)composer.setSize(w,h); renderer.domElement.style.imageRendering='pixelated'; } // backing chico + CSS estira nearest → pixelado
+    else { renderer.setPixelRatio(Math.min(devicePixelRatio,SMALL?1.5:2)); renderer.setSize(W,H); if(composer)composer.setSize(W,H); renderer.domElement.style.imageRendering=''; } } // restaura la resolución/estado original
+  function _psxSet(on){ _psxOn=!!on;
+    if(_psxOn){ _psxInstall(); if(_psx)_psx.setEnabled(true); if(typeof psxPass!=='undefined'&&psxPass)psxPass.enabled=true; }
+    else { if(_psx)_psx.setEnabled(false); if(typeof psxPass!=='undefined'&&psxPass)psxPass.enabled=false; }
+    _psxApplySize(); try{ localStorage.setItem('refugio_psx', _psxOn?'1':'0'); }catch(e){} return _psxOn; }
+  try{ if(localStorage.getItem('refugio_psx')==='1') setTimeout(()=>{ try{_psxSet(true);}catch(e){} }, 2000); }catch(e){} // restaura el estado (tras cargar los GLB para parchear todo)
   // ====== UNIDAD R-01 (robot) ======
   // (BANCO DE CRAFTEO del modo jugable — jubilado: recetas/materiales/categorías del survival viejo.)
   const robot={bat:80,hp:100,temp:35,carga:0,status:'idle',mT:0,tx:0,tz:-1.2,moving:false,wanderT:1.5,mixer:null,act:{},cur:null,model:null,path:null,pi:0,dest:0,atDesk:false,atFab:false,atRadio:false,rt:null};
@@ -1874,6 +1892,14 @@
       return { fuente: srv?'server':'local', stage: srv?st:'(1/6 fijo)', progress: srv?STREAM.awakeningProgress:undefined, chance: _awakeningChance(), frasesElegibles: elig.length, frases: elig }; };
     // equivalentes de consola de los botones del panel oculto (STYLE / RESTART):
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
+    // FILTRO PSX (efecto visual puro): prende/apaga las DOS capas juntas (dither + pixelación + wobble). Reversible en runtime sin recargar; OFF = búnker idéntico.
+    window.__REFUGIO.psx=function(on){ if(on===undefined) return {on:_psxOn, pixel:PSX_PIX, levels:(typeof psxPass!=='undefined'&&psxPass)?psxPass.uniforms.uLevels.value:null, dither:(typeof psxPass!=='undefined'&&psxPass)?psxPass.uniforms.uDither.value:null, wobble:_psxWobble, grid:_psxGrid};
+      _psxSet(on); return 'PSX '+(_psxOn?('ON · dither(levels '+((typeof psxPass!=='undefined'&&psxPass)?psxPass.uniforms.uLevels.value:'?')+') + pixelación x'+PSX_PIX+' + wobble '+_psxWobble):'OFF (búnker normal, sin residuos)'); };
+    // sub-ajustes de calibración (opcionales): pixelación, niveles de color, dither on/off, intensidad del wobble
+    window.__REFUGIO.psxPixel=function(n){ PSX_PIX=Math.max(1,Math.round(+n||1)); if(_psxOn)_psxApplySize(); return 'pixelación x'+PSX_PIX+(_psxOn?'':' (se aplica al prender OP.psx(true))'); };
+    window.__REFUGIO.psxLevels=function(n){ if(typeof psxPass!=='undefined'&&psxPass)psxPass.uniforms.uLevels.value=Math.max(2,+n||32); return 'niveles de color por canal: '+((typeof psxPass!=='undefined'&&psxPass)?psxPass.uniforms.uLevels.value:'(sin pass)'); };
+    window.__REFUGIO.psxDither=function(v){ if(typeof psxPass!=='undefined'&&psxPass)psxPass.uniforms.uDither.value=(v?1:0); return 'dither '+((typeof psxPass!=='undefined'&&psxPass&&psxPass.uniforms.uDither.value)?'ON':'OFF'); };
+    window.__REFUGIO.psxWobble=function(v){ _psxWobble=Math.max(0,Math.min(1,(v==null?0.85:+v))); if(_psx)_psx.setWobble(_psxWobble); return 'wobble de vértices: '+_psxWobble+(_psxOn?'':' (se ve al prender OP.psx(true))'); };
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
