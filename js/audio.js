@@ -4,7 +4,7 @@
   const HUM_BASE=.5; // gain de reposo del zumbido del generador (para el duck del fallo eléctrico)
   // VOLÚMENES por sonido (0..~1, ajustables en vivo con __REFUGIO.vol('paso',0.08)). 'master' = volumen general.
   // step/creak = pasos y crujidos de Beeko. El resto son los SFX existentes (cada función multiplica por su entrada).
-  const AVOL={master:.55, step:.20, creak:.13, camclick:1, flap:1, blip:1, bkblip:1, alarm:1, rumble:1, thud:1};
+  const AVOL={master:.55, step:.20, creak:.13, camclick:1, flap:1, blip:1, bkblip:1, alarm:1, rumble:1, thud:1, radioin:1};
   function mkNoise(){const b=actx.createBuffer(1,actx.sampleRate*2,actx.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
   function startAudio(){if(!actx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;actx=new AC();noiseBuf=mkNoise();
       master=actx.createGain();master.gain.value=0;master.connect(actx.destination);
@@ -64,6 +64,31 @@
     const s2=actx.createBufferSource();s2.buffer=noiseBuf;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=2500;bp.Q.value=1.5; // tick del contacto
     const g2=actx.createGain();g2.gain.setValueAtTime(0,t);g2.gain.linearRampToValueAtTime(.03*AVOL.camclick,t+.001);g2.gain.exponentialRampToValueAtTime(.0004,t+.02);
     s2.connect(bp);bp.connect(g2);g2.connect(master);s2.start(t);s2.stop(t+.03);}
+  // ---- RADIO: SEÑAL ENTRANTE (2ª señal del despertar). TODO GENERADO (sin archivos): la radio "recibe" algo de afuera.
+  // Carácter por ETAPA: 1=estática que sube y corta + UN beep aislado (ambiguo) · 2=estática CON patrón rítmico (beeps que se repiten)
+  // · 3=estática densa multicapa + patrón complejo/irregular. Respeta AVOL.radioin. Todo se programa de una con el reloj del AudioContext
+  // (robusto a caídas de fps); radioInGain permite CORTAR al instante si arranca una transmisión (TX tiene prioridad, no se solapan).
+  let radioInGain=null;
+  function _radioInInit(){ if(!actx||radioInGain)return; radioInGain=actx.createGain(); radioInGain.gain.value=1; radioInGain.connect(master); }
+  function radioInStop(){ if(!actx||!radioInGain)return; const t=actx.currentTime; radioInGain.gain.cancelScheduledValues(t); radioInGain.gain.setValueAtTime(Math.max(.0001,radioInGain.gain.value),t); radioInGain.gain.linearRampToValueAtTime(0,t+.12); } // corte rápido (preempción del TX)
+  function _rinStatic(t0,dur,peak){ const s=actx.createBufferSource();s.buffer=noiseBuf;s.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1300+Math.random()*500;bp.Q.value=.7; // ráfaga de estática que sube y cae
+    const g=actx.createGain();g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(peak,t0+dur*.34);g.gain.linearRampToValueAtTime(peak*.55,t0+dur*.72);g.gain.linearRampToValueAtTime(0,t0+dur);
+    s.connect(bp);bp.connect(g);g.connect(radioInGain);s.start(t0);s.stop(t0+dur+.05); }
+  function _rinBeep(t0,freq,dur,vol){ const o=actx.createOscillator();o.type='square';o.frequency.value=freq;const g=actx.createGain(); // beep/tono (señal intencional)
+    g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(vol,t0+.008);g.gain.setValueAtTime(vol,t0+Math.max(.02,dur-.02));g.gain.linearRampToValueAtTime(0,t0+dur);
+    o.connect(g);g.connect(radioInGain);o.start(t0);o.stop(t0+dur+.02); }
+  // programa el evento de recepción completo de una ETAPA (estática + beeps según el carácter). dur = duración en segundos.
+  function radioReceive(stage,dur){ if(!audioOn||!actx)return; _radioInInit(); if(!radioInGain)return;
+    const t=actx.currentTime, V=AVOL.radioin; radioInGain.gain.cancelScheduledValues(t); radioInGain.gain.setValueAtTime(1,t);
+    // HOOK FUTURO (NO construido): voz/música real interceptada. El día de mañana, _radioInClip(stage) (en game.js) devolverá un buffer/clip
+    // y acá se reproduce en vez de —o encima de— la estática sintética. Hoy el enganche queda listo y comentado:
+    // try{ const clip=(typeof _radioInClip==='function')&&_radioInClip(stage); if(clip){ const cs=actx.createBufferSource(); cs.buffer=clip; cs.connect(radioInGain); cs.start(t); } }catch(e){}
+    if(stage>=3){ _rinStatic(t,dur,.12*V); _rinStatic(t+dur*.16,dur*.62,.08*V);                              // densa, multicapa
+      const pat=[0,.42,.7,1.18,1.4,1.92,2.34,2.5,2.96]; for(let r=0;r*3.3<dur;r++){const o=r*3.3;pat.forEach((b,i)=>{if(o+b<dur-.1)_rinBeep(t+o+b,540+((i*97)%430),.09+(i%3)*.03,.10*V);});} }
+    else if(stage>=2){ _rinStatic(t,dur,.09*V); const step=.34;                                              // estática + patrón rítmico (repite)
+      for(let k=0;.4+k*step<dur-.2;k++){ if(k%4===0||k%4===1) _rinBeep(t+.4+k*step,880,.13,.09*V); } }
+    else { _rinStatic(t,dur,.07*V); _rinBeep(t+dur*.46,740,.16,.07*V); }                                     // etapa 1: estática + UN beep aislado
+  }
   // Comandos de operador para volúmenes (se suman al __REFUGIO del backbone). vol() lista; vol('master',.7) ajusta.
   if(window.__REFUGIO){
     window.__REFUGIO.vol=function(name,v){ if(name===undefined) return Object.assign({},AVOL);

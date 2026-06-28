@@ -70,6 +70,14 @@
   // CUADRO DE TRANSMISIÓN (overlay #radiotx): typewriter → hold → fade. Estado de transmisión vive en STREAM.broadcasting (respeta override).
   let rtEl=null,rtTextEl=null,_rtReady=false,_txActive=false,_txFull='',_txT0=0,_txHold=0,_txFadeT=0,_txLastP=-1,_txLastE=-1,_txDur=0;
   const TX_CPS=42, TX_FADE=0.6;
+  // ---- SEÑAL ENTRANTE (2ª señal del despertar): la radio a veces RECIBE algo de afuera. Capa SOBRE el motor del despertar (lee la ETAPA del
+  // server). NO toca la transmisión: estado PROPIO, audio aparte y NUNCA solapa un broadcast (TX tiene prioridad). Cae a silencio si el server
+  // no manda etapa (fallback: no dispara, nunca rompe). Sub-flag propio (_rxEnabled) → se apaga sin tocar los pensamientos. ----
+  const RADIO_IN_CHANCE=[0, 0.06, 0.14, 0.30]; // prob. por INTENTO de recepción, por etapa (0:nunca · 3:frecuente). CALIBRABLE — todo junto acá.
+  const RADIO_IN_GAP=30;                        // s entre intentos (se tira el dado cada GAP). CALIBRABLE.
+  const RADIO_IN_DUR=[4, 5, 7, 9];             // duración (s) del evento de recepción, por etapa. CALIBRABLE.
+  const RI_GLYPH='▓▒░·—=#%*';                  // charset de glitch del readout (estética de señal interceptada)
+  let riEl=null,riStatusEl=null,_riReady=false,_rxEnabled=true,_rxActive=false,_rxStage=0,_rxT0=0,_rxDur=0,_rxNextT=RADIO_IN_GAP,_rxFrame=0;
   function _rtGrab(){ if(_rtReady)return; rtEl=$('#radiotx'); rtTextEl=$('#rtText'); _rtReady=true; }
   function txFormat(s){ const d=Math.round(STREAM.day), day=d>=1000?(''+d).replace(/\B(?=(\d{3})+(?!\d))/g,','):''+d; // separador de miles en DAY si ≥1000
     return s.replace(/\{DAY\}/g,day).replace(/\{RELEASED\}/g,Math.round(STREAM.beesReleased)).replace(/\{BEES\}/g,Math.round(STREAM.bees)).replace(/\{CHARGE\}/g,Math.round(STREAM.charge)); }
@@ -87,15 +95,48 @@
     _txDur=text.length/TX_CPS + _txHold + TX_FADE; // duración total de la transmisión (typewriter+hold+fade) → la ronda usa esto para el dwell
     if(rtTextEl)rtTextEl.textContent=''; rtEl.classList.add('show');
     streamDrive('broadcasting', true); radioSwell(); return text; }
-  function radioTick(dt,t){ // LED + dial atados a STREAM.broadcasting + ciclo del cuadro (typewriter→hold→fade)
-    const on=!!STREAM.broadcasting;
-    if(radioLED)radioLED.material.emissiveIntensity = on ? (.5+Math.abs(Math.sin(t*7))*1.7) : .22;
-    if(radioDialMat)radioDialMat.emissiveIntensity = on ? (.7+Math.abs(Math.sin(t*5))*.5) : .25;
-    if(_txActive){ _rtGrab();
+  // ---- SEÑAL ENTRANTE: helpers del readout (glitch) + ciclo de recepción (independiente del TX) ----
+  function _riGrab(){ if(_riReady)return; riEl=$('#radioin'); riStatusEl=$('#riStatus'); _riReady=true; }
+  function _riGlitch(n){ let s=''; for(let i=0;i<n;i++)s+=RI_GLYPH[(Math.random()*RI_GLYPH.length)|0]; return s; }
+  function _riBar(v){ const n=Math.max(0,Math.min(10,Math.round(v*10))); return '▌'.repeat(n)+'·'.repeat(10-n); } // medidor de señal 0..1
+  function _riRender(stage,frac){ const carrier=Math.abs(Math.sin(frac*Math.PI*5+stage)); const lvl=.22+carrier*.72; // portadora que sube y baja
+    const L=['⌁ '+_riGlitch(2)+' CARRIER '+_riBar(lvl)+' '+_riGlitch(2), 'SOURCE: '+(stage>=3?_riGlitch(3)+' ? '+_riGlitch(3):_riGlitch(2)+' ??? ')];
+    if(stage>=2) L.push(carrier>.5?'⟿ PATTERN '+_riGlitch(6):'⟿ '+_riGlitch(8));   // etapa 2-3: hay un PATRÓN (intermitente)
+    else L.push(carrier>.6?'· — · '+_riGlitch(3):_riGlitch(7));                       // etapa 1: ruido ambiguo
+    if(stage>=3 && carrier>.7) L.push('!! DECODE FAIL '+_riGlitch(4));               // etapa 3: más perturbador
+    return L.join('\n'); }
+  // HOOK FUTURO (prep, NO construido): devolverá un AudioBuffer de voz/música real interceptada para una etapa. Hoy null → sólo síntesis. Ver audio.js (radioReceive).
+  function _radioInClip(stage){ return null; }
+  function radioInStart(stage){ _riGrab(); if(!riEl)return; if(_txActive||STREAM.broadcasting)return; // jamás arranca sobre una transmisión
+    _rxStage=stage; _rxActive=true; _rxT0=perfNow(); _rxFrame=999; _rxDur=RADIO_IN_DUR[stage]||RADIO_IN_DUR[1];
+    riEl.classList.add('show'); if(typeof radioReceive==='function')radioReceive(stage,_rxDur); } // audio GENERADO (degrada en silencio si el audio está off)
+  function _rxEnd(){ _rxActive=false; if(riEl)riEl.classList.remove('show'); if(typeof radioInStop==='function')radioInStop(); }
+  function radioRxTick(dt,t){
+    if(_rxActive){ _riGrab(); _rxFrame+=dt; const el=(perfNow()-_rxT0)/1000, frac=Math.min(1,el/_rxDur);
+      if(_rxFrame>=.09){ _rxFrame=0; if(riStatusEl)riStatusEl.textContent=_riRender(_rxStage,frac); }  // refresca el readout ~11 fps (glitch)
+      if(el>=_rxDur)_rxEnd(); return; }
+    // ¿intentar una recepción? sólo con el despertar del SERVER activo (la etapa la manda el server), flag ON, y SIN transmitir ni en fade
+    if(!_rxEnabled || _txActive || _txFadeT>0 || STREAM.broadcasting) return;
+    if(!_awakeningServer()) return;                                  // sin etapa del server no hay recepción (fallback: no dispara, nunca rompe)
+    _rxNextT-=dt; if(_rxNextT>0) return; _rxNextT=RADIO_IN_GAP;
+    const st=_awakeningStage(), ch=RADIO_IN_CHANCE[st]||0;
+    if(Math.random()<ch) radioInStart(st); }
+  function radioTick(dt,t){ // LED + dial: TX (latido regular) vs RX (parpadeo entrecortado rojo) vs reposo; + ciclos de TX y RX (separados)
+    const tx=!!STREAM.broadcasting;
+    if(tx && _rxActive) _rxEnd();                                    // TX tiene prioridad: si arranca una transmisión mientras se recibe, corta la recepción al instante
+    if(tx){ if(radioLED){radioLED.material.emissive.setHex(0xff3a18); radioLED.material.emissiveIntensity=.5+Math.abs(Math.sin(t*7))*1.7;}
+      if(radioDialMat)radioDialMat.emissiveIntensity=.7+Math.abs(Math.sin(t*5))*.5; }
+    else if(_rxActive){ const fl=.35+(Math.sin(t*23)*Math.sin(t*7.3)>0?1:.12)*1.5;  // parpadeo IRREGULAR (batido de dos senos → entrecortado, no late parejo como el TX)
+      if(radioLED){radioLED.material.emissive.setHex(0xff2a14); radioLED.material.emissiveIntensity=fl;}                    // rojo más intenso = recibiendo
+      if(radioDialMat)radioDialMat.emissiveIntensity=.35+Math.abs(Math.sin(t*3.3))*.25; }
+    else { if(radioLED){radioLED.material.emissive.setHex(0xff3a18); radioLED.material.emissiveIntensity=.22;}             // reposo (estado original)
+      if(radioDialMat)radioDialMat.emissiveIntensity=.25; }
+    if(_txActive){ _rtGrab();                                        // ciclo de TRANSMISIÓN (typewriter→hold→fade) — INTACTO
       const el=(perfNow()-_txT0)/1000, n=Math.min(_txFull.length, Math.floor(el*TX_CPS));
       if(rtTextEl)rtTextEl.textContent=_txFull.slice(0,n)+(n<_txFull.length?'▌':'');
       if(el >= _txFull.length/TX_CPS + _txHold){_txActive=false; if(rtEl)rtEl.classList.remove('show'); _txFadeT=TX_FADE;}
-    } else if(_txFadeT>0){ _txFadeT-=dt; if(_txFadeT<=0) streamDrive('broadcasting', false); } }
+    } else if(_txFadeT>0){ _txFadeT-=dt; if(_txFadeT<=0) streamDrive('broadcasting', false); }
+    radioRxTick(dt,t); }                                             // ciclo de RECEPCIÓN (independiente; sólo corre cuando NO se transmite)
   // ====== EXPANSIÓN: PASILLO + BIBLIOTECA + CULTIVO ======
   box(2.0,CH+.3,.3,-2.2,CH/2,RZ1,concreteMat);box(2.0,CH+.3,.3,2.2,CH/2,RZ1,concreteMat);
   box(2.6,.3,2.0,0,-.15,4.2,floorMat);box(2.6,.3,2.0,0,CH,4.2,ceilMat);
@@ -1772,6 +1813,14 @@
     window.__REFUGIO.style=function(on){celOn=(on===undefined)?!celOn:!!on;applyCel();return celOn?'CEL':'REAL';}; // cel-shading: style(true)=CEL · style(false)=REAL · style()=alterna
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
+    // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
+    // se atan a la etapa del despertar del server (igual que los pensamientos); este sub-flag la apaga SIN tocar los pensamientos.
+    window.__REFUGIO.radioReceiving=function(on){ _rxEnabled=(on===undefined)?!_rxEnabled:!!on; if(!_rxEnabled&&_rxActive)_rxEnd(); _rxNextT=RADIO_IN_GAP;
+      return 'señal entrante '+(_rxEnabled?'ON (atada a la etapa del despertar del server; OP.serverAwakening debe estar ON para que dispare sola)':'OFF'); };
+    window.__REFUGIO.receive=function(stage){ const s=Math.max(0,Math.min(3,(stage===undefined?_awakeningStage():(stage|0)))); // fuerza UNA recepción de la etapa pedida (ignora el dado y el server)
+      if(STREAM.broadcasting||_txActive)return 'la radio está TRANSMITIENDO — la recepción no pisa una transmisión (probá de nuevo en unos segundos)';
+      radioInStart(s); return 'recepción FORZADA · etapa '+s+' · dur '+(RADIO_IN_DUR[s]||RADIO_IN_DUR[1])+'s'; };
+    window.__REFUGIO.radioIn=function(stage){ return window.__REFUGIO.receive(stage); }; // alias de OP.receive
     // ---- CALIBRACIÓN EN VIVO de poses del brazo. DOS poses independientes: 'admin' (teclado, YA fija) y 'radio' (brazo derecho al transmisor).
     // OP.poseTarget('radio'|'admin') elige cuál edita OP.arm/armDump/armReset. OP.holdRadio(true) lleva a Beeko a la radio y lo FIJA en pose
     // (y pone el target en 'radio') para calibrar cómodo. OP.arm('UpperArmR','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL (estable). ----
