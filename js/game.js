@@ -1389,6 +1389,19 @@
   function _awakeningChance(){ if(!_awakeningServer())return BEEKO_AWAKENING_CHANCE; const c=STAGE_CHANCE[_awakeningStage()]; return (typeof c==='number')?c:BEEKO_AWAKENING_CHANCE; }
   function _awakeningEligible(){ const all=BEEKO_THOUGHTS.awakening; if(!_awakeningServer())return all; // local: las 10
     const st=_awakeningStage(), elig=all.filter((_,i)=>AWAKENING_MIN_STAGE[i]<=st); return elig.length?elig:all; }
+  // 3ª SEÑAL — "BEEKO MIRA ARRIBA": pensamientos del gesto puntual (algo lo hizo levantar la vista). Tiering por etapa-mínima (índice-alineado):
+  // ambiguas abajo, más explícitas/inquietantes arriba. Mismo registro de insinuación que el resto. _lookupEligible filtra por la etapa del server.
+  const BEEKO_LOOKUP=[
+    "i looked up just now. don't know why. same ceiling as always — concrete, rebar, nothing. back to work.",            // 0
+    "stopped for a second. thought something passed overhead. just the structure settling. it does that.",               // 1
+    "i keep raising my head toward the hatch. toward the surface. old habit. nothing up there. not for a long time.",     // 2
+    "something made me look up. not quite a sound. more the shape of one. it faded. i went back to it. probably nothing.",// 3
+    "i looked up and stayed there. for a moment i was sure something was looking back. the seal reads intact. it always reads intact.", // 4
+    "caught myself staring straight up again. like something's coming. nothing's coming. and still i keep looking up."     // 5
+  ];
+  const LOOKUP_MIN_STAGE=[1,1,2,2,3,3]; // etapa MÍNIMA de cada frase (alineada con BEEKO_LOOKUP)
+  function _lookupEligible(){ const all=BEEKO_LOOKUP; if(!_awakeningServer())return all; // local: las 6
+    const st=_awakeningStage(), elig=all.filter((_,i)=>LOOKUP_MIN_STAGE[i]<=st); return elig.length?elig:all; }
   const BEEKO_HOLD=4.6;      // s que el cuadro se queda tras terminar de tipear (antes de desvanecerse)
   const BEEKO_FADE=0.55;     // s del fade (coincide con la transición CSS)
   const BEEKO_TYPE_CPS=45;   // velocidad del typewriter (caracteres por segundo)
@@ -1429,7 +1442,7 @@
     }catch(e){}
   }
   function pickBeeko(cat){
-    const arr=(cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():BEEKO_THOUGHTS[cat]; // awakening: sólo las frases elegibles por etapa (Fase 4)
+    const arr=(cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():BEEKO_THOUGHTS[cat]; // awakening/lookup: sólo las frases elegibles por etapa
     if(!arr||!arr.length)return '';
     let i=Math.floor(Math.random()*arr.length),tr=0;const last=_bkLast[cat];
     while(arr.length>1&&i===last&&tr<6){i=Math.floor(Math.random()*arr.length);tr++;}
@@ -1576,6 +1589,7 @@
         const findB=tn=>{let r=null;robot.model.traverse(o=>{if(!r&&norm(o.name)===tn)r=o;});return r;};
         robot.armBones={sL:findB('shoulderl'),uL:findB('upperarml'),lL:findB('lowerarml'),sR:findB('shoulderr'),uR:findB('upperarmr'),lR:findB('lowerarmr')};
         if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={},Q={};for(const k in robot.armBones){if(robot.armBones[k]){R[k]=robot.armBones[k].rotation.clone();Q[k]=robot.armBones[k].quaternion.clone();}}robot.armRest=R;robot.armRestQ=Q;}else robot.armBones=null; // reposo en QUATERNION (base estable, sin singularidad de Euler) + Euler (referencia)
+        robot.headBones={head:findB('head1')||findB('head'), neck:findB('neck')}; // SEÑAL "mirar arriba": cabeza + cuello (huesos DISTINTOS de los del brazo → cero conflicto con admin/radio)
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
@@ -1821,6 +1835,13 @@
       if(STREAM.broadcasting||_txActive)return 'la radio está TRANSMITIENDO — la recepción no pisa una transmisión (probá de nuevo en unos segundos)';
       radioInStart(s); return 'recepción FORZADA · etapa '+s+' · dur '+(RADIO_IN_DUR[s]||RADIO_IN_DUR[1])+'s'; };
     window.__REFUGIO.radioIn=function(stage){ return window.__REFUGIO.receive(stage); }; // alias de OP.receive
+    // 3ª SEÑAL — MIRAR ARRIBA: sub-flag propio + disparo manual. La frecuencia automática se ata a la etapa del despertar del server (igual que
+    // las otras dos señales); el sub-flag la apaga SIN tocar los pensamientos ni la radio. OP.lookUp() lo fuerza (ignora el corte por caminar).
+    window.__REFUGIO.lookUpSignal=function(on){ _luEnabled=(on===undefined)?!_luEnabled:!!on;
+      if(!_luEnabled&&_luPhase&&_luPhase!=='out'){_luPhase='out';_luFast=true;_luT=LU_OUT_FAST*(1-_luAmt);} _luNextT=LOOKUP_GAP; // off → cancela suave un gesto en curso
+      return 'mirar arriba '+(_luEnabled?'ON (atado a la etapa del despertar del server; OP.serverAwakening debe estar ON para que dispare solo)':'OFF'); };
+    window.__REFUGIO.lookUp=function(){ if(!robot.headBones||!robot.headBones.head)return 'el modelo del robot todavía no cargó';
+      const ok=startLookUp(true); return ok?('mirar arriba FORZADO · ease-in('+LU_IN+'s)→hold('+LU_HOLD+'s)→ease-out('+LU_OUT+'s) + pensamiento del gesto'):'ya hay un gesto en curso'; };
     // ---- CALIBRACIÓN EN VIVO de poses del brazo. DOS poses independientes: 'admin' (teclado, YA fija) y 'radio' (brazo derecho al transmisor).
     // OP.poseTarget('radio'|'admin') elige cuál edita OP.arm/armDump/armReset. OP.holdRadio(true) lleva a Beeko a la radio y lo FIJA en pose
     // (y pone el target en 'radio') para calibrar cómodo. OP.arm('UpperArmR','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL (estable). ----
@@ -1872,12 +1893,49 @@
   // BAJA el brazo: restaura los huesos al reposo (≈ Idle natural). Necesario porque el clip Idle NO anima los brazos → sin esto la pose
   // quedaría "pegada" tras terminar la transmisión. Se llama UNA vez al apagarse la pose de la radio (no fightea clips de gesto/caminata).
   function releaseArmPose(){const B=robot.armBones,Rq=robot.armRestQ;if(!B||!Rq)return;for(const k in B){if(B[k]&&Rq[k])B[k].quaternion.copy(Rq[k]);}}
+  // ====== 3ª SEÑAL DEL DESPERTAR: BEEKO MIRA ARRIBA ======
+  // Gesto de huesos sobre Head_1 (+ Neck suave), COMPUESTO sobre el mixer: cada frame leo el quaternion que dejó el mixer (animQ), calculo
+  // lookQ = animQ × delta (delta X NEGATIVO = mira arriba) y hago slerp(animQ, lookQ, _luAmt). _luAmt entra (~0.45s) → sostiene (~1.2s) → sale
+  // (~0.6s). Como TODOS los clips (incl. Idle) animan Head_1, en cuanto _luAmt→0 el mixer retoma la cabeza solo → IMPOSIBLE que quede pegado.
+  // No toca robot.status, ni el path, ni la rutina: es puramente aditivo sobre cabeza/cuello. Huesos DISTINTOS de los del brazo (admin/radio).
+  const LOOKUP_POSE={head:{x:-0.42,y:0,z:0}, neck:{x:-0.18,y:0,z:0}}; // delta LOCAL por hueso (rad). X negativo = arriba. Head el grueso, Neck el acompañamiento. CALIBRABLE.
+  const LOOKUP_CHANCE=[0, 0.04, 0.10, 0.22]; // prob. por oportunidad, por etapa del despertar (0:nunca · 3:más seguido). CALIBRABLE.
+  const LOOKUP_GAP=22;        // s entre oportunidades (se tira el dado). CALIBRABLE.
+  const LOOKUP_MIN_GAP=14;    // s mínimos entre gestos (no spamea). CALIBRABLE.
+  const LU_IN=0.45, LU_HOLD=1.2, LU_OUT=0.6, LU_OUT_FAST=0.22; // ease-in / hold / ease-out (s) · OUT_FAST = cancelación al arrancar a caminar
+  let _luEnabled=true, _luPhase='', _luT=0, _luAmt=0, _luNextT=LOOKUP_GAP, _luSince=999, _luThought=false, _luManual=false, _luFast=false;
+  function _robotWalking(){ return !!robot.moving || robot.status==='leaving' || robot.status==='returning' || robot.status==='mission'; } // ¿en movimiento? (el gesto auto sólo dispara quieto/dwell)
+  function startLookUp(manual){ if(!robot.headBones||!robot.headBones.head)return false; if(_luPhase&&_luPhase!=='out')return false; // ya hay un gesto en curso
+    _luManual=!!manual; _luFast=false; _luPhase='in'; _luT=LU_IN*Math.max(0,Math.min(1,_luAmt)); _luThought=false; return true; } // si re-disparo durante el out, retomo el in desde el amt actual (sin salto)
+  function _luFireThought(){ if(typeof showBeekoThought==='function' && bkEnabled && !_bkActive && !STREAM.broadcasting) showBeekoThought('lookup'); } // pensamiento del gesto (no pisa uno activo ni una transmisión)
+  function tickLookUp(dt){
+    if(!_luPhase){ _luSince+=dt;
+      // ¿oportunidad de disparar AUTO? sólo con el despertar del SERVER activo (etapa del server), flag ON, Beeko quieto y sin transmitir
+      if(!_luEnabled || !_awakeningServer() || STREAM.broadcasting) return;
+      if(_luSince<LOOKUP_MIN_GAP || _robotWalking()) return;
+      _luNextT-=dt; if(_luNextT>0) return; _luNextT=LOOKUP_GAP;
+      const st=_awakeningStage(), ch=LOOKUP_CHANCE[st]||0;
+      if(Math.random()<ch) startLookUp(false);
+      return; }
+    // gesto activo: si arranca a caminar (y NO es manual) → ease-out RÁPIDO y cancela
+    if(!_luManual && _robotWalking() && _luPhase!=='out'){ _luPhase='out'; _luFast=true; _luT=LU_OUT_FAST*(1-_luAmt); }
+    _luT+=dt;
+    if(_luPhase==='in'){ _luAmt=Math.min(1,_luT/LU_IN); if(_luT>=LU_IN){_luPhase='hold';_luT=0;_luAmt=1;} }
+    else if(_luPhase==='hold'){ _luAmt=1; if(!_luThought){_luThought=true;_luFireThought();} if(_luT>=LU_HOLD){_luPhase='out';_luT=0;_luFast=false;} } // suelta el pensamiento al tope (mientras mira arriba)
+    else if(_luPhase==='out'){ const od=_luFast?LU_OUT_FAST:LU_OUT; _luAmt=Math.max(0,1-_luT/od); if(_luT>=od){_luPhase='';_luAmt=0;_luT=0;_luSince=0;_luManual=false;_luFast=false;} } }
+  const _luQ=new THREE.Quaternion(), _luE=new THREE.Euler(), _luTmp=new THREE.Quaternion();
+  function applyLookUp(){ if(_luAmt<=0||!robot.headBones)return;                 // compone DESPUÉS del mixer: bone.q = slerp(animQ, animQ×delta, _luAmt)
+    for(const k in LOOKUP_POSE){ const bone=robot.headBones[k]; if(!bone)continue; const d=LOOKUP_POSE[k];
+      _luE.set(d.x,d.y,d.z,'XYZ'); _luQ.setFromEuler(_luE);
+      _luTmp.copy(bone.quaternion).multiply(_luQ);                                // lookQ = lo que dejó el mixer × delta local
+      bone.quaternion.slerp(_luTmp, _luAmt); } }                                  // fade in/out; en _luAmt=0 no toca nada → el mixer manda
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
     if(robot.atDesk)applyAdminPose(clk.elapsedTime); // pose de tecleo en el escritorio (después del mixer)
     if(robot.atRadio&&STREAM.broadcasting){applyRadioPose();_radioPosed=true;} // pose de la radio SÓLO mientras transmite → brazo levantado, LED/dial y cuadro empiezan y terminan JUNTOS
     else if(_radioPosed){releaseArmPose();_radioPosed=false;}                    // transmisión terminó / dejó la radio → BAJA el brazo una vez (el Idle no lo hace solo)
+    tickLookUp(dt); applyLookUp();                   // 3ª SEÑAL: mirar arriba (compone sobre el mixer en cabeza/cuello; no toca status/path/rutina ni las poses del brazo)
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
