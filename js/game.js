@@ -473,7 +473,7 @@
         // para que no quede pisado a negro en la penumbra, sin "brillar" como algo nuevo.
         const pMat=new THREE.MeshStandardMaterial({map:pTex,roughness:.96,metalness:0,emissive:0x0a0e08,emissiveMap:pTex,emissiveIntensity:.10});
         const poster=new THREE.Mesh(new THREE.PlaneGeometry(PW,PH),pMat);
-        poster.position.set(-4.65,1.42,-0.83);poster.rotation.z=0.02; // muro norte (cara interior z≈-0.85) mirando al sur (+z); leve torcido = "lo colgaron hace mucho"
+        poster.position.set(-4.42,1.42,-0.83);poster.rotation.z=0.02; // muro norte (cara interior z≈-0.85) mirando al sur (+z); leve torcido = "lo colgaron hace mucho". Corrido un toque a la der. para hacerle lugar al cuadro del dev a la izquierda (par parejo).
         scene.add(poster);
         // --- envejecido por canvas (se aplica al cargar la imagen; degradación: si falla queda el respaldo) ---
         function agePoster(img){const W=512,H=768;pctx.clearRect(0,0,W,H);
@@ -495,6 +495,38 @@
           pctx.globalAlpha=.25;pctx.fillStyle='#000';pctx.beginPath();pctx.moveTo(W-95,H);pctx.lineTo(W,H-95);pctx.lineTo(W-68,H-68);pctx.closePath();pctx.fill();
           pctx.globalAlpha=1;pctx.globalCompositeOperation='source-over';pTex.needsUpdate=true;}
         try{const _img=new Image();_img.onload=()=>{try{agePoster(_img);}catch(e){}};_img.onerror=()=>{};_img.src='assets/miku.png';}catch(e){}
+      }
+      // (J2) CUADRO DEL DESARROLLADOR (assets/dev.jpg) — AL LADO de Miku (a su izquierda), MISMO marco/montaje desgastado: idéntico tamaño (2:3), misma cinta,
+      // esquina despegada, viñeta y manchas → quedan como dos cuadros de la misma pared. La foto es ~cuadrada (1020×1030) → se recorta a 2:3 (cover, centrado,
+      // conserva la cara). Ya viene con tinte verde/desgaste, así que el grading de color va MÁS SUAVE para no embarrarla; el montaje/wear es idéntico.
+      {
+        const PW=0.56, PH=0.84;                                    // mismo que Miku → par parejo
+        const dcv=cv(512,768), dctx=dcv.getContext('2d');
+        dctx.fillStyle='#3a3d30';dctx.fillRect(0,0,512,768);
+        const dTex=new THREE.CanvasTexture(dcv);dTex.anisotropy=4;
+        const dMat=new THREE.MeshStandardMaterial({map:dTex,roughness:.96,metalness:0,emissive:0x0a0e08,emissiveMap:dTex,emissiveIntensity:.10});
+        const devpic=new THREE.Mesh(new THREE.PlaneGeometry(PW,PH),dMat);
+        devpic.position.set(-5.02,1.42,-0.832);devpic.rotation.z=-0.018; // a la izquierda de Miku, leve torcido OPUESTO (variedad)
+        scene.add(devpic);
+        function ageDev(img){const W=512,H=768;dctx.clearRect(0,0,W,H);
+          const ir=img.width/img.height,cr=W/H; let dw,dh,dx,dy; if(ir>cr){dh=H;dw=H*ir;dx=(W-dw)/2;dy=0;}else{dw=W;dh=W/ir;dx=0;dy=(H-dh)/2;} dctx.drawImage(img,dx,dy,dw,dh); // 1) base (cover-fit, recorta lados)
+          dctx.globalCompositeOperation='saturation';dctx.globalAlpha=.32;dctx.fillStyle='#808080';dctx.fillRect(0,0,W,H); // 2) desaturado SUAVE (ya viene tinteada)
+          dctx.globalCompositeOperation='multiply';dctx.globalAlpha=.30;dctx.fillStyle='#8c8158';dctx.fillRect(0,0,W,H);  // 3) tinte papel viejo suave
+          dctx.globalAlpha=.24;dctx.fillStyle='#23271c';dctx.fillRect(0,0,W,H);                                          //    + oscurecido (clima búnker)
+          const stain=(x,y,r,c,a)=>{const g=dctx.createRadialGradient(x,y,r*.15,x,y,r);g.addColorStop(0,c);g.addColorStop(1,'rgba(255,255,255,0)');dctx.globalAlpha=a;dctx.fillStyle=g;dctx.beginPath();dctx.arc(x,y,r,0,7);dctx.fill();};
+          dctx.globalCompositeOperation='multiply';                                                                      // 4) manchas de humedad (lejos de la cara)
+          stain(70,90,120,'#6b5a36',.4);stain(450,310,170,'#5a4d30',.48);stain(120,690,200,'#534a2e',.55);stain(410,660,120,'#6b5a3a',.42);
+          dctx.globalAlpha=1;const vg=dctx.createRadialGradient(W/2,H/2,H*.32,W/2,H/2,H*.62);vg.addColorStop(0,'#fff');vg.addColorStop(1,'#5a5848');dctx.fillStyle=vg;dctx.fillRect(0,0,W,H); // 5) bordes gastados
+          dctx.globalCompositeOperation='overlay';dctx.globalAlpha=.1;for(let i=0;i<14;i++){dctx.fillStyle=i%2?'#000':'#fff';dctx.fillRect((i*37+13)%W,0,1+(i%3),H);} // 6) descoloridos verticales
+          dctx.globalCompositeOperation='source-over';                                                                   // 7) CINTA amarillenta en las esquinas de arriba
+          const tape=(tx,ty,ang)=>{dctx.save();dctx.translate(tx,ty);dctx.rotate(ang);dctx.globalAlpha=.42;dctx.fillStyle='#cfc9a8';dctx.fillRect(-46,-15,92,30);dctx.globalAlpha=.16;dctx.fillStyle='#000';dctx.fillRect(-46,-15,4,30);dctx.fillRect(42,-15,4,30);dctx.restore();};
+          tape(46,42,0.7);tape(466,42,-0.7);                                                                             // ángulos espejados respecto de Miku
+          dctx.globalAlpha=1;                                                                                            // 8) ESQUINA DESPEGADA (abajo-IZQUIERDA, espejada respecto de Miku)
+          dctx.fillStyle='#1d2018';dctx.beginPath();dctx.moveTo(0,H);dctx.lineTo(150,H);dctx.lineTo(0,H-150);dctx.closePath();dctx.fill();
+          dctx.fillStyle='#b9b39a';dctx.beginPath();dctx.moveTo(0,H);dctx.lineTo(95,H);dctx.lineTo(0,H-95);dctx.closePath();dctx.fill();
+          dctx.globalAlpha=.25;dctx.fillStyle='#000';dctx.beginPath();dctx.moveTo(95,H);dctx.lineTo(0,H-95);dctx.lineTo(68,H-68);dctx.closePath();dctx.fill();
+          dctx.globalAlpha=1;dctx.globalCompositeOperation='source-over';dTex.needsUpdate=true;}
+        try{const _img2=new Image();_img2.onload=()=>{try{ageDev(_img2);}catch(e){}};_img2.onerror=()=>{};_img2.src='assets/dev.jpg';}catch(e){}
       }
     }
   }
@@ -2235,7 +2267,8 @@
   // libres solos, sin enumerar nada a mano. Se combina con AREAS (backstop: no salir de la unión de salas) + COLLIDERS (objetos).
   let PLAYER_RADIUS=0.30;   // radio del cuerpo de Beeko para la colisión (m). CALIBRABLE (OP.gameRadius)
   let _WALLS=[];            // AABBs de pared {x0,x1,z0,z1} cosechados de la escena (una vez)
-  function _harvestWalls(){ if(!scene)return; const W=[],box=new THREE.Box3(),sz=new THREE.Vector3(),ctr=new THREE.Vector3(),seen=new Set();
+  function _harvestWalls(){ if(!scene)return; scene.updateMatrixWorld(true); // matrices al día ANTES de medir (si no, mallas anidadas sin render dan AABBs colapsados al origen = paredes fantasma)
+    const W=[],box=new THREE.Box3(),sz=new THREE.Vector3(),ctr=new THREE.Vector3(),seen=new Set();
     scene.traverse(o=>{ if(!o.isMesh||!o.geometry||o.geometry.type!=='BoxGeometry')return; if(o.userData&&o.userData.isOutline)return; // ignora contornos CEL
       box.setFromObject(o); box.getSize(sz); box.getCenter(ctr);
       if(sz.y<1.4)return; if(Math.min(sz.x,sz.z)>0.5)return; if(Math.max(sz.x,sz.z)<1.0)return; if(ctr.y>3.6)return; // alta + fina + larga = pared/estructura
