@@ -1216,7 +1216,7 @@
     // la cámara LEE STREAM.zone y corta. No detecta al robot para decidir la zona.
     if(shake>0&&evType!=='quake')shake-=dt*1.6;const sh=Math.max(0,shake); // en temblor lo maneja eventTick; si no, decae normal
     robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas) — sigue corriendo en juego (útil para "en qué sala está")
-    if(gameMode) applyPlayerCam(dt,t,mv);        // MODO JUEGO: cámara 3ª persona siguiendo a Beeko
+    if(gameMode) applyFirstPersonCam(dt);        // MODO JUEGO: cámara en PRIMERA PERSONA (ojos de Beeko)
     else applySecurityCam(dt,t,mv,sh);           // LIVESTREAM: cámara CCTV según STREAM.zone
     updateOverlay(dt);            // overlay (CAM/zona, timestamp, día) — lee de STREAM
     tickBeeko(dt);                // cuadro de pensamientos de Beeko (triggers + typewriter + render del retrato)
@@ -1637,6 +1637,11 @@
     ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0},   LowerArmL:{x:0,y:0,z:0},
     ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:-0.5,y:0,z:-0.7}, LowerArmR:{x:2.1,y:0,z:0}
   };
+  // POSE VIEWMODEL (1ª persona): levanta AMBOS brazos hacia adelante para que las manos/antebrazos entren en cuadro abajo (como un shooter). CALIBRABLE (OP.poseTarget('viewmodel') + OP.arm).
+  const VIEWMODEL_POSE={
+    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:-1.7,y:-0.15,z:0.2}, LowerArmL:{x:2.3,y:0,z:0.1},
+    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:-1.7,y:0.15,z:-0.2}, LowerArmR:{x:2.3,y:0,z:-0.1}
+  };
   let poseTarget='admin'; // a qué pose apuntan OP.arm/armDump/armReset: 'admin' (teclado) o 'radio'. OP.poseTarget(...) lo cambia; holdRadio() lo pone en 'radio'.
   let _radioHold=false;   // modo calibración: Beeko fijado en la radio en pose (no corre la rutina)
   let _radioPosed=false;  // ¿se está aplicando la pose de la radio? (para BAJAR el brazo una vez al terminar la transmisión — el clip Idle no anima los brazos)
@@ -1662,6 +1667,7 @@
         robot.armBones={sL:findB('shoulderl'),uL:findB('upperarml'),lL:findB('lowerarml'),sR:findB('shoulderr'),uR:findB('upperarmr'),lR:findB('lowerarmr')};
         if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={},Q={};for(const k in robot.armBones){if(robot.armBones[k]){R[k]=robot.armBones[k].rotation.clone();Q[k]=robot.armBones[k].quaternion.clone();}}robot.armRest=R;robot.armRestQ=Q;}else robot.armBones=null; // reposo en QUATERNION (base estable, sin singularidad de Euler) + Euler (referencia)
         robot.headBones={head:findB('head1')||findB('head'), neck:findB('neck')}; // SEÑAL "mirar arriba": cabeza + cuello (huesos DISTINTOS de los del brazo → cero conflicto con admin/radio)
+        if(robot.headBones.head)_headScale0=robot.headBones.head.scale.x||1; // escala original de la cabeza (la 1ª persona la oculta escalándola a ~0 y la restaura al salir)
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
@@ -1915,7 +1921,9 @@
     window.__REFUGIO.menu=function(){ showMenu(); return 'menú de inicio abierto (elegí OBSERVAR o TOMAR CONTROL)'; };
     // CALIBRACIÓN del feel del modo juego (velocidad + cámara 3ª persona). Sin args devuelven el valor actual.
     window.__REFUGIO.gameSpeed=function(n){ if(n!==undefined)PLAYER_SPEED=Math.max(0.2,+n||1.9); return 'velocidad de Beeko: '+PLAYER_SPEED+' u/s'; };
-    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)PLAYER_TURN=Math.max(1,+n||8); return 'giro de Beeko (lerp; más bajo = más suave): '+PLAYER_TURN; };
+    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)FP_TURN=Math.max(0.3,+n||2.3); return 'velocidad de giro (1ª persona, A/D): '+FP_TURN+' rad/s'; };
+    window.__REFUGIO.gameFP=function(fwd,up,pitch){ if(fwd!==undefined)FP_EYE_FWD=+fwd; if(up!==undefined)FP_EYE_UP=+up; if(pitch!==undefined)FP_PITCH=+pitch;
+      return {ojosAdelante:FP_EYE_FWD, ojosArriba:FP_EYE_UP, pitch:FP_PITCH, nota:'fwd=cuánto adelante de la cabeza · up=ajuste vertical · pitch negativo=mira abajo (se ven más los brazos)'}; }; // OP.gameFP(fwd, up, pitch)
     window.__REFUGIO.gameAccel=function(accel,decel){ if(accel!==undefined)PLAYER_ACCEL=Math.max(1,+accel||10); if(decel!==undefined)PLAYER_DECEL=Math.max(1,+decel||8); return {aceleracion:PLAYER_ACCEL, desaceleracion:PLAYER_DECEL, nota:'más bajo = más inercia/glide'}; }; // OP.gameAccel(acel, desac)
     window.__REFUGIO.gameCam=function(dist,height,lag){ if(dist!==undefined)CAM_DIST=Math.max(0.5,+dist||CAM_DIST); if(height!==undefined)CAM_HEIGHT=Math.max(0.3,+height||CAM_HEIGHT); if(lag!==undefined){CAM_POS_LERP=Math.max(0.5,+lag||CAM_POS_LERP);CAM_YAW_LERP=Math.max(0.5,+lag*0.7||CAM_YAW_LERP);} return {dist:CAM_DIST,height:CAM_HEIGHT,lookY:CAM_LOOKY,posLerp:+CAM_POS_LERP.toFixed(2),yawLerp:+CAM_YAW_LERP.toFixed(2)}; }; // OP.gameCam(distancia, altura, lag) — lag chico = sigue más pegada
     // ENERGÍA (hito 3): setear a mano (probar el colapso) + calibrar el drenaje.
@@ -1963,10 +1971,10 @@
     // ---- CALIBRACIÓN EN VIVO de poses del brazo. DOS poses independientes: 'admin' (teclado, YA fija) y 'radio' (brazo derecho al transmisor).
     // OP.poseTarget('radio'|'admin') elige cuál edita OP.arm/armDump/armReset. OP.holdRadio(true) lleva a Beeko a la radio y lo FIJA en pose
     // (y pone el target en 'radio') para calibrar cómodo. OP.arm('UpperArmR','x',0.5) rota ese hueso 0.5 rad sobre su eje LOCAL (estable). ----
-    function _poseObj(){return poseTarget==='radio'?RADIO_POSE:ADMIN_POSE;}
-    function _poseReapply(){ if(poseTarget==='radio'){ if(robot.atRadio)applyRadioPose(); } else { if(robot.atDesk)applyAdminPose(clk.elapsedTime); } }
-    function _poseApplying(){ return poseTarget==='radio'?!!robot.atRadio:!!robot.atDesk; } // ¿la pose editada se está viendo ahora?
-    window.__REFUGIO.poseTarget=function(which){ if(which==='radio'||which==='admin'){poseTarget=which;} return 'editando pose: '+poseTarget; };
+    function _poseObj(){return poseTarget==='radio'?RADIO_POSE:(poseTarget==='viewmodel'?VIEWMODEL_POSE:ADMIN_POSE);}
+    function _poseReapply(){ if(poseTarget==='radio'){ if(robot.atRadio)applyRadioPose(); } else if(poseTarget==='viewmodel'){ if(gameMode)applyViewmodelPose(); } else { if(robot.atDesk)applyAdminPose(clk.elapsedTime); } }
+    function _poseApplying(){ return poseTarget==='radio'?!!robot.atRadio:(poseTarget==='viewmodel'?!!gameMode:!!robot.atDesk); } // ¿la pose editada se está viendo ahora?
+    window.__REFUGIO.poseTarget=function(which){ if(which==='radio'||which==='admin'||which==='viewmodel'){poseTarget=which;} return 'editando pose: '+poseTarget+(which==='viewmodel'?' (1ª persona — entrá al modo juego para verla: OP.gameMode(true))':''); };
     window.__REFUGIO.arm=function(bone,axis,val){
       const P=_poseObj();
       if(bone===undefined) return 'uso: OP.arm("UpperArmR"|"LowerArmR"|"UpperArmL"|"LowerArmL"|"ShoulderR"|"ShoulderL", "x"|"y"|"z", radianes) · editando: '+poseTarget;
@@ -2006,6 +2014,11 @@
   // conservan su pose de Idle (el mixer ya los escribió) y se ven naturales (p. ej. el brazo izquierdo al costado, sin calibrarlo).
   function applyRadioPose(){const B=robot.armBones,Rq=robot.armRestQ;if(!B||!Rq)return;
     for(const name in RADIO_POSE){const d=RADIO_POSE[name];if(d.x===0&&d.y===0&&d.z===0)continue; // hueso sin calibrar → lo deja el mixer (reposo natural)
+      const key=ARM_KEY[name],bone=B[key],rq=Rq[key];if(!bone||!rq)continue;
+      _apE.set(d.x,d.y,d.z,'XYZ');_apQ.setFromEuler(_apE);bone.quaternion.copy(rq).multiply(_apQ);}}
+  // POSE VIEWMODEL (1ª persona): misma técnica, AMBOS brazos hacia adelante → manos/antebrazos en cuadro. Se aplica cada frame en modo juego (después del mixer).
+  function applyViewmodelPose(){const B=robot.armBones,Rq=robot.armRestQ;if(!B||!Rq)return;
+    for(const name in VIEWMODEL_POSE){const d=VIEWMODEL_POSE[name];if(d.x===0&&d.y===0&&d.z===0)continue;
       const key=ARM_KEY[name],bone=B[key],rq=Rq[key];if(!bone||!rq)continue;
       _apE.set(d.x,d.y,d.z,'XYZ');_apQ.setFromEuler(_apE);bone.quaternion.copy(rq).multiply(_apQ);}}
   // BAJA el brazo: restaura los huesos al reposo (≈ Idle natural). Necesario porque el clip Idle NO anima los brazos → sin esto la pose
@@ -2092,6 +2105,13 @@
   let PLAYER_TURN=8;           // qué tan rápido gira Beeko hacia donde camina (lerp; más bajo = giro más suave). CALIBRABLE (OP.gameTurn)
   let PLAYER_ACCEL=10;         // rapidez con que la velocidad sube hacia la deseada (más bajo = arranque más suave/inercia). CALIBRABLE (OP.gameAccel)
   let PLAYER_DECEL=8;          // rapidez con que la velocidad baja al soltar (más bajo = más glide). CALIBRABLE (OP.gameAccel)
+  // PRIMERA PERSONA (modo juego): cámara en los ojos de Beeko. CALIBRABLE (OP.gameFP / OP.gameTurn).
+  let FP_TURN=2.3;             // velocidad de giro con A/D (rad/s). CALIBRABLE (OP.gameTurn)
+  let FP_EYE_FWD=0.02;         // cuánto adelante de la cabeza va la cámara (m) — evita ver el interior, deja ver los brazos. CALIBRABLE (OP.gameFP)
+  let FP_EYE_UP=0.02;          // ajuste vertical de la cámara respecto del hueso de la cabeza (m). CALIBRABLE (OP.gameFP)
+  let FP_PITCH=-0.55;          // inclinación de la mirada (negativo = mira un poco hacia abajo → se ven más los brazos). CALIBRABLE (OP.gameFP)
+  const FP_FOV=78;             // campo de visión en 1ª persona (más amplio que la CCTV)
+  let _fpYaw=0, _headScale0=1; // _fpYaw = hacia dónde mira el jugador · _headScale0 = escala original de la cabeza (para restaurar al salir)
   let CAM_DIST=3.3, CAM_HEIGHT=2.05, CAM_LOOKY=1.05; // 3ª persona: distancia atrás · altura · a qué altura mira. CALIBRABLE (OP.gameCam)
   let CAM_POS_LERP=4.5, CAM_YAW_LERP=3.2;            // suavizado de la cámara: posición · giro detrás de Beeko (lag). CALIBRABLE (OP.gameCam)
   const GAME_FOV=68;
@@ -2152,26 +2172,23 @@
     if(_menuOn){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; }
     const inF=((_keys.has('w')||_keys.has('arrowup'))?1:0)-((_keys.has('s')||_keys.has('arrowdown'))?1:0);
     const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0);
-    // base relativa a la cámara. RIGHT = (-cos, sin): mirando hacia +Z el "derecha de pantalla" es world -X → A/← izquierda real, D/→ derecha real.
-    const y=_pcamYaw, fwdX=Math.sin(y), fwdZ=Math.cos(y), rX=-Math.cos(y), rZ=Math.sin(y);
-    let dx=fwdX*inF+rX*inR, dz=fwdZ*inF+rZ*inR; const mag=Math.hypot(dx,dz), inputActive=mag>0.001;
-    if(inputActive){ dx/=mag; dz/=mag; }
-    // VELOCIDAD CON INERCIA: la velocidad lerpea hacia la deseada (acelera) y hacia 0 al soltar (desacelera) → ni arranca ni frena de golpe.
-    const tgtX=inputActive?dx*PLAYER_SPEED:0, tgtZ=inputActive?dz*PLAYER_SPEED:0, ak=Math.min(1,(inputActive?PLAYER_ACCEL:PLAYER_DECEL)*dt);
+    // PRIMERA PERSONA: A/← y D/→ GIRAN la vista; W/↑ y S/↓ mueven adelante/atrás en la dirección que mirás.
+    _fpYaw += inR*FP_TURN*dt;                                  // giro (D/→ = +yaw = derecha)
+    const fX=Math.sin(_fpYaw), fZ=Math.cos(_fpYaw), inputMove=(inF!==0);
+    const tgtX=fX*inF*PLAYER_SPEED, tgtZ=fZ*inF*PLAYER_SPEED, ak=Math.min(1,(inputMove?PLAYER_ACCEL:PLAYER_DECEL)*dt); // velocidad con inercia (sólo adelante/atrás)
     _pvelX+=(tgtX-_pvelX)*ak; _pvelZ+=(tgtZ-_pvelZ)*ak;
+    robot.model.rotation.y=_fpYaw;                            // Beeko encara hacia donde mirás (siempre, aun yendo hacia atrás)
     const spd=Math.hypot(_pvelX,_pvelZ);
     if(spd>0.04){
-      let mx=_pvelX/spd, mz=_pvelZ/spd; // dirección actual de movimiento (de la velocidad, no del input directo → giro suave)
+      let mx=_pvelX/spd, mz=_pvelZ/spd;
       const px=robot.model.position.x, pz=robot.model.position.z;
       for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const ff=(rng-od)/rng*1.8;mx+=ox/od*ff;mz+=oz/od*ff;}} // steering anti-objeto (igual que el robot)
       const ml=Math.hypot(mx,mz)||1; mx/=ml; mz/=ml;
-      const sp=spd*dt; let nx=px+mx*sp, nz=pz+mz*sp; // el paso usa la velocidad ACTUAL (con inercia)
-      if(!inArea(nx,nz)){ if(inArea(nx,pz))nz=pz; else if(inArea(px,nz))nx=px; else {nx=px;nz=pz;} } // contención por AREAS (paredes/puertas) — no sale de las salas
+      const sp=spd*dt; let nx=px+mx*sp, nz=pz+mz*sp;
+      if(!inArea(nx,nz)){ if(inArea(nx,pz))nz=pz; else if(inArea(px,nz))nx=px; else {nx=px;nz=pz;} } // contención por AREAS — no sale de las salas
       robot.model.position.x=nx; robot.model.position.z=nz;
       for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const kk=(c.r+.2)/cd;robot.model.position.x=c.x+cx*kk;robot.model.position.z=c.z+cz*kk;}} // push-out duro
       if(!inArea(robot.model.position.x,robot.model.position.z)){ robot.model.position.x=px; robot.model.position.z=pz; } // GARANTÍA: nunca queda fuera de las salas
-      _playerHeading=Math.atan2(mx,mz);
-      robot.model.rotation.y += ((_playerHeading-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*PLAYER_TURN); // gira suave hacia el rumbo
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
     } else { _pvelX=0; _pvelZ=0; robot.moving=false; _setIdle(); }
     // INTERACCIÓN: proximidad al dock (cargar, HOLD E) y a la colmena (liberar abeja, TAP E). El drenaje corre salvo que esté cargando.
@@ -2203,17 +2220,32 @@
     camera.position.set(_pcamPos.x+(Math.random()-.5)*j,_pcamPos.y+(Math.random()-.5)*j,_pcamPos.z+(Math.random()-.5)*j);
     camera.lookAt(_pcamLook);
   }
+  // CÁMARA PRIMERA PERSONA (modo juego, definitiva): en los ojos de Beeko (hueso de la cabeza), mirando hacia donde encara. Oculta la cabeza
+  // (escala el hueso a ~0) para no ver el interior; los brazos (otros huesos) quedan visibles y se mueven con la animación. Las anims siguen → head-bob natural.
+  function _restoreHead(){ const h=robot.headBones&&robot.headBones.head; if(h)h.scale.setScalar(_headScale0||1); } // restaura la cabeza al salir del juego
+  function applyFirstPersonCam(dt){
+    if(!robot.model)return; const h=robot.headBones&&robot.headBones.head;
+    let ex,ey,ez;
+    if(h){ h.updateWorldMatrix(true,false); h.getWorldPosition(_pv1); ex=_pv1.x; ey=_pv1.y; ez=_pv1.z; } // ancla en la cabeza (posición real del hueso, tras el mixer)
+    else { const bp=robot.model.position; ex=bp.x; ey=bp.y+1.3; ez=bp.z; }
+    const fX=Math.sin(_fpYaw), fZ=Math.cos(_fpYaw);
+    camera.position.set(ex+fX*FP_EYE_FWD, ey+FP_EYE_UP, ez+fZ*FP_EYE_FWD);   // ojos: un poco adelante de la cabeza
+    camera.lookAt(camera.position.x+fX*2, camera.position.y+FP_PITCH*2, camera.position.z+fZ*2); // mira adelante con leve pitch
+    if(camera.fov!==FP_FOV){camera.fov=FP_FOV;camera.updateProjectionMatrix();}
+    if(h)h.scale.setScalar(0.0001);                                          // oculta la cabeza (se re-aplica cada frame por si el mixer la toca)
+    applyViewmodelPose();                                                    // brazos hacia adelante (viewmodel) — después del mixer
+  }
   function _cleanRobotForMode(){ // reset del estado de la rutina + corta poses/gestos → entrar/salir sin romper la máquina de estados
     robot.rt=null; robot.path=null; robot.dest=-1; robot.moving=false; robot.status='idle'; robot.atDesk=false; robot.atFab=false; robot.atRadio=false;
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
     ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
-    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad al cambiar de modo
+    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad + restaura la cabeza al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); _hideItemPanel(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} } // oculta el panel del ítem si quedó abierto
-  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0;
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; _fpYaw=robot.model?robot.model.rotation.y:0; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0;
     _mItemTaken=false; if(mItemGrp)mItemGrp.visible=true; _invClear(); _hideItemPanel(); // sesión de juego fresca: el ítem vuelve a la bóveda, inventario limpio
     _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
