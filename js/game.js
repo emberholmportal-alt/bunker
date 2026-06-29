@@ -1856,7 +1856,9 @@
   function evApplyLights(redK,dimK){for(const e of EV_LIGHTS){e.l.color.copy(e.c).lerp(_evRed,redK);if(dimK>0)e.l.intensity=e.i*(1-dimK);}} // modulación PURA desde base
   function evRestoreLights(){for(const e of EV_LIGHTS){e.l.color.copy(e.c);e.l.intensity=e.i;}}                                          // restauración explícita exacta
   function evEnvelope(p){return p<EV_ARC_UP?p/EV_ARC_UP:p<EV_ARC_UP+EV_ARC_HOLD?1:Math.max(0,(1-p)/(1-EV_ARC_UP-EV_ARC_HOLD));} // sube → pico breve → baja largo (mantiene la forma al estirar la duración)                                                              // arco: sube (0–.3) · pico (.3–.7) · baja (.7–1)
-  function reactBeeko(cat){const mode=Math.floor(Math.random()*3);evHoldT=EV_REACT_HOLD[mode]; // 0 leve (mantiene) / 1 mira ('No') / 2 melancólico ('Idle' quieto)
+  function reactBeeko(cat){
+    if(gameMode){ showBeekoThought(cat); return; } // MODO JUEGO: el evento CORRE (shake/luces/alarma) pero NO congela a Beeko ni le impone anim (lo maneja el jugador); el pensamiento sí aparece
+    const mode=Math.floor(Math.random()*3);evHoldT=EV_REACT_HOLD[mode]; // 0 leve (mantiene) / 1 mira ('No') / 2 melancólico ('Idle' quieto)
     if(robot.model){if(mode===1)setRobotAnim('No');else if(mode===2)setRobotAnim('Idle');} showBeekoThought(cat);}
   // ARCO VISUAL del evento (shake / luces rojas / alarma / emergencia ámbar). Se SEPARA del scheduler para poder
   // dispararlo desde el server (Fase 2 — Parte A): el arco no cambia, solo cambia QUIÉN decide cuándo empieza/termina.
@@ -2069,6 +2071,7 @@
     && !robot.atDesk && !robot.atFab && !robot.atRadio && !_radioHold
     && evHoldT<=0 && _soundPauseT<=0 && !_luPhase && !STREAM.broadcasting && !ended && running; }
   function tickExpressive(dt){
+    if(gameMode){ _exprRun=false; return; } // MODO JUEGO: nada de momentos expresivos autónomos (Death/Dance/etc.) ni trote — el jugador maneja el cuerpo
     if(robot.moving && !_exprWasMoving) _exprRun = _exprEnabled && (Math.random()<EXPR_RUN_CHANCE); // inicio de viaje → decide trotar
     if(!robot.moving) _exprRun=false; _exprWasMoving=!!robot.moving;
     if(_exprActive){ if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,_exprT); robot.wanderT=Math.max(robot.wanderT||0,_exprT); // mantiene el dwell mientras dura
@@ -2193,7 +2196,9 @@
   function _cleanRobotForMode(){ // reset del estado de la rutina + corta poses/gestos → entrar/salir sin romper la máquina de estados
     robot.rt=null; robot.path=null; robot.dest=-1; robot.moving=false; robot.status='idle'; robot.atDesk=false; robot.atFab=false; robot.atRadio=false;
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
-    _luPhase=''; _luAmt=0; _exprActive=false; _soundPauseT=0; _keys.clear(); _eHeld=false; _playerCharging=false; _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt al cambiar de modo
+    ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
+    _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
+    _keys.clear(); _eHeld=false; _playerCharging=false; _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
