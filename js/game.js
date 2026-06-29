@@ -1725,7 +1725,7 @@
   const BEEKO_PS=SMALL?192:256; // resolución interna del retrato
   // ---- estado ----
   let bkEnabled=true,bkEl=null,bkTextEl=null,bkCanvas=null,bkRenderer=null,bkScene=null,bkCam=null,bkPivot=null,bkMixer=null,bkReady=false;
-  let _bkLast={},_bkZone=null,_bkWanderT=BEEKO_WANDER_MIN,_bkFull='',_bkActive=false,_bkSince=999,_bkClk=0,_bkRenderHold=0,_bkT0=0;
+  let _bkLast={},_bkZone=null,_bkWanderT=BEEKO_WANDER_MIN,_bkFull='',_bkActive=false,_bkSince=999,_bkClk=0,_bkRenderHold=0,_bkT0=0,_bkCat='',_bkIdx=-1;
   const perfNow=()=>(typeof performance!=='undefined'&&performance.now)?performance.now():Date.now(); // typewriter en tiempo real (no afectado por el clamp de dt ni el fps)
   // RETRATO: mini-renderer dedicado sobre el <canvas> del cuadro (variante DOM de la técnica RTT del diagnóstico:
   // 2ª/3ª instancia del MISMO GLB en su propia mini-escena con luces de "headshot" + AnimationMixer 'Idle'). Aislado
@@ -1756,12 +1756,14 @@
       },undefined,function(){});
     }catch(e){}
   }
+  // resuelve el ARRAY vivo de una categoría (mismo criterio que usa pickBeeko). Index-aligned EN↔ES → sirve para re-traducir el pensamiento en pantalla al togglear.
+  function _beekoArr(cat){ return (cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():(cat==='heard')?_heardEligible():BEEKO_THOUGHTS[cat]; } // awakening/lookup/heard: sólo las frases elegibles por etapa
   function pickBeeko(cat){
-    const arr=(cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():(cat==='heard')?_heardEligible():BEEKO_THOUGHTS[cat]; // awakening/lookup/heard: sólo las frases elegibles por etapa
+    const arr=_beekoArr(cat);
     if(!arr||!arr.length)return '';
     let i=Math.floor(Math.random()*arr.length),tr=0;const last=_bkLast[cat];
     while(arr.length>1&&i===last&&tr<6){i=Math.floor(Math.random()*arr.length);tr++;}
-    _bkLast[cat]=i;return arr[i];
+    _bkLast[cat]=i;_bkCat=cat;_bkIdx=i;return arr[i]; // recuerda categoría+índice del pensamiento actual (para re-traducirlo al cambiar idioma)
   }
   function showBeekoThought(cat){
     if(!bkEl)return '';const text=pickBeeko(cat);if(!text)return '';
@@ -1791,6 +1793,12 @@
       if(bkPivot)bkPivot.rotation.y=BEEKO_FACE+Math.sin(_bkClk*0.55)*0.13; // leve vaivén = vida
       bkRenderer.render(bkScene,bkCam);
     }
+  }
+  // RE-TRADUCE el pensamiento que YA está en pantalla al cambiar de idioma: misma categoría+índice (arrays alineados EN↔ES), texto traducido.
+  // Lo muestra COMPLETO (sin re-tipear) y reinicia el hold para que se lea bien antes de desvanecerse. Si no hay pensamiento activo, no hace nada (el próximo ya sale en el idioma nuevo).
+  function _beekoRelangCurrent(){ if(!_bkActive||!_bkCat||_bkIdx<0)return; const arr=_beekoArr(_bkCat); if(!arr||arr[_bkIdx]==null)return;
+    _bkFull=arr[_bkIdx]; if(bkTextEl)bkTextEl.textContent=_bkFull;                       // swap del texto en el idioma nuevo, ya revelado
+    _bkT0=perfNow()-(_bkFull.length/BEEKO_TYPE_CPS)*1000;                                 // marca como totalmente tipeado → entra al hold y después al fade
   }
   // Comandos de operador: ocultar/mostrar los pensamientos y forzar uno (testeo). Respeta el "stream limpio" si se apaga.
   if(window.__REFUGIO){
@@ -2655,6 +2663,7 @@
   // RE-RENDER de lo DINÁMICO al cambiar de idioma (applyI18n ya repinta el DOM estático con data-i18n; esto cubre lo que setea el JS).
   function _relangDynamic(){
     _applyVoiceLang();                                                                           // FASE 2: re-apunta la voz antes de repintar lo abierto
+    _beekoRelangCurrent();                                                                        // FASE 2: re-traduce el pensamiento que YA está en pantalla (si hay uno activo)
     if($('#configPanel')&&$('#configPanel').classList.contains('show')) _cfgSetModeLabel();   // label de cambiar-modo (si el config está abierto)
     if(_objOpen&&OBJ_LORE[_objOpen]){ const o=OBJ_LORE[_objOpen]; const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=T(o.headKey); if(bd)bd.textContent=_objBody(o); } // header + CUERPO del panel TV/radio/term abierto (voz bilingüe)
     if($('#itemPanel')&&$('#itemPanel').classList.contains('show')){ const h=$('#ipHead'),bd=$('#ipBody'); if(h)h.textContent=T('ip_recovered')+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; } // header + lore del ítem de la bóveda
