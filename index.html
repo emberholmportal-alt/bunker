@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>THE BUNKER — SHELTER 404</title>
+<title>BEEKO'S BUNKER</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=VT323&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -72,9 +72,9 @@
 
   <!-- HUD del MODO JUEGO (se muestra sólo en modo juego; el HUD CCTV se oculta). Por ahora: barra de energía. Inventario + prompt llegan en hitos siguientes. -->
   <div id="gamehud">
-    <div class="gh-energy"><span class="gh-label">ENERGÍA</span><div class="gh-bar"><i id="geBar"></i></div></div>
-    <div class="gh-bees"><span class="gh-bstar">✦</span> ABEJAS LIBERADAS <b id="gbVal">0</b></div>
-    <div class="gh-inv"><span class="gh-label">INVENTARIO</span><div class="gh-slots"><div class="gh-slot" id="invSlot0" title="objeto"></div><div class="gh-slot" id="invSlot1"></div></div></div>
+    <div class="gh-energy"><span class="gh-label" data-i18n="gh_energy">ENERGY</span><div class="gh-bar"><i id="geBar"></i></div></div>
+    <div class="gh-bees"><span class="gh-bstar">✦</span> <span data-i18n="gh_bees">BEES RELEASED</span> <b id="gbVal">0</b></div>
+    <div class="gh-inv"><span class="gh-label" data-i18n="gh_inv">INVENTORY</span><div class="gh-slots"><div class="gh-slot" id="invSlot0" title="item"></div><div class="gh-slot" id="invSlot1"></div></div></div>
   </div>
   <!-- Prompt de interacción del modo juego ([E] CHARGE / etc.). Aparece sólo cerca de algo interactuable. -->
   <div id="ghPrompt"></div>
@@ -83,24 +83,24 @@
 
   <!-- PANEL DE CONFIGURACIÓN (overlay CCTV). Cambiar de modo · leer el lore · idioma (placeholder). Click afuera o ✕ para cerrar. -->
   <div id="configPanel"><div class="cfg-frame">
-    <div class="cfg-head"><span class="cfg-title">⚙ CONFIGURACIÓN</span><button id="cfgClose" class="cfg-x" aria-label="cerrar">✕</button></div>
-    <div class="cfg-row"><div class="cfg-label">MODO</div><button id="cfgMode" class="cfg-btn"></button><button id="cfgMenu" class="cfg-btn cfg-sub">‹ MENÚ DE INICIO</button></div>
-    <div class="cfg-row"><div class="cfg-label">MUNDO</div><button id="cfgLore" class="cfg-btn">LEER EL LORE</button></div>
-    <div class="cfg-row"><div class="cfg-label">IDIOMA · LANGUAGE</div><div class="cfg-lang"><button class="cfg-lng on" data-lng="en">EN</button><button class="cfg-lng" id="cfgEs" data-lng="es">ES</button><span class="cfg-soon" id="cfgSoon">español próximamente</span></div></div>
+    <div class="cfg-head"><span class="cfg-title" data-i18n="cfg_title">⚙ CONFIGURATION</span><button id="cfgClose" class="cfg-x" aria-label="cerrar">✕</button></div>
+    <div class="cfg-row"><div class="cfg-label" data-i18n="cfg_mode">MODE</div><button id="cfgMode" class="cfg-btn"></button><button id="cfgMenu" class="cfg-btn cfg-sub" data-i18n="cfg_menu">‹ START MENU</button></div>
+    <div class="cfg-row"><div class="cfg-label" data-i18n="cfg_world">WORLD</div><button id="cfgLore" class="cfg-btn" data-i18n="cfg_lore">READ THE LORE</button></div>
+    <div class="cfg-row"><div class="cfg-label" data-i18n="cfg_lang">LANGUAGE</div><div class="cfg-lang"><button class="cfg-lng on" data-lng="en">EN</button><button class="cfg-lng" id="cfgEs" data-lng="es">ES</button></div></div>
   </div></div>
 
   <!-- PANEL DEL LORE (resumen del mundo). Scrolleable, click afuera o cerrar. -->
   <div id="lorePanel"><div class="lp-frame">
-    <div class="lp-head"><span class="lp-rec">●</span> <span>SHELTER 404 · FIELD BRIEF</span></div>
+    <div class="lp-head"><span class="lp-rec">●</span> <span data-i18n="lp_head">SHELTER 404 · FIELD BRIEF</span></div>
     <div class="lp-body" id="lpBody"></div>
-    <div class="lp-foot"><button id="lpClose" class="cfg-btn cfg-sub">cerrar</button></div>
+    <div class="lp-foot"><button id="lpClose" class="cfg-btn cfg-sub" data-i18n="lp_close">close</button></div>
   </div></div>
 
   <!-- Panel del ítem de misterio (lore del despertar). Se abre al tomar el objeto o al click en su slot del inventario. Click para cerrar. -->
   <div id="itemPanel"><div class="ip-frame">
     <div class="ip-head"><span class="ip-rec">●</span> <span id="ipHead">RECOVERED · LOG FRAGMENT</span></div>
     <div class="ip-body" id="ipBody"></div>
-    <div class="ip-foot">[ click para cerrar ]</div>
+    <div class="ip-foot" data-i18n="op_close">[ click to close ]</div>
   </div></div>
 
   <!-- Panel de INTERACCIÓN NARRATIVA (modo juego): TV / radio / computadora. Una estructura, 3 estilos (m-tv azul · m-radio ámbar · m-term verde).
@@ -111,7 +111,7 @@
       <div class="op-screen" id="opScreen"><canvas id="opCanvas" width="320" height="240"></canvas></div>
       <div class="op-body" id="opBody"></div>
     </div>
-    <div class="op-foot">[ click para cerrar ]</div>
+    <div class="op-foot" data-i18n="op_close">[ click to close ]</div>
   </div></div>
 
   <!-- PANTALLA DE CARGA (cubre toda la carga inicial: vendor + escena + robot.glb). Estética CCTV/terminal: título + mensajes de terminal + barra.
@@ -119,22 +119,31 @@
   <div id="boot">
     <div class="ld-scan"></div><div class="ld-vig"></div>
     <div class="ld-inner">
-      <div class="ld-top"><span class="ld-rrec">●</span> REC · CCTV · SHELTER 404</div>
-      <h2 class="ld-title">SHELTER 404</h2>
-      <div class="ld-sub">STANDALONE FEED · BOOT</div>
+      <div class="ld-top"><span class="ld-rrec">●</span> <span id="ldTop">REC · CCTV · SHELTER 404</span></div>
+      <h2 class="ld-title">BEEKO'S BUNKER</h2>
+      <div class="ld-sub" id="ldSub">STANDALONE FEED · BOOT</div>
       <div class="ld-msg" id="ldMsg">OPENING SHELTER</div>
       <div class="ld-bar"><i id="ldBar"></i></div>
       <div class="ld-pct" id="ldPct">0%</div>
-      <div class="ld-foot">R-01 · REFUGIO 404</div>
+      <div class="ld-foot" id="ldFoot">R-01 · SHELTER 404</div>
     </div>
   </div>
   <script>
-  /* Driver de la pantalla de carga. Corre apenas se parsea (antes de los <script> pesados de three/js) → mensajes y barra arrancan ya.
+  /* Driver de la pantalla de carga. Corre apenas se parsea (ANTES de los <script> pesados y de i18n.js) → mensajes y barra arrancan ya.
+     Mini-diccionario EN/ES propio (i18n.js todavía no cargó): lee localStorage 'refugio_lang' y fija el idioma DESDE EL PRIMER FRAME, sin parpadeo.
      La barra avanza con easing hacia ~90% mientras carga; __ld.finish() (lo llama game.js cuando el robot cargó de verdad) la lleva a 100%. */
   (function(){
-    var msgs=['OPENING SHELTER','WAKING R-01','PRESSURIZING DECKS','CALIBRATING OPTICS','SPOOLING THE HIVE FEED','SEALING HATCHES'];
-    var mi=0,shown=0,done=false,raf=0,mt=0;
+    var LANG='en'; try{var s=localStorage.getItem('refugio_lang'); if(s==='es')LANG='es';}catch(e){}
+    var D={
+      en:{ top:'REC · CCTV · SHELTER 404', sub:'STANDALONE FEED · BOOT', foot:'R-01 · SHELTER 404',
+           msgs:['OPENING SHELTER','WAKING R-01','PRESSURIZING DECKS','CALIBRATING OPTICS','SPOOLING THE HIVE FEED','SEALING HATCHES'] },
+      es:{ top:'REC · CCTV · REFUGIO 404', sub:'SEÑAL AUTÓNOMA · ARRANQUE', foot:'R-01 · REFUGIO 404',
+           msgs:['ABRIENDO EL REFUGIO','DESPERTANDO A R-01','PRESURIZANDO CUBIERTAS','CALIBRANDO LA ÓPTICA','CARGANDO LA SEÑAL DE LA HIVE','SELLANDO COMPUERTAS'] }
+    };
+    var L=D[LANG]||D.en, msgs=L.msgs, mi=0,shown=0,done=false,raf=0,mt=0;
     function el(id){return document.getElementById(id);}
+    function setTxt(id,t){var e=el(id);if(e)e.textContent=t;}
+    setTxt('ldTop',L.top); setTxt('ldSub',L.sub); setTxt('ldFoot',L.foot);   // fija el idioma antes del primer paint (sin parpadeo)
     function setMsg(){var m=el('ldMsg');if(m)m.textContent=msgs[mi];mi=(mi+1)%msgs.length;}
     function render(){var v=Math.min(100,shown),b=el('ldBar'),p=el('ldPct');if(b)b.style.width=v.toFixed(1)+'%';if(p)p.textContent=Math.round(v)+'%';}
     function tick(){if(done)return;if(shown<90){shown+=(90-shown)*0.012+0.05;if(shown>90)shown=90;render();}raf=requestAnimationFrame(tick);}
@@ -147,16 +156,16 @@
   <!-- MENÚ DE INICIO (estética CCTV: pantalla de selección de un sistema de vigilancia viejo). Aparece al cargar salvo que una elección previa esté
        guardada (localStorage 'refugio_mode'). DOS modos: OBSERVAR (livestream) · TOMAR CONTROL (juego). El búnker renderiza en vivo detrás. -->
   <div id="startmenu"><div class="sm-scan"></div><div class="sm-frame">
-    <div class="sm-head"><span class="sm-rec">● REC</span><span class="sm-ch">CCTV · SHELTER SELECT</span><span class="sm-bars"><i></i><i></i><i></i><i></i></span><span class="sm-id">404</span></div>
+    <div class="sm-head"><span class="sm-rec">● REC</span><span class="sm-ch" data-i18n="menu_select">CCTV · SHELTER SELECT</span><span class="sm-bars"><i></i><i></i><i></i><i></i></span><span class="sm-id">404</span></div>
     <div class="sm-title" data-glitch="BEEKO'S BUNKER">BEEKO'S BUNKER</div>
     <div class="sm-sub">BETA</div>
-    <div class="sm-amb">DÍA <b id="menuDays">—</b> · ABEJAS LIBERADAS <b id="menuBees">—</b></div>
-    <div class="sm-lore" id="menuLore">La superficie quedó en silencio hace mucho. Acá abajo, una unidad todavía enciende las luces cada día.</div>
+    <div class="sm-amb"><span data-i18n="menu_day">DAY</span> <b id="menuDays">—</b> · <span data-i18n="menu_bees">BEES RELEASED</span> <b id="menuBees">—</b></div>
+    <div class="sm-lore" id="menuLore" data-i18n="menu_lore">The surface fell silent a long time ago. Down here, one unit still turns the lights on every day.</div>
     <div class="sm-btns">
-      <button id="btnObserve" class="sm-btn">▶ OBSERVAR<small>el refugio en vivo · R-01 solo</small></button>
-      <button id="btnPlay" class="sm-btn sm-btn-amber">⦿ TOMAR CONTROL DE R-01<small>demo jugable · beta</small></button>
+      <button id="btnObserve" class="sm-btn"><span data-i18n="menu_observe">▶ OBSERVE</span><small data-i18n="menu_observe_sub">live feed · R-01 alone</small></button>
+      <button id="btnPlay" class="sm-btn sm-btn-amber"><span data-i18n="menu_play">⦿ TAKE CONTROL OF R-01</span><small data-i18n="menu_play_sub">playable demo · beta</small></button>
     </div>
-    <div class="sm-foot">SHELTER 404 · STANDALONE FEED · una unidad operativa</div>
+    <div class="sm-foot" data-i18n="menu_foot">SHELTER 404 · STANDALONE FEED · one operational unit</div>
   </div></div>
 
 <script src="vendor/three.min.js"></script>

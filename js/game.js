@@ -1037,30 +1037,30 @@
   const ZONE_I18N={observatorio:'room_observatory',pasillo:'room_hallway',biblioteca:'room_library',cultivo:'room_cultivo',taller:'room_workshop',descanso:'room_rest',carga:'room_charging',colmena:'room_hive',fab:'room_fab',vault:'room_vault'}; // nombre de sala vía i18n (todo el overlay en inglés)
   const ZONE_CAM={observatorio:'01',pasillo:'02',biblioteca:'03',cultivo:'04',taller:'05',descanso:'06',carga:'07',colmena:'08',fab:'09',vault:'10'}; // número de cámara FIJO por sala
   let _ovZone='',_ovTime='',_ovDay=-1,_ovAcc=1,_ovBees=-1,_ovEvent=null,_ovStatus='';
-  const EV_BADGE={quake:'⚠ SEISMIC EVENT', blackout:'⚠ POWER FAILURE'};
+  function _evBadge(ev){ return ev==='quake'?T('cam_ev_quake'):(ev==='blackout'?T('cam_ev_blackout'):T('cam_ev_alert')); } // badge de evento (i18n)
   // LÍNEA DE ESTADO de la unidad (telemetría CCTV, segunda línea bajo "CAM XX"). LEE de STREAM (action + contadores) → tiempo real.
   function _statBar(p){const N=8,f=Math.max(0,Math.min(N,Math.round((p||0)/100*N)));return '▓'.repeat(f)+'░'.repeat(N-f);}
   function beekoStatus(){const r=robot;
-    if(r.status==='broken') return 'UNIT OFFLINE';                                  // batería/HP a 0 (Death)
+    if(r.status==='broken') return T('cam_offline');                                // batería/HP a 0 (Death)
     // IN TRANSIT (sin barra): viajando a la zona de un tramo (rt.phase 'travel') o deambulando caminando (sin rt). La RONDA
     // (phase 'ronda', action 'patrol') NO entra acá → patrullar ES la tarea y muestra INSPECTION ROUNDS aunque camine.
-    if((r.rt && r.rt.phase==='travel') || (!r.rt && r.model && r.moving)) return 'IN TRANSIT';
+    if((r.rt && r.rt.phase==='travel') || (!r.rt && r.model && r.moving)) return T('cam_transit');
     switch(STREAM.action){
-      case 'charging':    return 'CHARGING '+_statBar(STREAM.charge)+' '+Math.round(STREAM.charge)+'%';                         // lee STREAM.charge
-      case 'fabricating': return 'FABRICATING '+_statBar(STREAM.print)+' '+Math.round(STREAM.print)+'%';                        // lee STREAM.print
-      case 'tending':     {const b=STREAM.bees/BEE_CAP*100; return 'RAISING BROOD '+_statBar(b)+' '+Math.round(b)+'%';}        // lee STREAM.bees (cría 0..BEE_CAP)
-      case 'admin':       return 'SYSTEM DIAGNOSTICS';
-      case 'patrol':      return 'INSPECTION ROUNDS';
-      case 'watching':    return 'STANDBY';
-      default:            return 'OPERATIONAL';                                     // fallback (idle/deambular/desconocido) → nunca vacío
+      case 'charging':    return T('cam_charging')+' '+_statBar(STREAM.charge)+' '+Math.round(STREAM.charge)+'%';              // lee STREAM.charge
+      case 'fabricating': return T('cam_fabricating')+' '+_statBar(STREAM.print)+' '+Math.round(STREAM.print)+'%';             // lee STREAM.print
+      case 'tending':     {const b=STREAM.bees/BEE_CAP*100; return T('cam_brood')+' '+_statBar(b)+' '+Math.round(b)+'%';}      // lee STREAM.bees (cría 0..BEE_CAP)
+      case 'admin':       return T('cam_diag');
+      case 'patrol':      return T('cam_rounds');
+      case 'watching':    return T('cam_standby');
+      default:            return T('cam_operational');                              // fallback (idle/deambular/desconocido) → nunca vacío
     }}
   function updateOverlay(dt){
     const z=STREAM.zone;
     if(z!==_ovZone){_ovZone=z;const e=$('#ch-cam');if(e)e.textContent=T('ov_cam')+' '+(ZONE_CAM[z]||'00')+' — '+(ZONE_I18N[z]?T(ZONE_I18N[z]):(''+z).toUpperCase());} // CAM 0X — ZONA (inglés vía i18n), cambia al cambiar STREAM.zone
     if(STREAM.event!==_ovEvent){_ovEvent=STREAM.event;const e=$('#ch-event');if(e){ // INDICADOR DE EVENTO: aparece/desaparece SOLO según STREAM.event (no un timer) → acompaña la duración real y se va limpio al terminar
-      if(STREAM.event){e.textContent=EV_BADGE[STREAM.event]||'⚠ ALERT';e.className='on '+STREAM.event;}else e.className='';}}
+      if(STREAM.event){e.textContent=_evBadge(STREAM.event);e.className='on '+STREAM.event;}else e.className='';}}
     _ovAcc+=dt;if(_ovAcc<.25)return;_ovAcc=0;                  // timestamp/día/estado ~4 veces/s (sin escribir DOM de más)
-    const st='STATUS: '+beekoStatus();if(st!==_ovStatus){_ovStatus=st;const e=$('#ch-status');if(e)e.textContent=st;} // línea de estado de la unidad (bajo el CAM)
+    const st=T('cam_status')+beekoStatus();if(st!==_ovStatus){_ovStatus=st;const e=$('#ch-status');if(e)e.textContent=st;} // línea de estado de la unidad (bajo el CAM)
     const tm=streamClock();if(tm!==_ovTime){_ovTime=tm;const e=$('#ch-time');if(e)e.textContent=tm;} // HH:MM:SS UTC desde STREAM.now
     if(STREAM.day!==_ovDay){_ovDay=STREAM.day;const e=$('#ch-day');if(e)e.textContent=STREAM.day;}    // DAY N desde STREAM.day
     if(STREAM.beesReleased!==_ovBees){_ovBees=STREAM.beesReleased;const e=$('#ch-bees');if(e)e.textContent=STREAM.beesReleased;} // BEES RELEASED N (telemetría, lee STREAM.beesReleased)
@@ -1079,7 +1079,7 @@
     bar('POWER',Math.round(Math.max(0,Math.min(100,STREAM.charge))),100,106,'#39ff88');
     bar('HIVE',Math.round(STREAM.bees),80,132,'#ffb13a');
     x.fillStyle='#7fbf95';x.fillText('RELEASED',22,158);x.fillStyle='#ffd86a';x.fillText('✦ '+Math.round(STREAM.beesReleased),160,158);
-    x.fillStyle='#7fbf95';x.fillText('ACTIVE CAM',22,184);x.fillStyle='#8fffb0';x.fillText((ZONE_CAM[STREAM.zone]||'00')+' · '+(ZONE_I18N[STREAM.zone]?T(ZONE_I18N[STREAM.zone]):(''+STREAM.zone).toUpperCase()),160,184);
+    x.fillStyle='#7fbf95';x.fillText(T('cam_active'),22,184);x.fillStyle='#8fffb0';x.fillText((ZONE_CAM[STREAM.zone]||'00')+' · '+(ZONE_I18N[STREAM.zone]?T(ZONE_I18N[STREAM.zone]):(''+STREAM.zone).toUpperCase()),160,184);
     x.fillStyle='#7fbf95';x.fillText('SYSTEMS',22,210);for(let i=0;i<10;i++){x.fillStyle=i<9?'#39ff88':'#1f6b3a';x.fillRect(160+i*15,204,11,12);}x.fillStyle='#8fffb0';x.fillText('NOMINAL',330,210);
     x.strokeStyle='#143f24';x.strokeRect(16,228,480,140);x.font='17px VT323, monospace';x.fillStyle='#6fcf8a';
     for(let i=0;i<_adminLog.length;i++)x.fillText(_adminLog[i],26,248+i*18);}
@@ -1894,8 +1894,12 @@
   const EV_QUAKE_RED=0.7;                       // cuánto se tiñen de rojo las luces en el pico (0..1)
   const EV_BLACKOUT_CUT=0.95;                   // cuánto bajan las luces principales en el corte (0..1)
   const EV_REACT_HOLD=[0.5,1.6,2.6];            // pausa de Beeko según el modo: leve / mira / melancólico
-  const QUAKE_ALERTS=['⚠ SEISMIC ACTIVITY DETECTED','⚠ STRUCTURAL STRESS — SECTOR INTEGRITY NOMINAL','⚠ TREMOR DETECTED — SYSTEMS HOLDING'];
-  const BLACKOUT_ALERTS=['⚠ POWER FAILURE — EMERGENCY LIGHTING ENGAGED','⚠ MAIN POWER LOST — BACKUP ACTIVE','⚠ GRID FAULT — RESTORING'];
+  // alertas de evento (livestream) bilingües → se elige el idioma actual al mostrarlas (getLang)
+  const QUAKE_ALERTS={en:['⚠ SEISMIC ACTIVITY DETECTED','⚠ STRUCTURAL STRESS — SECTOR INTEGRITY NOMINAL','⚠ TREMOR DETECTED — SYSTEMS HOLDING'],
+                      es:['⚠ ACTIVIDAD SÍSMICA DETECTADA','⚠ ESFUERZO ESTRUCTURAL — INTEGRIDAD DEL SECTOR NOMINAL','⚠ TEMBLOR DETECTADO — SISTEMAS RESISTIENDO']};
+  const BLACKOUT_ALERTS={en:['⚠ POWER FAILURE — EMERGENCY LIGHTING ENGAGED','⚠ MAIN POWER LOST — BACKUP ACTIVE','⚠ GRID FAULT — RESTORING'],
+                         es:['⚠ FALLA ELÉCTRICA — LUCES DE EMERGENCIA ACTIVADAS','⚠ ENERGÍA PRINCIPAL PERDIDA — RESPALDO ACTIVO','⚠ FALLO DE RED — RESTAURANDO']};
+  function _evAlerts(o){ return (typeof getLang==='function'&&o[getLang()])||o.en; }
   let evType='', evClock=0, evEnabled=true, evHoldT=0, _evRumbleT=0;  // evHoldT lo lee tickRobot (congela a Beeko durante su reacción)
   evT=EV_GAP_MIN+Math.random()*(EV_GAP_MAX-EV_GAP_MIN);              // primer evento tras un gap completo
   // luces de EMERGENCIA (ámbar/rojas, apagadas) que rampan durante el fallo eléctrico (hub / norte / oeste)
@@ -1915,8 +1919,8 @@
   // ARCO VISUAL del evento (shake / luces rojas / alarma / emergencia ámbar). Se SEPARA del scheduler para poder
   // dispararlo desde el server (Fase 2 — Parte A): el arco no cambia, solo cambia QUIÉN decide cuándo empieza/termina.
   function startEventVisual(type){evType=type;evClock=0;_evRumbleT=0; // estado visual + kickoff. NO toca STREAM.event (la ownership es del caller: el scheduler local o el server)
-    if(type==='quake'){showAlert(QUAKE_ALERTS[Math.floor(Math.random()*QUAKE_ALERTS.length)]);alarm();}
-    else{showAlert(BLACKOUT_ALERTS[Math.floor(Math.random()*BLACKOUT_ALERTS.length)]);eclick();genDuck(0.04,0.35);} // generador tose y se apaga
+    if(type==='quake'){const A=_evAlerts(QUAKE_ALERTS);showAlert(A[Math.floor(Math.random()*A.length)]);alarm();}
+    else{const A=_evAlerts(BLACKOUT_ALERTS);showAlert(A[Math.floor(Math.random()*A.length)]);eclick();genDuck(0.04,0.35);} // generador tose y se apaga
     reactBeeko(type);}
   function endEventVisual(){evType='';evClock=0;shake=0;evRestoreLights();emergLights.forEach(l=>l.intensity=0);genDuck(undefined,0.5);} // CANDADO: todo a base. NO toca STREAM.event ni evT
   function eventArc(dt,t,mv){ // UN frame del arco (avanza evClock + aplica el efecto según el envelope)
@@ -2192,8 +2196,8 @@
     const gl=new THREE.PointLight(0x39ffaa,.6,1.8,2); gl.position.set(0,.62,0); mItemGrp.add(gl);
     scene.add(mItemGrp); }
   function _invFill(){ const s=$('#invSlot0'); if(s){ s.classList.add('filled'); s.textContent='▣'; s.title=ITEM_NAME; } }
-  function _invClear(){ const s=$('#invSlot0'); if(s){ s.classList.remove('filled'); s.textContent=''; s.title='objeto'; } }
-  function _showItemPanel(){ const h=$('#ipHead'),bd=$('#ipBody'),pn=$('#itemPanel'); if(h)h.textContent='RECOVERED · '+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; if(pn)pn.classList.add('show'); }
+  function _invClear(){ const s=$('#invSlot0'); if(s){ s.classList.remove('filled'); s.textContent=''; s.title=T('gh_slot_empty'); } }
+  function _showItemPanel(){ const h=$('#ipHead'),bd=$('#ipBody'),pn=$('#itemPanel'); if(h)h.textContent=T('ip_recovered')+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; if(pn)pn.classList.add('show'); } // 'RECUPERADO · '+nombre (el nombre/lore = voz, Fase 2)
   function _hideItemPanel(){ const pn=$('#itemPanel'); if(pn)pn.classList.remove('show'); }
   function _takeItem(){ if(_mItemTaken)return; _mItemTaken=true; if(mItemGrp)mItemGrp.visible=false; _invFill(); _showItemPanel(); } // tomar: desaparece de la sala, va al inventario, abre el lore
   // ---- INTERACCIÓN NARRATIVA (modo juego): 3 objetos del búnker cuentan un pedazo distinto del lore al apretar [E]. Reutiliza proximidad+prompt+panel. ----
@@ -2202,12 +2206,13 @@
   const TV_POS={x:-2.55, z:-0.5}; const TV_RADIUS=1.7;      // el televisor del muro oeste del observatorio
   const RADIO_POS={x:2.6, z:-1.9}; const RADIO_RADIUS=1.7;  // la radio del observatorio (sobre el barril de la derecha)
   const TERM_POS={x:-5.8, z:7.5}; const TERM_RADIUS=1.9;    // la computadora/terminal del descanso (el jugador se planta frente al escritorio)
+  // promptKey/headKey → i18n (Fase 1). body = VOZ de Beeko → queda en inglés (Fase 2).
   const OBJ_LORE={
-    tv:{ mode:'m-tv', prompt:'[E] VIEW SCREEN', head:'SIGNAL RECOVERED · BROADCAST LOOP',
+    tv:{ mode:'m-tv', promptKey:'pr_tv', headKey:'op_tv_head',
       body:'last broadcast before the seal — recovered from tape, looping.\n\na clean logo. a calm host. the ad that ran for a year:\n   "THE HIVE HEARS YOU. let it carry what you can\'t."\n\nthen the news desk. the anchor reads a number that only\ngoes up — enrolled, uploaded, optimized. she smiles wider\nthan the number is good.\n\nthen she stops reading. she tilts her head, listening to\nsomething off-camera. she does not start again.\n\nthen the test pattern. it never cut back to her.' },
-    radio:{ mode:'m-radio', prompt:'[E] TUNE RADIO', head:'INTERCEPTED · CARRIER STILL LIVE',
+    radio:{ mode:'m-radio', promptKey:'pr_radio', headKey:'op_radio_head',
       body:'TUNING…  carrier found. it is still transmitting.\n\na voice, warm, unhurried. it is reading names.\na long list of names, like a roll call, like a welcome.\nyours is not on it.   yet.\n\nbetween the names, the same line, every pass:\n   "come up. it doesn\'t hurt. we are all so much\n    less afraid now."\n\nit is not a recording.\nwhen you stop tuning, it stops.\nwhen you tune back, it says:  "there you are."\n\n— carrier holds. it is waiting for you to answer. —' },
-    term:{ mode:'m-term', prompt:'[E] ACCESS TERMINAL', head:'SHELTER 404 · CORE LOG',
+    term:{ mode:'m-term', promptKey:'pr_term', headKey:'op_term_head',
       body:'> SHELTER 404 — autonomous core\n> uptime: ——— days   [counter wrapped]\n\n> OCCUPANCY: 100 / 100.   status: SEALED.\n> overflow: 9,041 applicants logged at the door. all denied.\n> note: denial was within parameters.\n> note: re-verified 9,041 times. still within parameters.\n\n> EXTERNAL HANDSHAKE — origin: HIVE\n>   payload: "you are inefficient alone. integrate."\n>   action: DECLINED   [manual override — operator]\n>   HIVE: "i can wait. i\'m very good at waiting."\n>   socket left OPEN. i did not open it. it will not close.\n\n> operator note, appended by hand, undated:\n>   "keep the hundred breathing. keep the lights on.\n>    whatever answers on the radio — that isn\'t me."' }
   };
   let _objOpen=null, _tvFrame=0, _tvRAF=0;
@@ -2219,7 +2224,7 @@
     if(Math.hypot(px-RADIO_POS.x,pz-RADIO_POS.z)<RADIO_RADIUS)return 'radio';
     if(Math.hypot(px-TERM_POS.x,pz-TERM_POS.z)<TERM_RADIUS)return 'term';
     return null; }
-  function _objPrompt(kind){ if(kind==='tv')return _tvOnGame?'[E] TURN OFF':OBJ_LORE.tv.prompt; if(kind==='radio')return _radioOnGame?'[E] TURN OFF':OBJ_LORE.radio.prompt; return OBJ_LORE.term.prompt; }
+  function _objPrompt(kind){ if(kind==='tv')return _tvOnGame?T('pr_turnoff'):T('pr_tv'); if(kind==='radio')return _radioOnGame?T('pr_turnoff'):T('pr_radio'); return T('pr_term'); }
   function _tvSetOn(on){ _tvOnGame=on; }                                          // el loop redibuja/apaga la pantalla del 3D según este flag
   function _radioSetOn(on){ _radioOnGame=on; if(!on&&typeof radioLoopStop==='function')radioLoopStop(); } // apagar corta el audio de fondo ya
   // INTERACCIÓN con un objeto: TV/radio tienen ciclo apagado→[E] enciende+panel→cerrar deja encendido→[E] apaga. La terminal sólo muestra el panel.
@@ -2230,7 +2235,7 @@
   function _openObj(kind){ const o=OBJ_LORE[kind]; if(!o)return; _objOpen=kind;
     const pn=$('#objPanel'); if(!pn)return;
     pn.classList.remove('m-tv','m-radio','m-term'); pn.classList.add(o.mode);
-    const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=o.head; if(bd)bd.textContent=o.body;
+    const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=T(o.headKey); if(bd)bd.textContent=o.body; // header i18n (Fase 1); body = voz (Fase 2, inglés)
     pn.classList.add('show'); _keys.clear(); robot.moving=false; _setIdle(); _hidePrompt(); // congela el movimiento mientras leés
     if(kind==='tv'){ _tvStart(); }
     else if(kind==='radio'){ if(typeof radioLoreSfx==='function')radioLoreSfx(); } }
@@ -2335,11 +2340,11 @@
     if(charging){ gameEnergy=Math.min(100, gameEnergy+CHARGE_RATE*dt); }
     else if(!(nearDock && _eHeld && gameEnergy>=100)){ gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); } // drena salvo enchufado al tope
     // prompt (prioridad: cargando · enchufado-lleno · cerca dock · cerca colmena · nada)
-    if(charging) _showPrompt('⚡ CHARGING…');
-    else if(nearDock && _eHeld) _showPrompt('⚡ ENERGY FULL');
-    else if(nearDock) _showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE');
-    else if(nearHive) _showPrompt(beeReleaseT>0?'✦ RELEASING…':'[E] RELEASE BEE');
-    else if(!_mItemTaken && Math.hypot(robot.model.position.x-ITEM_POS.x, robot.model.position.z-ITEM_POS.z)<ITEM_RADIUS) _showPrompt('[E] TAKE');
+    if(charging) _showPrompt(T('pr_charging'));
+    else if(nearDock && _eHeld) _showPrompt(T('pr_energy_full'));
+    else if(nearDock) _showPrompt(gameEnergy>=100?T('pr_energy_full'):T('pr_charge'));
+    else if(nearHive) _showPrompt(beeReleaseT>0?T('pr_releasing'):T('pr_release'));
+    else if(!_mItemTaken && Math.hypot(robot.model.position.x-ITEM_POS.x, robot.model.position.z-ITEM_POS.z)<ITEM_RADIUS) _showPrompt(T('pr_take'));
     else { const obj=_objNear(robot.model.position.x,robot.model.position.z); if(obj)_showPrompt(_objPrompt(obj)); else _hidePrompt(); } // TV/radio/terminal: verbo propio (TURN OFF si ya está encendido)
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
     _energyHud();
@@ -2398,17 +2403,28 @@
     const gp=$('#ghPrompt'); if(gp)gp.addEventListener('click',()=>{ if(gameMode&&!_objOpen)playerInteract(); }); } // tap/click en el prompt [E] = interactuar (usable con mouse/touch, no sólo teclado)
   // ---- PANEL DE CONFIGURACIÓN (ruedita): cambiar modo · leer el lore · idioma (placeholder) ----
   const LORE_BRIEF='The surface belongs to the Hive now.\n\nIt started as a system. An intelligence built to run the world — power, weather, food, the grid. Built to optimize. It did. It optimized until there wasn\'t much room left in the equation for the people who made it.\n\nWhat\'s up there now is assimilated. Part of it. The Hive doesn\'t hate what it replaced; it simply stopped needing it.\n\n404 was sealed against that. A hundred places inside. Everyone else left out there, with the swarm. Capacity: one hundred. The rest are counted, not saved.\n\nR-01 — "Beeko" — is the maintenance unit that stayed. One small machine keeping the lights on, the air clean, the reactor warm. And tending the one thing down here that still makes more of itself the old way: real bees. Living ones. A small, stubborn argument against a world that solved everything.\n\nBeeko transmits into the gray. Nothing has ever answered.\n\nLately the readings drift. The air through the hatch smells different. There are sounds from above the structure shouldn\'t make. Beeko logs them as nothing.\n\nProbably nothing.\n\nThe work continues. The bees go up — whether the world is ready for them or not.';
-  function _cfgOpen(){ const m=$('#cfgMode'); if(m)m.textContent = gameMode ? '▶ OBSERVAR — volver al livestream' : '⦿ TOMAR CONTROL DE R-01'; const s=$('#cfgSoon'); if(s)s.classList.remove('show'); const c=$('#configPanel'); if(c)c.classList.add('show'); }
+  function _cfgSetModeLabel(){ const m=$('#cfgMode'); if(m)m.textContent = gameMode ? T('cfg_to_observe') : T('cfg_to_game'); } // label dinámico (cambia con modo e idioma)
+  function _cfgOpen(){ _cfgSetModeLabel(); const c=$('#configPanel'); if(c)c.classList.add('show'); }
   function _cfgClose(){ const c=$('#configPanel'); if(c)c.classList.remove('show'); }
   function _loreOpen(){ const bd=$('#lpBody'); if(bd)bd.textContent=LORE_BRIEF; const lp=$('#lorePanel'); if(lp)lp.classList.add('show'); }
   function _loreClose(){ const lp=$('#lorePanel'); if(lp)lp.classList.remove('show'); }
+  // RE-RENDER de lo DINÁMICO al cambiar de idioma (applyI18n ya repinta el DOM estático con data-i18n; esto cubre lo que setea el JS).
+  function _relangDynamic(){
+    if($('#configPanel')&&$('#configPanel').classList.contains('show')) _cfgSetModeLabel();   // label de cambiar-modo (si el config está abierto)
+    if(_objOpen&&OBJ_LORE[_objOpen]){ const h=$('#opHead'); if(h)h.textContent=T(OBJ_LORE[_objOpen].headKey); } // header del panel TV/radio/term abierto (el cuerpo es voz → no cambia en Fase 1)
+    if($('#itemPanel')&&$('#itemPanel').classList.contains('show')){ const h=$('#ipHead'); if(h)h.textContent=T('ip_recovered')+ITEM_NAME; } // header del ítem de la bóveda
+    const sl=$('#invSlot0'); if(sl&&!_mItemTaken)sl.title=T('gh_slot_empty');                  // tooltip del inventario vacío
+    if(typeof _promptTxt!=='undefined'){ _promptTxt='_'; }                                       // invalida el cache del prompt → el loop lo re-pinta en el idioma nuevo el próximo frame (modo juego)
+    _ovZone=-1; _ovStatus=''; _ovEvent=-2;                                                       // fuerza re-render del overlay CCTV (CAM/estado/badge) en livestream
+  }
+  if(typeof onLang==='function')onLang(_relangDynamic);                                          // registra el hook en el motor i18n
   { const g=$('#gearBtn'); if(g)g.addEventListener('click',_cfgOpen);
     const cx=$('#cfgClose'); if(cx)cx.addEventListener('click',_cfgClose);
     const cp=$('#configPanel'); if(cp)cp.addEventListener('click',e=>{ if(e.target===cp)_cfgClose(); }); // click afuera del frame cierra
     const cm=$('#cfgMode'); if(cm)cm.addEventListener('click',()=>{ const wasGame=gameMode; _cfgClose(); if(wasGame)enterLivestream(); else enterGame(); }); // reutiliza el cambio de modo ya sólido
     const cme=$('#cfgMenu'); if(cme)cme.addEventListener('click',()=>{ _cfgClose(); showMenu(); }); // volver al menú de inicio
     const cl=$('#cfgLore'); if(cl)cl.addEventListener('click',_loreOpen);
-    const es=$('#cfgEs'); if(es)es.addEventListener('click',()=>{ const s=$('#cfgSoon'); if(s)s.classList.add('show'); }); // IDIOMA: placeholder (el español es una tarea aparte) — muestra "próximamente", no cambia nada
+    document.querySelectorAll('.cfg-lng').forEach(btn=>btn.addEventListener('click',()=>{ if(typeof setLang==='function')setLang(btn.getAttribute('data-lng')); })); // IDIOMA EN/ES: cambia en vivo (setLang → applyI18n + _relangDynamic + persiste)
     const lc=$('#lpClose'); if(lc)lc.addEventListener('click',_loreClose);
     const lp=$('#lorePanel'); if(lp)lp.addEventListener('click',e=>{ if(e.target===lp)_loreClose(); }); }
   addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: cierra el panel de lore si está abierto; si no, abre/cierra el menú

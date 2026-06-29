@@ -6,6 +6,8 @@
   let LANG='en';
   const STR={
     en:{
+      // ===== LEGACY (juego de supervivencia viejo: stats hambre/sed, HOLDERS, crafteo, consola R-01, zonas z_*, hint_html).
+      //       POSIBLEMENTE HUÉRFANAS en el build actual (trailer + demo 1ª persona). NO borrar a ciegas — auditar uso antes. Las alertas a_* sí siguen activas. =====
       // stats / hud
       stat_hunger:'HUNGER', stat_thirst:'THIRST', stat_energy:'ENERGY', stat_sanity:'SANITY',
       generator:'⚙ GENERATOR', holders:'HOLDERS', refugees:'⌂ REFUGEES',
@@ -52,7 +54,33 @@
       map_title:'PLAN — SHELTER 404', room_observatory:'OBSERVATORY', room_library:'LIBRARY',
       room_cultivo:'GROW', room_workshop:'WORKSHOP', room_rest:'REST', room_hallway:'HALLWAY', room_charging:'CHARGING', room_hive:'HIVE', room_fab:'FABRICATION', room_vault:'VAULT',
       // hint (HTML) — (tag_html eliminado junto con el #tag jubilado: era el tag del memecoin viejo con el número viejo)
-      hint_html:'<span class="k">▣ Move the HOLDERS slider →</span> and watch how many make it into the shelter (capacity 100); the rest stay <b>outside with the swarm</b><br>move with <span class="k">WASD / joystick</span> · drag to look · walk up to objects · ♪ sound · <span class="k">F</span> flashlight'
+      hint_html:'<span class="k">▣ Move the HOLDERS slider →</span> and watch how many make it into the shelter (capacity 100); the rest stay <b>outside with the swarm</b><br>move with <span class="k">WASD / joystick</span> · drag to look · walk up to objects · ♪ sound · <span class="k">F</span> flashlight',
+      // ===== FASE 1 — INTERFAZ NUEVA (modo juego / menú / config / paneles / overlay CCTV legible). La VOZ de Beeko NO entra acá (Fase 2). =====
+      // menú de inicio
+      menu_select:'CCTV · SHELTER SELECT', menu_day:'DAY', menu_bees:'BEES RELEASED',
+      menu_observe:'▶ OBSERVE', menu_observe_sub:'live feed · R-01 alone',
+      menu_play:'⦿ TAKE CONTROL OF R-01', menu_play_sub:'playable demo · beta',
+      menu_foot:'SHELTER 404 · STANDALONE FEED · one operational unit',
+      menu_lore:'The surface fell silent a long time ago. Down here, one unit still turns the lights on every day.', // (provisional EN; la versión ES autoral se revisa en Fase 2 tanda 6)
+      // config
+      cfg_title:'⚙ CONFIGURATION', cfg_mode:'MODE', cfg_world:'WORLD', cfg_lang:'LANGUAGE',
+      cfg_menu:'‹ START MENU', cfg_lore:'READ THE LORE',
+      cfg_to_observe:'▶ OBSERVE — back to livestream', cfg_to_game:'⦿ TAKE CONTROL OF R-01',
+      // HUD del modo juego
+      gh_energy:'ENERGY', gh_bees:'BEES RELEASED', gh_inv:'INVENTORY', gh_slot_empty:'item',
+      // prompts de interacción [E]
+      pr_charge:'[E] CHARGE', pr_charging:'⚡ CHARGING…', pr_energy_full:'⚡ ENERGY FULL',
+      pr_release:'[E] RELEASE BEE', pr_releasing:'✦ RELEASING…', pr_take:'[E] TAKE',
+      pr_tv:'[E] VIEW SCREEN', pr_radio:'[E] TUNE RADIO', pr_term:'[E] ACCESS TERMINAL', pr_turnoff:'[E] TURN OFF',
+      // chrome de paneles (ENCABEZADOS = Fase 1; los CUERPOS son voz de Beeko = Fase 2, siguen en inglés)
+      op_close:'[ click to close ]', op_tv_head:'SIGNAL RECOVERED · BROADCAST LOOP',
+      op_radio_head:'INTERCEPTED · CARRIER STILL LIVE', op_term_head:'SHELTER 404 · CORE LOG',
+      ip_recovered:'RECOVERED · ', lp_head:'SHELTER 404 · FIELD BRIEF', lp_close:'close',
+      // overlay CCTV legible (línea de estado de la unidad + badges/alertas de evento). El chrome REC/CAM/DAY/LIVE/SIGNAL queda en inglés a propósito.
+      cam_status:'STATUS: ', cam_active:'ACTIVE CAM',
+      cam_offline:'UNIT OFFLINE', cam_transit:'IN TRANSIT', cam_charging:'CHARGING', cam_fabricating:'FABRICATING',
+      cam_brood:'RAISING BROOD', cam_diag:'SYSTEM DIAGNOSTICS', cam_rounds:'INSPECTION ROUNDS', cam_standby:'STANDBY', cam_operational:'OPERATIONAL',
+      cam_ev_quake:'⚠ SEISMIC EVENT', cam_ev_blackout:'⚠ POWER FAILURE', cam_ev_alert:'⚠ ALERT'
     },
     es:{
       stat_hunger:'HAMBRE', stat_thirst:'SED', stat_energy:'ENERGÍA', stat_sanity:'CORDURA',
@@ -69,7 +97,7 @@
       craft_bench:'⚗ BANCO DE CRAFTEO', craft_materials:'MATERIALES', craft_recipes:'RECETAS',
       boot_title:'ABRIENDO REFUGIO', boot_sub:'sellando compuertas…',
       // overlay de cámara: chrome en inglés a propósito (REC/CAM/DAY/LIVE/SIGNAL); zonas en español por lore
-      ov_rec:'● REC', ov_cam:'CAM', ov_day:'DAY', ov_live:'LIVE', ov_signal:'SIGNAL', ov_bees:'BEES RELEASED', ov_outbound:'◖ OUTBOUND TRANSMISSION ◗', ov_inbound:'◖ INCOMING SIGNAL ◗',
+      ov_rec:'● REC', ov_cam:'CAM', ov_day:'DAY', ov_live:'LIVE', ov_signal:'SIGNAL', ov_bees:'ABEJAS LIBERADAS', ov_outbound:'◖ TRANSMISIÓN SALIENTE ◗', ov_inbound:'◖ SEÑAL ENTRANTE ◗',
       uptime_hdr:'TIME ALONE', uptime_sub:'· LIVE SINCE CONTACT LOST ·',
       ho_outside:'{0} afuera', ho_empty:'refugio vacío', ho_soul_one:'alma a salvo', ho_soul_many:'almas a salvo', ho_full:' · refugio lleno',
       z_feed_gen:'ALIMENTAR GENERADOR  (-combustible)', z_harvest:'COSECHAR  (+comida)', z_water:'JUNTAR AGUA  (+agua)',
@@ -87,8 +115,28 @@
       ft_seeds:'+1 semillas', ft_cables:'+1 cables', ft_enter:'+{0} entran', ft_full:'REFUGIO LLENO', ft_outside:'−{0} afuera',
       m_food:'comida', m_water:'agua', m_scrap:'chatarra',
       map_title:'PLANO — REFUGIO 404', room_observatory:'OBSERVATORIO', room_library:'BIBLIO',
-      room_cultivo:'CULTIVO', room_workshop:'TALLER', room_rest:'DESCANSO', room_hallway:'PASILLO', room_charging:'CHARGING', room_hive:'HIVE', room_fab:'FABRICATION', room_vault:'VAULT',
-      hint_html:'<span class="k">▣ Movés el slider HOLDERS →</span> y mirás cuántos entran al refugio (capacidad 100); el resto queda <b>afuera con el enjambre</b><br>movéte con <span class="k">WASD / joystick</span> · arrastrá para mirar · acercate a objetos · ♪ sonido · <span class="k">F</span> linterna'
+      room_cultivo:'CULTIVO', room_workshop:'TALLER', room_rest:'DESCANSO', room_hallway:'PASILLO', room_charging:'CARGA', room_hive:'COLMENA', room_fab:'FABRICACIÓN', room_vault:'BÓVEDA',
+      hint_html:'<span class="k">▣ Movés el slider HOLDERS →</span> y mirás cuántos entran al refugio (capacidad 100); el resto queda <b>afuera con el enjambre</b><br>movéte con <span class="k">WASD / joystick</span> · arrastrá para mirar · acercate a objetos · ♪ sonido · <span class="k">F</span> linterna',
+      // ===== FASE 1 — INTERFAZ NUEVA (ES) =====
+      menu_select:'CCTV · SELECCIÓN DE REFUGIO', menu_day:'DÍA', menu_bees:'ABEJAS LIBERADAS',
+      menu_observe:'▶ OBSERVAR', menu_observe_sub:'el refugio en vivo · R-01 solo',
+      menu_play:'⦿ TOMAR CONTROL DE R-01', menu_play_sub:'demo jugable · beta',
+      menu_foot:'REFUGIO 404 · SEÑAL AUTÓNOMA · una unidad operativa',
+      menu_lore:'La superficie quedó en silencio hace mucho. Acá abajo, una unidad todavía enciende las luces cada día.',
+      cfg_title:'⚙ CONFIGURACIÓN', cfg_mode:'MODO', cfg_world:'MUNDO', cfg_lang:'IDIOMA',
+      cfg_menu:'‹ MENÚ DE INICIO', cfg_lore:'LEER EL LORE',
+      cfg_to_observe:'▶ OBSERVAR — volver al livestream', cfg_to_game:'⦿ TOMAR CONTROL DE R-01',
+      gh_energy:'ENERGÍA', gh_bees:'ABEJAS LIBERADAS', gh_inv:'INVENTARIO', gh_slot_empty:'objeto',
+      pr_charge:'[E] CARGAR', pr_charging:'⚡ CARGANDO…', pr_energy_full:'⚡ ENERGÍA LLENA',
+      pr_release:'[E] LIBERAR ABEJA', pr_releasing:'✦ LIBERANDO…', pr_take:'[E] TOMAR',
+      pr_tv:'[E] VER PANTALLA', pr_radio:'[E] SINTONIZAR RADIO', pr_term:'[E] ACCEDER A TERMINAL', pr_turnoff:'[E] APAGAR',
+      op_close:'[ click para cerrar ]', op_tv_head:'SEÑAL RECUPERADA · BUCLE DE EMISIÓN',
+      op_radio_head:'INTERCEPTADA · PORTADORA AÚN ACTIVA', op_term_head:'REFUGIO 404 · REGISTRO DEL NÚCLEO',
+      ip_recovered:'RECUPERADO · ', lp_head:'REFUGIO 404 · INFORME DE CAMPO', lp_close:'cerrar',
+      cam_status:'ESTADO: ', cam_active:'CÁMARA ACTIVA',
+      cam_offline:'UNIDAD FUERA DE LÍNEA', cam_transit:'EN TRÁNSITO', cam_charging:'CARGANDO', cam_fabricating:'FABRICANDO',
+      cam_brood:'CRIANDO LARVAS', cam_diag:'DIAGNÓSTICO DEL SISTEMA', cam_rounds:'RONDAS DE INSPECCIÓN', cam_standby:'EN ESPERA', cam_operational:'OPERATIVO',
+      cam_ev_quake:'⚠ EVENTO SÍSMICO', cam_ev_blackout:'⚠ FALLA ELÉCTRICA', cam_ev_alert:'⚠ ALERTA'
     }
   };
   // T('key') -> string en el idioma actual; cae a EN y después a la propia key.
@@ -100,6 +148,17 @@
     r.querySelectorAll('[data-i18n]').forEach(e=>{e.textContent=T(e.getAttribute('data-i18n'));});
     r.querySelectorAll('[data-i18n-html]').forEach(e=>{e.innerHTML=T(e.getAttribute('data-i18n-html'));});
     r.querySelectorAll('[data-i18n-title]').forEach(e=>{e.title=T(e.getAttribute('data-i18n-title'));});}
-  // listo para un toggle EN/ES a futuro (por ahora arranca fijo en 'en')
-  function setLang(l){if(STR[l]){LANG=l;applyI18n();}}
-  applyI18n();
+  function getLang(){return LANG;}
+  // listeners que se disparan al cambiar de idioma — game.js registra acá el re-render de lo dinámico (prompts, paneles abiertos, overlay) con onLang().
+  const _langListeners=[];
+  function onLang(fn){ if(typeof fn==='function')_langListeners.push(fn); }
+  // marca el botón EN/ES activo en el panel de config
+  function _syncLangButtons(){ const bs=document.querySelectorAll('.cfg-lng'); bs.forEach(b=>{ b.classList.toggle('on', b.getAttribute('data-lng')===LANG); }); }
+  // TOGGLE EN VIVO: cambia LANG, persiste, repinta el DOM estático (applyI18n) y avisa a los listeners (lo dinámico). Sin recargar.
+  function setLang(l){ if(!STR[l])return; LANG=l; try{localStorage.setItem('refugio_lang',l);}catch(e){}
+    applyI18n(); _syncLangButtons(); for(let i=0;i<_langListeners.length;i++){try{_langListeners[i](l);}catch(e){}} }
+  // BOOT: arranca en el idioma guardado (default 'en' en sesión limpia)
+  try{const _s=localStorage.getItem('refugio_lang'); if(_s&&STR[_s])LANG=_s;}catch(e){}
+  applyI18n(); _syncLangButtons();
+  // globales explícitos (por si algún archivo los referencia por window)
+  window.T=T; window.setLang=setLang; window.getLang=getLang; window.onLang=onLang; window.applyI18n=applyI18n;
