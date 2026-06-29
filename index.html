@@ -47,6 +47,11 @@
 
   <div id="map"><canvas id="mapc" width="196" height="150"></canvas></div>
 
+  <!-- HUD del MODO JUEGO (se muestra sólo en modo juego; el HUD CCTV se oculta). Por ahora: barra de energía. Inventario + prompt llegan en hitos siguientes. -->
+  <div id="gamehud">
+    <div class="gh-energy"><span class="gh-label">ENERGÍA</span><div class="gh-bar"><i id="geBar"></i></div></div>
+  </div>
+
   <div id="boot"><h2 data-i18n="boot_title">OPENING SHELTER</h2><p class="blink" data-i18n="boot_sub">sealing hatches…</p></div>
 
   <!-- MENÚ DE INICIO (estética CCTV: pantalla de selección de un sistema de vigilancia viejo). Aparece al cargar salvo que una elección previa esté

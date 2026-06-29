@@ -1912,6 +1912,9 @@
     window.__REFUGIO.gameSpeed=function(n){ if(n!==undefined)PLAYER_SPEED=Math.max(0.2,+n||1.9); return 'velocidad de Beeko: '+PLAYER_SPEED+' u/s'; };
     window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)PLAYER_TURN=Math.max(1,+n||11); return 'giro de Beeko (lerp): '+PLAYER_TURN; };
     window.__REFUGIO.gameCam=function(dist,height,lag){ if(dist!==undefined)CAM_DIST=Math.max(0.5,+dist||CAM_DIST); if(height!==undefined)CAM_HEIGHT=Math.max(0.3,+height||CAM_HEIGHT); if(lag!==undefined){CAM_POS_LERP=Math.max(0.5,+lag||CAM_POS_LERP);CAM_YAW_LERP=Math.max(0.5,+lag*0.7||CAM_YAW_LERP);} return {dist:CAM_DIST,height:CAM_HEIGHT,lookY:CAM_LOOKY,posLerp:+CAM_POS_LERP.toFixed(2),yawLerp:+CAM_YAW_LERP.toFixed(2)}; }; // OP.gameCam(distancia, altura, lag) — lag chico = sigue más pegada
+    // ENERGÍA (hito 3): setear a mano (probar el colapso) + calibrar el drenaje.
+    window.__REFUGIO.gameEnergy=function(n){ if(n!==undefined){ gameEnergy=Math.max(0,Math.min(100,+n||0)); _energyHud(); } return 'energía: '+Math.round(gameEnergy)+'%'+(_gmCollapse>0?' (colapsado, revive en '+_gmCollapse.toFixed(1)+'s)':''); }; // OP.gameEnergy(0) → colapso · OP.gameEnergy(100) → llena
+    window.__REFUGIO.gameDrain=function(idle,move){ if(idle!==undefined)ENERGY_DRAIN=Math.max(0,+idle||0); if(move!==undefined)ENERGY_MOVE=Math.max(0,+move||0); return {drenajeReposo:ENERGY_DRAIN+' %/s', extraMovimiento:ENERGY_MOVE+' %/s', durLlenaReposo:Math.round(100/(ENERGY_DRAIN||0.0001))+'s', durLlenaCaminando:Math.round(100/((ENERGY_DRAIN+ENERGY_MOVE)||0.0001))+'s'}; }; // OP.gameDrain(reposo, extraMov)
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
@@ -2079,6 +2082,15 @@
   let CAM_DIST=3.3, CAM_HEIGHT=2.05, CAM_LOOKY=1.05; // 3ª persona: distancia atrás · altura · a qué altura mira. CALIBRABLE (OP.gameCam)
   let CAM_POS_LERP=4.5, CAM_YAW_LERP=3.2;            // suavizado de la cámara: posición · giro detrás de Beeko (lag). CALIBRABLE (OP.gameCam)
   const GAME_FOV=68;
+  // ---- ENERGÍA (hito 3): variable PROPIA del juego (NO toca robot.bat ni STREAM.charge del backend). Baja con el tiempo + más al moverse. CALIBRABLE: ----
+  let gameEnergy=100, _gmCollapse=0; // _gmCollapse = s restantes del colapso (sin energía → control bloqueado hasta revivir)
+  let ENERGY_DRAIN=0.5;   // %/s drenaje constante (en reposo). CALIBRABLE (OP.gameDrain)
+  let ENERGY_MOVE=1.0;    // %/s EXTRA al moverse. CALIBRABLE (OP.gameDrain)
+  const ENERGY_REVIVE=20; // % al que auto-revive tras el colapso
+  const COLLAPSE_DUR=2.6; // s que dura el colapso (Death) antes de revivir
+  function _energyHud(){ const e=$('#geBar'); if(!e)return; const v=Math.max(0,Math.min(100,gameEnergy)); e.style.width=v+'%'; const c=v<20?'#ff3b3b':(v<45?'#ffb000':'#39ff88'); e.style.background=c; e.style.boxShadow='0 0 10px '+c; }
+  function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
+  function _reviveBeeko(){ const a=robot.act&&robot.act['Death']; if(a){a.setLoop(THREE.LoopRepeat,Infinity);a.clampWhenFinished=false;} gameEnergy=ENERGY_REVIVE; _setIdle(); } // restaura el loop del clip (no afecta el Death del estado roto) + se levanta
   const _keys=new Set();
   let _pcamYaw=0, _pcamInit=false, _playerHeading=0;
   const _pcamPos=new THREE.Vector3(), _pcamLook=new THREE.Vector3(), _pv1=new THREE.Vector3(), _pv2=new THREE.Vector3();
@@ -2092,7 +2104,9 @@
   // contención por AREAS + push-out duro). Beeko gira hacia donde camina y dispara Walking/Idle. No atraviesa paredes ni sale de las salas.
   function tickPlayer(dt){
     if(!robot.model)return;
-    if(_menuOn){ robot.moving=false; _setIdle(); return; }
+    // COLAPSO (energía 0): control BLOQUEADO, Death sostenido, cuenta regresiva → auto-revive con ENERGY_REVIVE%
+    if(_gmCollapse>0){ _gmCollapse-=dt; robot.moving=false; if(_gmCollapse<=0){_gmCollapse=0;_reviveBeeko();} _energyHud(); return; }
+    if(_menuOn){ robot.moving=false; _setIdle(); _energyHud(); return; }
     const inF=((_keys.has('w')||_keys.has('arrowup'))?1:0)-((_keys.has('s')||_keys.has('arrowdown'))?1:0);
     const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0);
     const y=_pcamYaw, fwdX=Math.sin(y), fwdZ=Math.cos(y), rX=Math.cos(y), rZ=-Math.sin(y); // base relativa a la cámara
@@ -2110,6 +2124,9 @@
       robot.model.rotation.y += ((_playerHeading-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*PLAYER_TURN); // gira suave hacia el rumbo
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
     } else { robot.moving=false; _setIdle(); }
+    gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); // DRENAJE: constante + extra al moverse
+    if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
+    _energyHud();
   }
   // CÁMARA 3ª PERSONA: detrás/arriba de Beeko, lo sigue suave (posición lerpeada + yaw que se acomoda detrás del rumbo → lag agradable).
   function applyPlayerCam(dt,t,mv){
@@ -2131,7 +2148,7 @@
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} }
-  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // _pcamInit=false → la cámara 3ª persona se reubica detrás de Beeko al entrar
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; gameEnergy=100; _gmCollapse=0; _energyHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena; _pcamInit=false → la cámara se reubica detrás de Beeko
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
