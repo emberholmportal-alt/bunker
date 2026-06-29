@@ -164,6 +164,7 @@
   }
   // Reacción de Beeko a un sonido sin fuente. NO gatea por _ambEnabled (ambientTick ya lo hace; el manual OP.sfx la quiere disparar igual).
   function beekoReactToSound(stage){
+    if(gameMode)return;                              // en modo juego el sonido suena igual, pero Beeko no reacciona (lo maneja el jugador)
     const st=Math.max(0,Math.min(3,stage|0)); if(st<=0)return;
     // (a) MICRO-PAUSA: se detiene un instante. Si venía caminando, frena a Idle (la rutina vuelve a Walking sola al terminar la pausa).
     if(Math.random()<(REACT_PAUSE[st]||0)){ _soundPauseT=REACT_PAUSE_DUR[0]+Math.random()*(REACT_PAUSE_DUR[1]-REACT_PAUSE_DUR[0]);
@@ -1903,6 +1904,9 @@
     window.__REFUGIO.psxLevels=function(n){ if(typeof psxPass!=='undefined'&&psxPass)psxPass.uniforms.uLevels.value=Math.max(2,+n||32); return 'niveles de color por canal: '+((typeof psxPass!=='undefined'&&psxPass)?psxPass.uniforms.uLevels.value:'(sin pass)'); };
     window.__REFUGIO.psxDither=function(v){ if(typeof psxPass!=='undefined'&&psxPass)psxPass.uniforms.uDither.value=(v?1:0); return 'dither '+((typeof psxPass!=='undefined'&&psxPass&&psxPass.uniforms.uDither.value)?'ON':'OFF'); };
     window.__REFUGIO.psxWobble=function(v){ _psxWobble=Math.max(0,Math.min(1,(v==null?0.85:+v))); if(_psx)_psx.setWobble(_psxWobble); return 'wobble de vértices: '+_psxWobble+(_psxOn?'':' (se ve al prender OP.psx(true))'); };
+    // MODOS: livestream ↔ juego + menú. gameMode(true)=juego · gameMode(false)/gameMode()=livestream · menu()=abre el menú de inicio.
+    window.__REFUGIO.gameMode=function(on){ const want=(on===undefined)?false:!!on; if(want)enterGame(); else enterLivestream(); return 'modo: '+(gameMode?'JUEGO (lo manejás vos)':'LIVESTREAM (Beeko autónomo)'); };
+    window.__REFUGIO.menu=function(){ showMenu(); return 'menú de inicio abierto (elegí OBSERVAR o TOMAR CONTROL)'; };
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
@@ -2007,7 +2011,7 @@
   function tickLookUp(dt){
     if(!_luPhase){ _luSince+=dt;
       // ¿oportunidad de disparar AUTO? sólo con el despertar del SERVER activo (etapa del server), flag ON, Beeko quieto y sin transmitir
-      if(!_luEnabled || !_awakeningServer() || STREAM.broadcasting) return;
+      if(!_luEnabled || !_awakeningServer() || STREAM.broadcasting || gameMode) return; // en modo juego no auto-dispara (lo maneja el jugador)
       if(_luSince<LOOKUP_MIN_GAP || _robotWalking()) return;
       _luNextT-=dt; if(_luNextT>0) return; _luNextT=LOOKUP_GAP;
       const st=_awakeningStage(), ch=LOOKUP_CHANCE[st]||0;
@@ -2046,7 +2050,7 @@
     return true; }
   function _exprEnd(){ if(_exprOnce&&_exprClip&&robot.act[_exprClip]){ const a=robot.act[_exprClip]; a.setLoop(THREE.LoopRepeat,Infinity); a.clampWhenFinished=false; } // RESTAURA el loop del clip (p.ej. Death del estado roto real no debe quedar en LoopOnce)
     setRobotAnim('Idle'); _exprActive=false; _exprOnce=false; _exprClip=''; }                 // recompone: Idle lo levanta del colapso/lo para de la silla
-  function _exprFree(){ return _exprEnabled && robot.model && robot.status==='idle' && !robot.moving // ¿ventana LIBRE? (prioridad menor que TODO lo importante)
+  function _exprFree(){ return _exprEnabled && !gameMode && robot.model && robot.status==='idle' && !robot.moving // ¿ventana LIBRE? (prioridad menor que TODO; en modo juego no hay momentos expresivos autónomos)
     && !robot.atDesk && !robot.atFab && !robot.atRadio && !_radioHold
     && evHoldT<=0 && _soundPauseT<=0 && !_luPhase && !STREAM.broadcasting && !ended && running; }
   function tickExpressive(dt){
@@ -2058,6 +2062,26 @@
     _exprNextT-=dt; if(_exprNextT>0)return; _exprNextT=EXPR_GAP[0]+Math.random()*(EXPR_GAP[1]-EXPR_GAP[0]);
     if(Math.random()>=EXPR_CHANCE)return;
     _exprPlay(EXPR_POOL[Math.floor(Math.random()*EXPR_POOL.length)]); }
+  // ====== MODOS: LIVESTREAM (Beeko autónomo) ↔ JUEGO (lo maneja el jugador) + MENÚ DE INICIO ======
+  // gameMode=false → todo como hoy (la rutina maneja a Beeko, cámara CCTV). gameMode=true → el teclado maneja a Beeko (paso 2), cámara 3ª persona.
+  // El mundo (eventos/contadores/backend/PSX/sonidos/radio) sigue corriendo en AMBOS; sólo cambia QUIÉN mueve a Beeko. Round-trip LIMPIO: al salir
+  // del juego reseteo la máquina de estados de la rutina (robot.rt/path/status) → el próximo routineTick re-inicializa y Beeko retoma su agenda.
+  let gameMode=false, _menuOn=false;
+  function _setIdle(){ if(robot.model&&robot.act&&robot.act['Idle']&&robot.cur!==robot.act['Idle'])setRobotAnim('Idle'); }
+  function tickPlayer(dt){ _setIdle(); } // PASO 1: Beeko quieto (el control por teclado llega en el paso 2)
+  function _cleanRobotForMode(){ // reset del estado de la rutina + corta poses/gestos → entrar/salir sin romper la máquina de estados
+    robot.rt=null; robot.path=null; robot.dest=-1; robot.moving=false; robot.status='idle'; robot.atDesk=false; robot.atFab=false; robot.atRadio=false;
+    if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
+    _luPhase=''; _luAmt=0; _exprActive=false; _soundPauseT=0; _setIdle(); }
+  function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
+  function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
+  function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
+  function enterLivestream(){ gameMode=false; _cleanRobotForMode(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} }
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} }
+  function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
+    if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
+  { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
+  addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: abre/cierra el menú (volver a elegir modo)
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
@@ -2066,6 +2090,7 @@
     else if(_radioPosed){releaseArmPose();_radioPosed=false;}                    // transmisión terminó / dejó la radio → BAJA el brazo una vez (el Idle no lo hace solo)
     tickLookUp(dt); applyLookUp();                   // 3ª SEÑAL: mirar arriba (compone sobre el mixer en cabeza/cuello; no toca status/path/rutina ni las poses del brazo)
     if(_soundPauseT>0){_soundPauseT-=dt;return;}     // REACCIÓN AL SONIDO: micro-pausa — congela el movimiento un instante (el gesto lookUp YA se aplicó arriba); al expirar la rutina retoma idéntico (no toca rt/path)
+    if(gameMode){ tickPlayer(dt); return; }          // MODO JUEGO: el teclado maneja a Beeko (no la rutina autónoma). El mundo sigue corriendo aparte.
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
@@ -2199,4 +2224,4 @@
     catch(e){ window.__r01=open; }
   })();
   try{_psxBoot();}catch(e){} // PSX por defecto ON (pixel 2) — ANTES del primer render para que el búnker arranque en PSX sin parpadeo nítido
-  loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);},1500);
+  loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);try{_modeBoot();}catch(e){}},1500); // tras el boot: menú de inicio (o directo al modo guardado)

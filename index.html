@@ -49,6 +49,21 @@
 
   <div id="boot"><h2 data-i18n="boot_title">OPENING SHELTER</h2><p class="blink" data-i18n="boot_sub">sealing hatches…</p></div>
 
+  <!-- MENÚ DE INICIO (estética CCTV: pantalla de selección de un sistema de vigilancia viejo). Aparece al cargar salvo que una elección previa esté
+       guardada (localStorage 'refugio_mode'). DOS modos: OBSERVAR (livestream) · TOMAR CONTROL (juego). El búnker renderiza en vivo detrás. -->
+  <div id="startmenu"><div class="sm-scan"></div><div class="sm-frame">
+    <div class="sm-head"><span class="sm-rec">● REC</span><span class="sm-ch">CCTV · SHELTER SELECT</span><span class="sm-bars"><i></i><i></i><i></i><i></i></span><span class="sm-id">404</span></div>
+    <div class="sm-title" data-glitch="REFUGIO 404">REFUGIO 404</div>
+    <div class="sm-sub">EL BÚNKER</div>
+    <div class="sm-amb">DÍA <b id="menuDays">—</b> · ABEJAS LIBERADAS <b id="menuBees">—</b></div>
+    <div class="sm-lore" id="menuLore">La superficie quedó en silencio hace mucho. Acá abajo, una unidad todavía enciende las luces cada día.</div>
+    <div class="sm-btns">
+      <button id="btnObserve" class="sm-btn">▶ OBSERVAR<small>el refugio en vivo · R-01 solo</small></button>
+      <button id="btnPlay" class="sm-btn sm-btn-amber">⦿ TOMAR CONTROL DE R-01<small>demo jugable · beta</small></button>
+    </div>
+    <div class="sm-foot">SHELTER 404 · STANDALONE FEED · una unidad operativa</div>
+  </div></div>
+
 <script src="vendor/three.min.js"></script>
 <script src="vendor/CopyShader.js"></script>
 <script src="vendor/LuminosityHighPassShader.js"></script>
