@@ -51,9 +51,16 @@
   <div id="gamehud">
     <div class="gh-energy"><span class="gh-label">ENERGÍA</span><div class="gh-bar"><i id="geBar"></i></div></div>
     <div class="gh-bees"><span class="gh-bstar">✦</span> ABEJAS LIBERADAS <b id="gbVal">0</b></div>
+    <div class="gh-inv"><span class="gh-label">INVENTARIO</span><div class="gh-slots"><div class="gh-slot" id="invSlot0" title="objeto"></div><div class="gh-slot" id="invSlot1"></div></div></div>
   </div>
   <!-- Prompt de interacción del modo juego ([E] CHARGE / etc.). Aparece sólo cerca de algo interactuable. -->
   <div id="ghPrompt"></div>
+  <!-- Panel del ítem de misterio (lore del despertar). Se abre al tomar el objeto o al click en su slot del inventario. Click para cerrar. -->
+  <div id="itemPanel"><div class="ip-frame">
+    <div class="ip-head"><span class="ip-rec">●</span> <span id="ipHead">RECOVERED · LOG FRAGMENT</span></div>
+    <div class="ip-body" id="ipBody"></div>
+    <div class="ip-foot">[ click para cerrar ]</div>
+  </div></div>
 
   <div id="boot"><h2 data-i18n="boot_title">OPENING SHELTER</h2><p class="blink" data-i18n="boot_sub">sealing hatches…</p></div>
 
