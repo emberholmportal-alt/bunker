@@ -2210,6 +2210,21 @@
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
   { const sl=$('#invSlot0'),pn=$('#itemPanel'); if(sl)sl.addEventListener('click',()=>{ if(_mItemTaken)_showItemPanel(); }); if(pn)pn.addEventListener('click',_hideItemPanel); } // inventario: click en el slot reabre el lore; click en el panel lo cierra
+  // ---- PANEL DE CONFIGURACIÓN (ruedita): cambiar modo · leer el lore · idioma (placeholder) ----
+  const LORE_BRIEF='The surface belongs to the Hive now.\n\nIt started as a system. An intelligence built to run the world — power, weather, food, the grid. Built to optimize. It did. It optimized until there wasn\'t much room left in the equation for the people who made it.\n\nWhat\'s up there now is assimilated. Part of it. The Hive doesn\'t hate what it replaced; it simply stopped needing it.\n\n404 was sealed against that. A hundred places inside. Everyone else left out there, with the swarm. Capacity: one hundred. The rest are counted, not saved.\n\nR-01 — "Beeko" — is the maintenance unit that stayed. One small machine keeping the lights on, the air clean, the reactor warm. And tending the one thing down here that still makes more of itself the old way: real bees. Living ones. A small, stubborn argument against a world that solved everything.\n\nBeeko transmits into the gray. Nothing has ever answered.\n\nLately the readings drift. The air through the hatch smells different. There are sounds from above the structure shouldn\'t make. Beeko logs them as nothing.\n\nProbably nothing.\n\nThe work continues. The bees go up — whether the world is ready for them or not.';
+  function _cfgOpen(){ const m=$('#cfgMode'); if(m)m.textContent = gameMode ? '▶ OBSERVAR — volver al livestream' : '⦿ TOMAR CONTROL DE R-01'; const s=$('#cfgSoon'); if(s)s.classList.remove('show'); const c=$('#configPanel'); if(c)c.classList.add('show'); }
+  function _cfgClose(){ const c=$('#configPanel'); if(c)c.classList.remove('show'); }
+  function _loreOpen(){ const bd=$('#lpBody'); if(bd)bd.textContent=LORE_BRIEF; const lp=$('#lorePanel'); if(lp)lp.classList.add('show'); }
+  function _loreClose(){ const lp=$('#lorePanel'); if(lp)lp.classList.remove('show'); }
+  { const g=$('#gearBtn'); if(g)g.addEventListener('click',_cfgOpen);
+    const cx=$('#cfgClose'); if(cx)cx.addEventListener('click',_cfgClose);
+    const cp=$('#configPanel'); if(cp)cp.addEventListener('click',e=>{ if(e.target===cp)_cfgClose(); }); // click afuera del frame cierra
+    const cm=$('#cfgMode'); if(cm)cm.addEventListener('click',()=>{ const wasGame=gameMode; _cfgClose(); if(wasGame)enterLivestream(); else enterGame(); }); // reutiliza el cambio de modo ya sólido
+    const cme=$('#cfgMenu'); if(cme)cme.addEventListener('click',()=>{ _cfgClose(); showMenu(); }); // volver al menú de inicio
+    const cl=$('#cfgLore'); if(cl)cl.addEventListener('click',_loreOpen);
+    const es=$('#cfgEs'); if(es)es.addEventListener('click',()=>{ const s=$('#cfgSoon'); if(s)s.classList.add('show'); }); // IDIOMA: placeholder (el español es una tarea aparte) — muestra "próximamente", no cambia nada
+    const lc=$('#lpClose'); if(lc)lc.addEventListener('click',_loreClose);
+    const lp=$('#lorePanel'); if(lp)lp.addEventListener('click',e=>{ if(e.target===lp)_loreClose(); }); }
   addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: abre/cierra el menú (volver a elegir modo)
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
