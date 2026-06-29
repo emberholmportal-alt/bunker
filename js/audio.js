@@ -43,6 +43,15 @@
       const fo=actx.createBiquadFilter();fo.type='bandpass';fo.frequency.value=560+(i*190%520);fo.Q.value=4.5;                                                  // formante (color de vocal)
       const g=actx.createGain();g.gain.setValueAtTime(0,ts);g.gain.linearRampToValueAtTime(.07,ts+.03);g.gain.linearRampToValueAtTime(0,ts+.21);
       o.connect(fo);fo.connect(g);g.connect(master);o.start(ts);o.stop(ts+.23);}}
+  // RADIO ENCENDIDA DE FONDO (modo juego): estática suave en LOOP. El gain lo maneja game.js por distancia (sube al acercarse, ~0 lejos) → inquietante sin
+  // ser molesto. start es idempotente y se auto-gatea por audioOn (si el sonido está apagado no arranca; cuando se prende, game.js reintenta cada frame).
+  let _radioLoop=null;
+  function radioLoopStart(){ if(!audioOn||!actx||_radioLoop)return; const s=actx.createBufferSource();s.buffer=noiseBuf;s.loop=true;
+    const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1250;bp.Q.value=.9; const g=actx.createGain();g.gain.value=0; // gain inicial 0 → lo sube la distancia
+    s.connect(bp);bp.connect(g);g.connect(master);s.start(); _radioLoop={s:s,g:g}; }
+  function radioLoopStop(){ if(!_radioLoop)return; try{_radioLoop.s.stop();}catch(e){} _radioLoop=null; }
+  function radioLoopSet(v){ if(_radioLoop&&actx)_radioLoop.g.gain.setTargetAtTime(Math.max(0,v||0),actx.currentTime,.15); }
+  function radioLoopActive(){ return !!_radioLoop; }
   // ---- BEEKO CAMINANDO: pasos metálicos sutiles (sincronizados con la animación de caminar) + crujidos del cuerpo (robot viejo/oxidado) ----
   // Tono: tenue/lejano, como captado por el micrófono de una cámara de seguridad en un búnker silencioso. Gateados igual que el resto
   // (si el audio no está activado no suenan ni fallan). Volumen por AVOL.step / AVOL.creak.

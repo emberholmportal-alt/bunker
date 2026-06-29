@@ -129,6 +129,8 @@
     else if(_rxActive){ const fl=.35+(Math.sin(t*23)*Math.sin(t*7.3)>0?1:.12)*1.5;  // parpadeo IRREGULAR (batido de dos senos → entrecortado, no late parejo como el TX)
       if(radioLED){radioLED.material.emissive.setHex(0xff2a14); radioLED.material.emissiveIntensity=fl;}                    // rojo más intenso = recibiendo
       if(radioDialMat)radioDialMat.emissiveIntensity=.35+Math.abs(Math.sin(t*3.3))*.25; }
+    else if(gameMode && _radioOnGame){ if(radioLED){radioLED.material.emissive.setHex(0xff5a30); radioLED.material.emissiveIntensity=.45+Math.abs(Math.sin(t*4.5))*1.0;} // modo juego: radio encendida de fondo → LED "transmitiendo"
+      if(radioDialMat)radioDialMat.emissiveIntensity=.5+Math.abs(Math.sin(t*3))*.3; }
     else { if(radioLED){radioLED.material.emissive.setHex(0xff3a18); radioLED.material.emissiveIntensity=.22;}             // reposo (estado original)
       if(radioDialMat)radioDialMat.emissiveIntensity=.25; }
     if(_txActive){ _rtGrab();                                        // ciclo de TRANSMISIÓN (typewriter→hold→fade) — INTACTO
@@ -1115,15 +1117,23 @@
      if(_seg==='carga')robot.bat=100;                                                                                  // batería del robot (visual) — en carga, full, en los dos modos
      if(!_srvCnt){ if(_seg==='carga')streamDrive('charge',Math.min(100,STREAM.charge+dt*CHARGE_UP));                    // charge: sólo LOCAL escribe; en server lo trae el sync
                    else if(_seg)streamDrive('charge',Math.max(50,STREAM.charge-dt*CHARGE_DOWN)); }}
-    // TELEVISOR: lee STREAM.tv (lo maneja la rutina en OCIO / el operador con setTV). ON = ESTÁTICA animada + glow frío; OFF = negra.
-    {const on=!!STREAM.tv;
+    // TELEVISOR: en LIVESTREAM lo maneja STREAM.tv (rutina OCIO / operador) = estática. En MODO JUEGO lo maneja el on/off del jugador (_tvOnGame) y la
+    // pantalla alterna estática/barras de ajuste/tarjeta de la Hive (transmisión degradada "viva"). ON = pantalla animada + glow frío; OFF = negra.
+    if(_objOpen!=='tv')_tvAdvance(dt);                                                    // avanza el segmento de la pantalla (estática/barras/tarjeta); si el panel TV está abierto, lo avanza su propio rAF
+    {const on = gameMode ? _tvOnGame : !!STREAM.tv;
      if(on!==tvOn){tvOn=on;tvScrMat.color.setHex(on?0xffffff:0x242424);tvScrFrozen=false; // flanco: pantalla viva ↔ apagada
        if(!on){tvScrX.fillStyle='#050605';tvScrX.fillRect(0,0,160,120);tvScrTex.needsUpdate=true;}}
      if(on){
-       if(mv){tvStaticAcc+=dt;if(tvStaticAcc>=0.05){tvStaticAcc=0;tvDrawStatic();}}     // "nieve" en movimiento ~20fps
-       else if(!tvScrFrozen){tvDrawStatic();tvScrFrozen=true;}                            // prefers-reduced-motion: un cuadro fijo de estática
+       if(gameMode){ if(mv){tvStaticAcc+=dt;if(tvStaticAcc>=0.07){tvStaticAcc=0;_tvDrawTo(tvScrX,160,120);tvScrTex.needsUpdate=true;}} // transmisión alternada en el 3D ~14fps
+         else if(!tvScrFrozen){_tvDrawTo(tvScrX,160,120);tvScrTex.needsUpdate=true;tvScrFrozen=true;}}                                  // reduced-motion: un cuadro fijo
+       else { if(mv){tvStaticAcc+=dt;if(tvStaticAcc>=0.05){tvStaticAcc=0;tvDrawStatic();}}                                              // livestream: estática (comportamiento original)
+         else if(!tvScrFrozen){tvDrawStatic();tvScrFrozen=true;}}
        tvGlow.intensity=1.05+(mv?Math.sin(t*30)*.14:0);}                                 // glow con titileo de tubo
      else tvGlow.intensity=0;}
+    // RADIO encendida de fondo (modo juego): estática suave que SUBE al acercarse y se corta al alejarse (no se oye fuerte por todo el búnker). Se apaga al apagarla.
+    if(typeof radioLoopStart==='function'){
+      if(gameMode && _radioOnGame && robot.model){ radioLoopStart(); const rd=Math.hypot(robot.model.position.x-RADIO_POS.x, robot.model.position.z-RADIO_POS.z); radioLoopSet(RADIO_BG_VOL*Math.max(0,1-rd/RADIO_BG_RANGE)); }
+      else if(typeof radioLoopActive==='function' && radioLoopActive()) radioLoopStop(); }
     // COLMENA: el enjambre LEE STREAM.bees (cantidad visible) y orbita la colmena con ruido de darteo. El latido pulsa.
     // RUTINA COLMENA — la cría crece (STREAM.bees) mientras el tramo está activo; al llenarse, libera un enjambre.
     if(!_srvCnt){ // LOCAL: la cría crece y, al llenarse con el robot en la colmena, libera
@@ -2167,11 +2177,22 @@
       body:'> SHELTER 404 — autonomous core\n> uptime: ——— days   [counter wrapped]\n\n> OCCUPANCY: 100 / 100.   status: SEALED.\n> overflow: 9,041 applicants logged at the door. all denied.\n> note: denial was within parameters.\n> note: re-verified 9,041 times. still within parameters.\n\n> EXTERNAL HANDSHAKE — origin: HIVE\n>   payload: "you are inefficient alone. integrate."\n>   action: DECLINED   [manual override — operator]\n>   HIVE: "i can wait. i\'m very good at waiting."\n>   socket left OPEN. i did not open it. it will not close.\n\n> operator note, appended by hand, undated:\n>   "keep the hundred breathing. keep the lights on.\n>    whatever answers on the radio — that isn\'t me."' }
   };
   let _objOpen=null, _tvFrame=0, _tvRAF=0;
+  let _tvOnGame=false, _radioOnGame=false;          // ENCENDIDO de fondo (modo juego): TV transmitiendo / radio sonando bajo (quedan así al cerrar el panel)
+  let _tvSeg='card', _tvSegT=4.0;                    // estado de la pantalla del TV: 'static' | 'bars' | 'card' (la Hive) + segundos restantes del segmento
+  const RADIO_BG_VOL=0.07, RADIO_BG_RANGE=6.5;       // volumen base (suave) y alcance (m) de la radio de fondo: sube al acercarse, ~0 lejos
   function _objNear(px,pz){ // devuelve la clave del objeto en rango (o null) — mismo orden de chequeo en prompt e interacción
     if(Math.hypot(px-TV_POS.x,pz-TV_POS.z)<TV_RADIUS)return 'tv';
     if(Math.hypot(px-RADIO_POS.x,pz-RADIO_POS.z)<RADIO_RADIUS)return 'radio';
     if(Math.hypot(px-TERM_POS.x,pz-TERM_POS.z)<TERM_RADIUS)return 'term';
     return null; }
+  function _objPrompt(kind){ if(kind==='tv')return _tvOnGame?'[E] TURN OFF':OBJ_LORE.tv.prompt; if(kind==='radio')return _radioOnGame?'[E] TURN OFF':OBJ_LORE.radio.prompt; return OBJ_LORE.term.prompt; }
+  function _tvSetOn(on){ _tvOnGame=on; }                                          // el loop redibuja/apaga la pantalla del 3D según este flag
+  function _radioSetOn(on){ _radioOnGame=on; if(!on&&typeof radioLoopStop==='function')radioLoopStop(); } // apagar corta el audio de fondo ya
+  // INTERACCIÓN con un objeto: TV/radio tienen ciclo apagado→[E] enciende+panel→cerrar deja encendido→[E] apaga. La terminal sólo muestra el panel.
+  function _objInteract(kind){
+    if(kind==='tv'){ if(_tvOnGame){_tvSetOn(false);} else {_tvSetOn(true); _openObj('tv');} return; }
+    if(kind==='radio'){ if(_radioOnGame){_radioSetOn(false);} else {_radioSetOn(true); _openObj('radio');} return; }
+    _openObj(kind); }
   function _openObj(kind){ const o=OBJ_LORE[kind]; if(!o)return; _objOpen=kind;
     const pn=$('#objPanel'); if(!pn)return;
     pn.classList.remove('m-tv','m-radio','m-term'); pn.classList.add(o.mode);
@@ -2179,20 +2200,25 @@
     pn.classList.add('show'); _keys.clear(); robot.moving=false; _setIdle(); _hidePrompt(); // congela el movimiento mientras leés
     if(kind==='tv'){ _tvStart(); }
     else if(kind==='radio'){ if(typeof radioLoreSfx==='function')radioLoreSfx(); } }
-  function _closeObj(){ if(!_objOpen)return; _objOpen=null; _tvStop(); const pn=$('#objPanel'); if(pn)pn.classList.remove('show'); }
-  // TELEVISOR: pantalla dibujada por canvas (transmisión vieja degradada) — estática + tarjeta de la Hive + ráfagas de barras de ajuste + scanlines + roll bar.
-  function _tvDraw(){ const c=$('#opCanvas'); if(!c)return; const g=c.getContext('2d'); const W=c.width,H=c.height,f=_tvFrame++;
+  function _closeObj(){ if(!_objOpen)return; _objOpen=null; _tvStop(); const pn=$('#objPanel'); if(pn)pn.classList.remove('show'); } // cerrar deja el aparato encendido de fondo
+  // TELEVISOR: avanza la máquina de estados de la pantalla (alterna estática/barras/tarjeta de forma variada, sesgada a la tarjeta). La llama el loop con dt real.
+  function _tvAdvance(dt){ _tvFrame++; _tvSegT-=dt; if(_tvSegT>0)return; const r=Math.random();
+    let next; if(_tvSeg!=='card'&&r<0.55)next='card'; else if(_tvSeg!=='static'&&r<0.8)next='static'; else if(_tvSeg!=='bars')next='bars'; else next='card';
+    _tvSeg=next; _tvSegT = next==='card'?(3+Math.random()*3) : next==='bars'?(1.2+Math.random()*1.6) : (0.7+Math.random()*1.3); }
+  // Dibuja la transmisión del TV en CUALQUIER canvas (el panel grande #opCanvas y la pantalla chica del 3D usan esto). Escala a W×H. Lee _tvSeg.
+  function _tvDrawTo(g,W,H){ const seg=_tvSeg,f=_tvFrame;
     g.fillStyle='#05070a'; g.fillRect(0,0,W,H);
-    for(let i=0;i<650;i++){ const v=(Math.random()*170)|0; g.fillStyle='rgba('+v+','+v+','+(v+25)+','+(0.1+Math.random()*0.22)+')'; g.fillRect((Math.random()*W)|0,(Math.random()*H)|0,1+(Math.random()*2|0),1+(Math.random()*2|0)); }
-    if(f%260<34){ const bars=['#c9c9c9','#c9c900','#00c9c9','#00c900','#c900c9','#c90000','#0000c9'],bw=W/bars.length; g.globalAlpha=.5; for(let i=0;i<bars.length;i++){ g.fillStyle=bars[i]; g.fillRect(i*bw,0,bw+1,H); } g.globalAlpha=1; } // ráfaga de barras de ajuste cada ~4s
-    else { const glitch=(f%170>162), ox=glitch?(Math.random()*8-4):0; g.save(); g.translate(ox,0);
-      g.strokeStyle='#bfe0ff'; g.lineWidth=2; const cx=W/2,cy=H*0.34,r=24; g.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i-Math.PI/2,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r; i?g.lineTo(x,y):g.moveTo(x,y); } g.closePath(); g.stroke(); // hexágono = la Hive
-      g.textAlign='center'; g.fillStyle='#bfe0ff'; g.font='bold 9px monospace'; g.fillText('THE HIVE', cx, cy+3);
-      g.fillStyle='#eaf4ff'; g.font='13px monospace'; g.fillText('OPTIMIZED LIVING', cx, H*0.60);
-      g.fillStyle='#9fc8ff'; g.font='10px monospace'; g.fillText('ENROLLED  '+(38420317+f*7), cx, H*0.72); g.restore(); }
-    g.fillStyle='rgba(0,0,0,0.28)'; for(let y=0;y<H;y+=3)g.fillRect(0,y,W,1);                       // scanlines
-    g.fillStyle='rgba(180,210,255,0.05)'; g.fillRect(0,(f*2)%H,W,18); }                              // roll bar
-  function _tvStart(){ _tvStop(); const step=()=>{ if(_objOpen!=='tv')return; _tvDraw(); _tvRAF=requestAnimationFrame(step); }; step(); }
+    const heavy=(seg==='static'); const dots=Math.floor(W*H*(heavy?0.20:0.045)); g.fillStyle='#0a0c10';
+    for(let i=0;i<dots;i++){ const v=(Math.random()*210)|0; g.fillStyle='rgba('+v+','+v+','+(v+20)+','+(heavy?0.55:0.18)+')'; g.fillRect((Math.random()*W)|0,(Math.random()*H)|0,1,1); }
+    if(seg==='bars'){ const bars=['#c9c9c9','#c9c900','#00c9c9','#00c900','#c900c9','#c90000','#0000c9'],bw=W/bars.length; g.globalAlpha=.82; for(let i=0;i<bars.length;i++){ g.fillStyle=bars[i]; g.fillRect(i*bw,0,bw+1,H); } g.globalAlpha=1; }
+    else if(seg==='card'){ const glitch=(f%170>162),ox=glitch?(Math.random()*W*0.025-W*0.0125):0; g.save(); g.translate(ox,0);
+      g.strokeStyle='#bfe0ff'; g.lineWidth=Math.max(1,W/200); const cx=W/2,cy=H*0.34,r=H*0.10; g.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i-Math.PI/2,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r; i?g.lineTo(x,y):g.moveTo(x,y); } g.closePath(); g.stroke(); // hexágono = la Hive
+      g.textAlign='center'; g.fillStyle='#bfe0ff'; g.font='bold '+Math.round(H*0.05)+'px monospace'; g.fillText('THE HIVE',cx,cy+H*0.015);
+      g.fillStyle='#eaf4ff'; g.font=Math.round(H*0.072)+'px monospace'; g.fillText('OPTIMIZED LIVING',cx,H*0.60);
+      g.fillStyle='#9fc8ff'; g.font=Math.round(H*0.055)+'px monospace'; g.fillText('ENROLLED  '+(38420317+f*7),cx,H*0.73); g.restore(); }
+    g.fillStyle='rgba(0,0,0,0.28)'; const sl=Math.max(2,Math.round(H/80)); for(let y=0;y<H;y+=sl)g.fillRect(0,y,W,1);  // scanlines
+    g.fillStyle='rgba(180,210,255,0.05)'; g.fillRect(0,(f*3)%H,W,Math.round(H*0.07)); }                                // roll bar
+  function _tvStart(){ _tvStop(); const c=$('#opCanvas'); const ctx=c&&c.getContext('2d'); const step=()=>{ if(_objOpen!=='tv'){_tvRAF=0;return;} _tvAdvance(0.016); if(ctx)_tvDrawTo(ctx,c.width,c.height); _tvRAF=requestAnimationFrame(step); }; step(); } // el panel avanza su propio segmento (el loop no lo hace mientras el panel TV está abierto)
   function _tvStop(){ if(_tvRAF)cancelAnimationFrame(_tvRAF); _tvRAF=0; }
   function _energyHud(){ const e=$('#geBar'); if(!e)return; const v=Math.max(0,Math.min(100,gameEnergy)); e.style.width=v+'%'; const c=v<20?'#ff3b3b':(v<45?'#ffb000':'#39ff88'); e.style.background=c; e.style.boxShadow='0 0 10px '+c; }
   function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
@@ -2205,7 +2231,7 @@
     const px=robot.model.position.x, pz=robot.model.position.z;
     if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } return; } // colmena: liberar (cooldown natural = surge)
     if(!_mItemTaken && Math.hypot(px-ITEM_POS.x, pz-ITEM_POS.z)<ITEM_RADIUS){ _takeItem(); return; } // bóveda: tomar el ítem de misterio
-    const obj=_objNear(px,pz); if(obj){ _openObj(obj); return; } // TV / radio / terminal: abrir el panel de lore
+    const obj=_objNear(px,pz); if(obj){ _objInteract(obj); return; } // TV / radio / terminal: encender+panel · apagar · (terminal sólo panel)
   }
   function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
     if(_objOpen){ if(k==='e'||k==='escape'){ _closeObj(); e.preventDefault(); } return; } // con un panel de lore abierto, E/Esc lo cierran y nada más mueve
@@ -2257,7 +2283,7 @@
     else if(nearDock) _showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE');
     else if(nearHive) _showPrompt(beeReleaseT>0?'✦ RELEASING…':'[E] RELEASE BEE');
     else if(!_mItemTaken && Math.hypot(robot.model.position.x-ITEM_POS.x, robot.model.position.z-ITEM_POS.z)<ITEM_RADIUS) _showPrompt('[E] TAKE');
-    else { const obj=_objNear(robot.model.position.x,robot.model.position.z); if(obj)_showPrompt(OBJ_LORE[obj].prompt); else _hidePrompt(); } // TV/radio/terminal: verbo propio
+    else { const obj=_objNear(robot.model.position.x,robot.model.position.z); if(obj)_showPrompt(_objPrompt(obj)); else _hidePrompt(); } // TV/radio/terminal: verbo propio (TURN OFF si ya está encendido)
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
     _energyHud();
   }
@@ -2298,6 +2324,7 @@
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
     ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
+    _tvOnGame=false; _radioOnGame=false; if(typeof radioLoopStop==='function')radioLoopStop(); // apaga TV/radio de fondo al cambiar de modo (el livestream maneja su propio TV vía STREAM.tv)
     _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _fpPitch=0; _closeObj(); _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad/pitch + cierra panel de lore + restaura la cabeza al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
