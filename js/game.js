@@ -1935,6 +1935,7 @@
     window.__REFUGIO.menu=function(){ showMenu(); return 'menú de inicio abierto (elegí OBSERVAR o TOMAR CONTROL)'; };
     // CALIBRACIÓN del feel del modo juego (velocidad + cámara 3ª persona). Sin args devuelven el valor actual.
     window.__REFUGIO.gameSpeed=function(n){ if(n!==undefined)PLAYER_SPEED=Math.max(0.2,+n||1.9); return 'velocidad de Beeko: '+PLAYER_SPEED+' u/s'; };
+    window.__REFUGIO.gameRadius=function(n){ if(n!==undefined)PLAYER_RADIUS=Math.max(0.05,+n||0.30); return {radioCuerpo:PLAYER_RADIUS, paredes:_WALLS.length, nota:'distancia a la que Beeko frena ante paredes/objetos'}; }; // OP.gameRadius(m)
     window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)FP_TURN=Math.max(0.3,+n||2.3); return 'velocidad de giro (1ª persona, A/D y ←/→): '+FP_TURN+' rad/s'; };
     window.__REFUGIO.gamePitch=function(spd){ if(spd!==undefined)FP_PITCH_SPD=Math.max(0.2,+spd||1.5); return {velocidadPitch:FP_PITCH_SPD, topeArribaAbajo:FP_PITCH_MAX, nota:'↑/↓ inclinan la vista; spd=rad/s; el tope es fijo (FP_PITCH_MAX)'}; }; // OP.gamePitch(velocidad)
     window.__REFUGIO.gameFP=function(fwd,up,pitch){ if(fwd!==undefined)FP_EYE_FWD=+fwd; if(up!==undefined)FP_EYE_UP=+up; if(pitch!==undefined)FP_PITCH=+pitch;
@@ -2227,6 +2228,26 @@
   const _keys=new Set();
   let _pcamYaw=0, _pcamInit=false, _playerHeading=0, _pvelX=0, _pvelZ=0; // _pvel = velocidad actual (con inercia)
   const _pcamPos=new THREE.Vector3(), _pcamLook=new THREE.Vector3(), _pv1=new THREE.Vector3(), _pv2=new THREE.Vector3();
+  // ---- COLISIÓN DE PAREDES (modo juego) ----
+  // El robot autónomo navega por un grafo de nodos que cruza por el CENTRO de cada puerta → la contención por AREAS (rectángulos de sala que se solapan en
+  // los bordes) le alcanzaba. El jugador LIBRE empuja contra todo y cruzaba paredes por esos solapes. Solución robusta y exacta: COSECHAR las paredes REALES
+  // de la escena (cajas altas+finas+largas) como AABBs y chocar contra ellas. Los muros ya están construidos con HUECOS en las puertas → los vanos quedan
+  // libres solos, sin enumerar nada a mano. Se combina con AREAS (backstop: no salir de la unión de salas) + COLLIDERS (objetos).
+  let PLAYER_RADIUS=0.30;   // radio del cuerpo de Beeko para la colisión (m). CALIBRABLE (OP.gameRadius)
+  let _WALLS=[];            // AABBs de pared {x0,x1,z0,z1} cosechados de la escena (una vez)
+  function _harvestWalls(){ if(!scene)return; const W=[],box=new THREE.Box3(),sz=new THREE.Vector3(),ctr=new THREE.Vector3(),seen=new Set();
+    scene.traverse(o=>{ if(!o.isMesh||!o.geometry||o.geometry.type!=='BoxGeometry')return; if(o.userData&&o.userData.isOutline)return; // ignora contornos CEL
+      box.setFromObject(o); box.getSize(sz); box.getCenter(ctr);
+      if(sz.y<1.4)return; if(Math.min(sz.x,sz.z)>0.5)return; if(Math.max(sz.x,sz.z)<1.0)return; if(ctr.y>3.6)return; // alta + fina + larga = pared/estructura
+      const key=Math.round(ctr.x*10)+','+Math.round(ctr.z*10)+','+Math.round(sz.x*10)+','+Math.round(sz.z*10); if(seen.has(key))return; seen.add(key);
+      W.push({x0:ctr.x-sz.x/2,x1:ctr.x+sz.x/2,z0:ctr.z-sz.z/2,z1:ctr.z+sz.z/2}); });
+    _WALLS=W; }
+  function _hitWall(x,z,R){ for(let i=0;i<_WALLS.length;i++){ const w=_WALLS[i]; if(x>w.x0-R&&x<w.x1+R&&z>w.z0-R&&z<w.z1+R)return true; } return false; } // punto (radio R) dentro de alguna pared
+  function _wallPushOut(R){ const m=robot.model; for(let it=0;it<3;it++){ let moved=false; // 2-3 pasadas → resuelve esquinas (dos paredes) sin quedar trabado
+    for(let i=0;i<_WALLS.length;i++){ const w=_WALLS[i],x=m.position.x,z=m.position.z; // si quedó DENTRO de una pared (p.ej. empujado por un objeto), sacalo por el eje de menor penetración
+      if(x>w.x0-R&&x<w.x1+R&&z>w.z0-R&&z<w.z1+R){ const l=x-(w.x0-R),r=(w.x1+R)-x,d=z-(w.z0-R),u=(w.z1+R)-z,mn=Math.min(l,r,d,u);
+        if(mn===l)m.position.x=w.x0-R; else if(mn===r)m.position.x=w.x1+R; else if(mn===d)m.position.z=w.z0-R; else m.position.z=w.z1+R; moved=true; } }
+    if(!moved)break; } }
   function playerInteract(){ // TAP de E: liberar abeja (colmena) o tomar objeto (bóveda). El HOLD de E carga en el dock.
     if(!gameMode || _menuOn || _gmCollapse>0) return;
     const px=robot.model.position.x, pz=robot.model.position.z;
@@ -2265,9 +2286,11 @@
       for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const ff=(rng-od)/rng*1.8;mx+=ox/od*ff;mz+=oz/od*ff;}} // steering anti-objeto (igual que el robot)
       const ml=Math.hypot(mx,mz)||1; mx/=ml; mz/=ml;
       const sp=spd*dt; let nx=px+mx*sp, nz=pz+mz*sp;
-      if(!inArea(nx,nz)){ if(inArea(nx,pz))nz=pz; else if(inArea(px,nz))nx=px; else {nx=px;nz=pz;} } // contención por AREAS — no sale de las salas
+      if(_WALLS.length){ if(_hitWall(nx,pz,PLAYER_RADIUS))nx=px; if(_hitWall(nx,nz,PLAYER_RADIUS))nz=pz; } // PAREDES reales (deslizamiento por eje): no las atraviesa; los vanos quedan libres
+      if(!inArea(nx,nz)){ if(inArea(nx,pz))nz=pz; else if(inArea(px,nz))nx=px; else {nx=px;nz=pz;} } // contención por AREAS (backstop) — no sale de la unión de salas
       robot.model.position.x=nx; robot.model.position.z=nz;
       for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const kk=(c.r+.2)/cd;robot.model.position.x=c.x+cx*kk;robot.model.position.z=c.z+cz*kk;}} // push-out duro
+      if(_WALLS.length)_wallPushOut(PLAYER_RADIUS);                                          // si un objeto lo empujó dentro de una pared, sacalo
       if(!inArea(robot.model.position.x,robot.model.position.z)){ robot.model.position.x=px; robot.model.position.z=pz; } // GARANTÍA: nunca queda fuera de las salas
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
     } else { _pvelX=0; _pvelZ=0; robot.moving=false; _setIdle(); }
@@ -2498,6 +2521,7 @@
     catch(e){ window.__r01=open; }
   })();
   try{_psxBoot();}catch(e){} // PSX por defecto ON (pixel 2) — ANTES del primer render para que el búnker arranque en PSX sin parpadeo nítido
+  try{_harvestWalls();}catch(e){} // cosecha las paredes reales de la escena para la colisión del modo juego (escena ya construida)
   loop();
   // PANTALLA DE CARGA → MENÚ: se cierra cuando el robot YA cargó (señal real), con un mínimo en pantalla (no parpadea en recargas cacheadas) y un techo de
   // seguridad (si el GLB nunca llega, igual entra). __ld.finish() lleva la barra a 100%; después se funde #boot y arranca _modeBoot (menú o modo guardado).
