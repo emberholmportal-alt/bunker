@@ -33,6 +33,16 @@
   // clic eléctrico (relé/breaker) — para el corte y el reencendido del fallo eléctrico
   function eclick(){if(!audioOn||!actx)return;const t=actx.currentTime;const o=actx.createOscillator();o.type='square';o.frequency.setValueAtTime(2400,t);o.frequency.exponentialRampToValueAtTime(380,t+.045);const g=actx.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.13,t+.003);g.gain.exponentialRampToValueAtTime(.0008,t+.07);o.connect(g);g.connect(master);o.start(t);o.stop(t+.08);
     const s=actx.createBufferSource();s.buffer=noiseBuf;const hp=actx.createBiquadFilter();hp.type='highpass';hp.frequency.value=2000;const g2=actx.createGain();g2.gain.setValueAtTime(.10,t);g2.gain.exponentialRampToValueAtTime(.0006,t+.05);s.connect(hp);hp.connect(g2);g2.connect(master);s.start(t);s.stop(t+.06);}
+  // TRANSMISIÓN VIEJA (lore de la RADIO, modo juego): estática de banda + 5 "sílabas" formánticas (tonos filtrados que evocan una voz sin ser
+  // inteligibles). Respeta audioOn (si el sonido está apagado, no suena → el transcript del panel lleva el contenido). Dura ~1.8s, se programa de una.
+  function radioLoreSfx(){if(!audioOn||!actx)return;const t=actx.currentTime;
+    const s=actx.createBufferSource();s.buffer=noiseBuf;s.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=1500;bp.Q.value=.6; // estática de portadora
+    const ng=actx.createGain();ng.gain.setValueAtTime(0,t);ng.gain.linearRampToValueAtTime(.05,t+.12);ng.gain.setValueAtTime(.05,t+1.5);ng.gain.linearRampToValueAtTime(0,t+1.85);
+    s.connect(bp);bp.connect(ng);ng.connect(master);s.start(t);s.stop(t+1.9);
+    for(let i=0;i<5;i++){const ts=t+.25+i*.27,f=170+(i*53%90);const o=actx.createOscillator();o.type='sawtooth';o.frequency.setValueAtTime(f,ts);o.frequency.linearRampToValueAtTime(f*1.12,ts+.16); // "sílaba": tono base
+      const fo=actx.createBiquadFilter();fo.type='bandpass';fo.frequency.value=560+(i*190%520);fo.Q.value=4.5;                                                  // formante (color de vocal)
+      const g=actx.createGain();g.gain.setValueAtTime(0,ts);g.gain.linearRampToValueAtTime(.07,ts+.03);g.gain.linearRampToValueAtTime(0,ts+.21);
+      o.connect(fo);fo.connect(g);g.connect(master);o.start(ts);o.stop(ts+.23);}}
   // ---- BEEKO CAMINANDO: pasos metálicos sutiles (sincronizados con la animación de caminar) + crujidos del cuerpo (robot viejo/oxidado) ----
   // Tono: tenue/lejano, como captado por el micrófono de una cámara de seguridad en un búnker silencioso. Gateados igual que el resto
   // (si el audio no está activado no suenan ni fallan). Volumen por AVOL.step / AVOL.creak.
