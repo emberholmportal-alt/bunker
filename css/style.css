@@ -112,6 +112,15 @@
   #startmenu .sm-btn-amber:hover{background:rgba(255,176,0,.12);border-color:var(--amber);box-shadow:0 0 16px rgba(255,176,0,.3)}
   #startmenu .sm-foot{margin-top:18px;font-size:13px;letter-spacing:2px;color:rgba(201,201,184,.5)}
   @media (max-width:760px){#startmenu .sm-frame{padding:20px 18px}#startmenu .sm-btn{font-size:20px}}
+  /* ===== SWAP DE HUD: en modo juego se oculta el HUD CCTV y se muestra el HUD de juego ===== */
+  #gamehud{position:fixed;left:18px;bottom:18px;z-index:9;display:none;font-family:'VT323',monospace;pointer-events:none}
+  body.gamemode #gamehud{display:block}
+  body.gamemode #camhud,body.gamemode #map,body.gamemode #panel{display:none} /* CAM/PLAN/LIVE + panel del operador → ocultos en juego (vuelven en livestream) */
+  #gamehud .gh-energy{display:flex;flex-direction:column;gap:3px}
+  #gamehud .gh-label{font-size:15px;letter-spacing:3px;color:var(--screen);text-shadow:0 0 8px rgba(57,255,160,.5),0 0 2px #000}
+  #gamehud .gh-bar{width:220px;height:16px;border:1px solid rgba(143,255,176,.45);background:rgba(6,12,9,.55);box-shadow:inset 0 0 10px rgba(0,0,0,.5)}
+  #gamehud .gh-bar i{display:block;height:100%;width:100%;background:var(--screen);box-shadow:0 0 10px var(--screen);transition:width .12s linear,background .25s,box-shadow .25s}
+  @media (max-width:760px){#gamehud{left:12px;bottom:12px}#gamehud .gh-bar{width:160px}}
   #joy{position:fixed;left:24px;bottom:24px;z-index:11;width:92px;height:92px;border-radius:50%;border:1px solid rgba(143,255,176,.4);background:rgba(6,7,10,.4);display:none}
   #stick{position:absolute;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;background:rgba(143,255,176,.5);box-shadow:0 0 12px var(--screen)}
   body.touch #joy{display:block}
