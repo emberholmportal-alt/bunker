@@ -1822,10 +1822,13 @@
     const ok=Math.random()<0.82; setRobotAnim(ok?(Math.random()<0.5?'Yes':'ThumbsUp'):'No');
     robot.rt.dwellT=3+Math.random()*4; robot.rt.phase=''; streamReportAction('patrol');
   }
-  function triggerRelease(){ // LIBERACIÓN del enjambre (surge visible + contador)
-    if(beeReleaseT>0) return;
-    beeReleaseT=BEE_RELEASE_DUR; _beesResetPending=true;
-    streamDrive('beesReleased', Math.round(STREAM.beesReleased)+1); // sube el acumulado (respeta override)
+  function _releaseSurge(){ // SOLO el surge visible del enjambre (sin tocar contadores). Devuelve false si ya hay un surge en curso (cooldown natural ≈ BEE_RELEASE_DUR).
+    if(beeReleaseT>0) return false;
+    beeReleaseT=BEE_RELEASE_DUR; _beesResetPending=true; return true;
+  }
+  function triggerRelease(){ // LIVESTREAM: surge + contador del backend + Wave (sin cambios respecto a antes)
+    if(!_releaseSurge()) return;
+    streamDrive('beesReleased', Math.round(STREAM.beesReleased)+1); // sube el acumulado del backend (respeta override)
     if(robot.model&&robot.status==='idle'){setRobotAnim('Wave'); if(robot.rt)robot.rt.dwellT=Math.max(robot.rt.dwellT||0,2.6);} // se despide
   }
   // ====== EVENTOS ALEATORIOS (temblor / fallo eléctrico) — controlador único ======
@@ -1916,6 +1919,8 @@
     window.__REFUGIO.gameEnergy=function(n){ if(n!==undefined){ gameEnergy=Math.max(0,Math.min(100,+n||0)); _energyHud(); } return 'energía: '+Math.round(gameEnergy)+'%'+(_gmCollapse>0?' (colapsado, revive en '+_gmCollapse.toFixed(1)+'s)':''); }; // OP.gameEnergy(0) → colapso · OP.gameEnergy(100) → llena
     window.__REFUGIO.gameDrain=function(idle,move){ if(idle!==undefined)ENERGY_DRAIN=Math.max(0,+idle||0); if(move!==undefined)ENERGY_MOVE=Math.max(0,+move||0); return {drenajeReposo:ENERGY_DRAIN+' %/s', extraMovimiento:ENERGY_MOVE+' %/s', durLlenaReposo:Math.round(100/(ENERGY_DRAIN||0.0001))+'s', durLlenaCaminando:Math.round(100/((ENERGY_DRAIN+ENERGY_MOVE)||0.0001))+'s'}; }; // OP.gameDrain(reposo, extraMov)
     window.__REFUGIO.gameCharge=function(n){ if(n!==undefined)CHARGE_RATE=Math.max(1,+n||32); return 'recarga en el dock: '+CHARGE_RATE+' %/s (de 0 a 100 en ~'+(100/CHARGE_RATE).toFixed(1)+'s manteniendo E)'; }; // OP.gameCharge(n)
+    window.__REFUGIO.gameBees=function(){ return 'abejas liberadas en esta sesión (LOCAL, no toca el beesReleased del backend): '+gameBeesReleased; }; // lee el contador local del juego
+    window.__REFUGIO.gameRelease=function(){ if(_releaseSurge()){ gameBeesReleased++; _beesHud(); return 'abeja liberada (surge) — sesión: '+gameBeesReleased; } return 'ya hay un surge en curso (esperá a que termine)'; }; // fuerza una liberación para testear (ignora la proximidad)
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
@@ -2095,13 +2100,21 @@
   let _eHeld=false, _playerCharging=false, _promptTxt='';
   function _showPrompt(t){ if(_promptTxt===t)return; _promptTxt=t; const e=$('#ghPrompt'); if(e){e.textContent=t; e.classList.add('show');} }
   function _hidePrompt(){ if(_promptTxt===''){const e=$('#ghPrompt'); if(e)e.classList.remove('show'); return;} _promptTxt=''; const e=$('#ghPrompt'); if(e)e.classList.remove('show'); }
+  // ---- LIBERAR ABEJAS (hito 5): proximidad a la colmena → [E] RELEASE BEE → surge del enjambre (sin tocar el beesReleased del backend) + contador LOCAL de sesión ----
+  const HIVE_POS={x:0, z:14.4}; const HIVE_RADIUS=2.6; // la colmena (centerpiece) + radio de proximidad (el collider de la colmena es r≈0.8, así que el prompt aparece al acercarse)
+  let gameBeesReleased=0; // contador PROPIO de la sesión de juego (NO es STREAM.beesReleased)
+  function _beesHud(){ const e=$('#gbVal'); if(e)e.textContent=gameBeesReleased; }
   function _energyHud(){ const e=$('#geBar'); if(!e)return; const v=Math.max(0,Math.min(100,gameEnergy)); e.style.width=v+'%'; const c=v<20?'#ff3b3b':(v<45?'#ffb000':'#39ff88'); e.style.background=c; e.style.boxShadow='0 0 10px '+c; }
   function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
   function _reviveBeeko(){ const a=robot.act&&robot.act['Death']; if(a){a.setLoop(THREE.LoopRepeat,Infinity);a.clampWhenFinished=false;} gameEnergy=ENERGY_REVIVE; _setIdle(); } // restaura el loop del clip (no afecta el Death del estado roto) + se levanta
   const _keys=new Set();
   let _pcamYaw=0, _pcamInit=false, _playerHeading=0;
   const _pcamPos=new THREE.Vector3(), _pcamLook=new THREE.Vector3(), _pv1=new THREE.Vector3(), _pv2=new THREE.Vector3();
-  function playerInteract(){ /* hitos 4-6: cargar / liberar abeja / tomar objeto. Listener de E ya cableado. */ }
+  function playerInteract(){ // TAP de E: liberar una abeja cerca de la colmena (el HOLD de E carga en el dock; el tomar-objeto llega en el hito 6)
+    if(!gameMode || _menuOn || _gmCollapse>0) return;
+    const nearHive=Math.hypot(robot.model.position.x-HIVE_POS.x, robot.model.position.z-HIVE_POS.z)<HIVE_RADIUS;
+    if(nearHive && beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } // surge visible + contador LOCAL (cooldown natural = duración del surge → no spam)
+  }
   function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
     if(k==='w'||k==='a'||k==='s'||k==='d'||k==='arrowup'||k==='arrowdown'||k==='arrowleft'||k==='arrowright'){ _keys.add(k); e.preventDefault(); }
     else if(k==='e'){ _eHeld=true; if(!e.repeat)playerInteract(); e.preventDefault(); } } // E: sostener carga (cerca del dock); el tap dispara playerInteract (hitos 5-6)
@@ -2131,13 +2144,19 @@
       robot.model.rotation.y += ((_playerHeading-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*PLAYER_TURN); // gira suave hacia el rumbo
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
     } else { robot.moving=false; _setIdle(); }
-    // CARGAR: proximidad al dock → prompt; mantener E recarga rápido (y enciende la placa). Si no carga, drena normal.
+    // INTERACCIÓN: proximidad al dock (cargar, HOLD E) y a la colmena (liberar abeja, TAP E). El drenaje corre salvo que esté cargando.
     const nearDock=Math.hypot(robot.model.position.x-CHARGE_POS.x, robot.model.position.z-CHARGE_POS.z)<CHARGE_RADIUS;
-    const wantCharge=nearDock && _eHeld;
-    if(wantCharge && gameEnergy<100){ _playerCharging=true; gameEnergy=Math.min(100, gameEnergy+CHARGE_RATE*dt); _showPrompt('⚡ CHARGING…'); } // recargando
-    else if(wantCharge){ _playerCharging=false; _showPrompt('⚡ ENERGY FULL'); } // lleno y enchufado → no drena (sin parpadeo en el borde)
-    else { _playerCharging=false; gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); // DRENAJE: constante + extra al moverse
-      if(nearDock)_showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE'); else _hidePrompt(); }
+    const nearHive=Math.hypot(robot.model.position.x-HIVE_POS.x, robot.model.position.z-HIVE_POS.z)<HIVE_RADIUS;
+    const charging=nearDock && _eHeld && gameEnergy<100;
+    _playerCharging=charging;
+    if(charging){ gameEnergy=Math.min(100, gameEnergy+CHARGE_RATE*dt); }
+    else if(!(nearDock && _eHeld && gameEnergy>=100)){ gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); } // drena salvo enchufado al tope
+    // prompt (prioridad: cargando · enchufado-lleno · cerca dock · cerca colmena · nada)
+    if(charging) _showPrompt('⚡ CHARGING…');
+    else if(nearDock && _eHeld) _showPrompt('⚡ ENERGY FULL');
+    else if(nearDock) _showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE');
+    else if(nearHive) _showPrompt(beeReleaseT>0?'✦ RELEASING…':'[E] RELEASE BEE');
+    else _hidePrompt();
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
     _energyHud();
   }
@@ -2161,7 +2180,7 @@
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} }
-  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; gameEnergy=100; _gmCollapse=0; _energyHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena; _pcamInit=false → la cámara se reubica detrás de Beeko
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0; _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
