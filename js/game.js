@@ -1915,7 +1915,8 @@
     window.__REFUGIO.menu=function(){ showMenu(); return 'menú de inicio abierto (elegí OBSERVAR o TOMAR CONTROL)'; };
     // CALIBRACIÓN del feel del modo juego (velocidad + cámara 3ª persona). Sin args devuelven el valor actual.
     window.__REFUGIO.gameSpeed=function(n){ if(n!==undefined)PLAYER_SPEED=Math.max(0.2,+n||1.9); return 'velocidad de Beeko: '+PLAYER_SPEED+' u/s'; };
-    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)PLAYER_TURN=Math.max(1,+n||11); return 'giro de Beeko (lerp): '+PLAYER_TURN; };
+    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)PLAYER_TURN=Math.max(1,+n||8); return 'giro de Beeko (lerp; más bajo = más suave): '+PLAYER_TURN; };
+    window.__REFUGIO.gameAccel=function(accel,decel){ if(accel!==undefined)PLAYER_ACCEL=Math.max(1,+accel||10); if(decel!==undefined)PLAYER_DECEL=Math.max(1,+decel||8); return {aceleracion:PLAYER_ACCEL, desaceleracion:PLAYER_DECEL, nota:'más bajo = más inercia/glide'}; }; // OP.gameAccel(acel, desac)
     window.__REFUGIO.gameCam=function(dist,height,lag){ if(dist!==undefined)CAM_DIST=Math.max(0.5,+dist||CAM_DIST); if(height!==undefined)CAM_HEIGHT=Math.max(0.3,+height||CAM_HEIGHT); if(lag!==undefined){CAM_POS_LERP=Math.max(0.5,+lag||CAM_POS_LERP);CAM_YAW_LERP=Math.max(0.5,+lag*0.7||CAM_YAW_LERP);} return {dist:CAM_DIST,height:CAM_HEIGHT,lookY:CAM_LOOKY,posLerp:+CAM_POS_LERP.toFixed(2),yawLerp:+CAM_YAW_LERP.toFixed(2)}; }; // OP.gameCam(distancia, altura, lag) — lag chico = sigue más pegada
     // ENERGÍA (hito 3): setear a mano (probar el colapso) + calibrar el drenaje.
     window.__REFUGIO.gameEnergy=function(n){ if(n!==undefined){ gameEnergy=Math.max(0,Math.min(100,+n||0)); _energyHud(); } return 'energía: '+Math.round(gameEnergy)+'%'+(_gmCollapse>0?' (colapsado, revive en '+_gmCollapse.toFixed(1)+'s)':''); }; // OP.gameEnergy(0) → colapso · OP.gameEnergy(100) → llena
@@ -2088,7 +2089,9 @@
   function _setIdle(){ if(robot.model&&robot.act&&robot.act['Idle']&&robot.cur!==robot.act['Idle'])setRobotAnim('Idle'); }
   // ---- CONTROL DEL JUGADOR (hito 2): input + movimiento relativo a la cámara + cámara 3ª persona. CONSTANTES CALIBRABLES (OP.gameSpeed/gameCam): ----
   let PLAYER_SPEED=1.9;        // velocidad de Beeko (u/s). CALIBRABLE (OP.gameSpeed)
-  let PLAYER_TURN=11;          // qué tan rápido gira Beeko hacia donde camina (lerp). CALIBRABLE
+  let PLAYER_TURN=8;           // qué tan rápido gira Beeko hacia donde camina (lerp; más bajo = giro más suave). CALIBRABLE (OP.gameTurn)
+  let PLAYER_ACCEL=10;         // rapidez con que la velocidad sube hacia la deseada (más bajo = arranque más suave/inercia). CALIBRABLE (OP.gameAccel)
+  let PLAYER_DECEL=8;          // rapidez con que la velocidad baja al soltar (más bajo = más glide). CALIBRABLE (OP.gameAccel)
   let CAM_DIST=3.3, CAM_HEIGHT=2.05, CAM_LOOKY=1.05; // 3ª persona: distancia atrás · altura · a qué altura mira. CALIBRABLE (OP.gameCam)
   let CAM_POS_LERP=4.5, CAM_YAW_LERP=3.2;            // suavizado de la cámara: posición · giro detrás de Beeko (lag). CALIBRABLE (OP.gameCam)
   const GAME_FOV=68;
@@ -2127,7 +2130,7 @@
   function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
   function _reviveBeeko(){ const a=robot.act&&robot.act['Death']; if(a){a.setLoop(THREE.LoopRepeat,Infinity);a.clampWhenFinished=false;} gameEnergy=ENERGY_REVIVE; _setIdle(); } // restaura el loop del clip (no afecta el Death del estado roto) + se levanta
   const _keys=new Set();
-  let _pcamYaw=0, _pcamInit=false, _playerHeading=0;
+  let _pcamYaw=0, _pcamInit=false, _playerHeading=0, _pvelX=0, _pvelZ=0; // _pvel = velocidad actual (con inercia)
   const _pcamPos=new THREE.Vector3(), _pcamLook=new THREE.Vector3(), _pv1=new THREE.Vector3(), _pv2=new THREE.Vector3();
   function playerInteract(){ // TAP de E: liberar abeja (colmena) o tomar objeto (bóveda). El HOLD de E carga en el dock.
     if(!gameMode || _menuOn || _gmCollapse>0) return;
@@ -2149,21 +2152,28 @@
     if(_menuOn){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; }
     const inF=((_keys.has('w')||_keys.has('arrowup'))?1:0)-((_keys.has('s')||_keys.has('arrowdown'))?1:0);
     const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0);
-    const y=_pcamYaw, fwdX=Math.sin(y), fwdZ=Math.cos(y), rX=Math.cos(y), rZ=-Math.sin(y); // base relativa a la cámara
-    let mx=fwdX*inF+rX*inR, mz=fwdZ*inF+rZ*inR; const mag=Math.hypot(mx,mz);
-    if(mag>0.001){ mx/=mag; mz/=mag;
+    // base relativa a la cámara. RIGHT = (-cos, sin): mirando hacia +Z el "derecha de pantalla" es world -X → A/← izquierda real, D/→ derecha real.
+    const y=_pcamYaw, fwdX=Math.sin(y), fwdZ=Math.cos(y), rX=-Math.cos(y), rZ=Math.sin(y);
+    let dx=fwdX*inF+rX*inR, dz=fwdZ*inF+rZ*inR; const mag=Math.hypot(dx,dz), inputActive=mag>0.001;
+    if(inputActive){ dx/=mag; dz/=mag; }
+    // VELOCIDAD CON INERCIA: la velocidad lerpea hacia la deseada (acelera) y hacia 0 al soltar (desacelera) → ni arranca ni frena de golpe.
+    const tgtX=inputActive?dx*PLAYER_SPEED:0, tgtZ=inputActive?dz*PLAYER_SPEED:0, ak=Math.min(1,(inputActive?PLAYER_ACCEL:PLAYER_DECEL)*dt);
+    _pvelX+=(tgtX-_pvelX)*ak; _pvelZ+=(tgtZ-_pvelZ)*ak;
+    const spd=Math.hypot(_pvelX,_pvelZ);
+    if(spd>0.04){
+      let mx=_pvelX/spd, mz=_pvelZ/spd; // dirección actual de movimiento (de la velocidad, no del input directo → giro suave)
       const px=robot.model.position.x, pz=robot.model.position.z;
       for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const ff=(rng-od)/rng*1.8;mx+=ox/od*ff;mz+=oz/od*ff;}} // steering anti-objeto (igual que el robot)
       const ml=Math.hypot(mx,mz)||1; mx/=ml; mz/=ml;
-      const sp=PLAYER_SPEED*dt; let nx=px+mx*sp, nz=pz+mz*sp;
+      const sp=spd*dt; let nx=px+mx*sp, nz=pz+mz*sp; // el paso usa la velocidad ACTUAL (con inercia)
       if(!inArea(nx,nz)){ if(inArea(nx,pz))nz=pz; else if(inArea(px,nz))nx=px; else {nx=px;nz=pz;} } // contención por AREAS (paredes/puertas) — no sale de las salas
       robot.model.position.x=nx; robot.model.position.z=nz;
-      for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}} // push-out duro
-      if(!inArea(robot.model.position.x,robot.model.position.z)){ robot.model.position.x=px; robot.model.position.z=pz; } // GARANTÍA: si el push-out lo dejó fuera de toda sala, revierte al lugar anterior (válido) → nunca atraviesa paredes
+      for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const kk=(c.r+.2)/cd;robot.model.position.x=c.x+cx*kk;robot.model.position.z=c.z+cz*kk;}} // push-out duro
+      if(!inArea(robot.model.position.x,robot.model.position.z)){ robot.model.position.x=px; robot.model.position.z=pz; } // GARANTÍA: nunca queda fuera de las salas
       _playerHeading=Math.atan2(mx,mz);
       robot.model.rotation.y += ((_playerHeading-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*PLAYER_TURN); // gira suave hacia el rumbo
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
-    } else { robot.moving=false; _setIdle(); }
+    } else { _pvelX=0; _pvelZ=0; robot.moving=false; _setIdle(); }
     // INTERACCIÓN: proximidad al dock (cargar, HOLD E) y a la colmena (liberar abeja, TAP E). El drenaje corre salvo que esté cargando.
     const nearDock=Math.hypot(robot.model.position.x-CHARGE_POS.x, robot.model.position.z-CHARGE_POS.z)<CHARGE_RADIUS;
     const nearHive=Math.hypot(robot.model.position.x-HIVE_POS.x, robot.model.position.z-HIVE_POS.z)<HIVE_RADIUS;
@@ -2198,7 +2208,7 @@
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
     ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
-    _keys.clear(); _eHeld=false; _playerCharging=false; _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt al cambiar de modo
+    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
