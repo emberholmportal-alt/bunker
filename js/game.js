@@ -1921,6 +1921,7 @@
     window.__REFUGIO.gameCharge=function(n){ if(n!==undefined)CHARGE_RATE=Math.max(1,+n||32); return 'recarga en el dock: '+CHARGE_RATE+' %/s (de 0 a 100 en ~'+(100/CHARGE_RATE).toFixed(1)+'s manteniendo E)'; }; // OP.gameCharge(n)
     window.__REFUGIO.gameBees=function(){ return 'abejas liberadas en esta sesión (LOCAL, no toca el beesReleased del backend): '+gameBeesReleased; }; // lee el contador local del juego
     window.__REFUGIO.gameRelease=function(){ if(_releaseSurge()){ gameBeesReleased++; _beesHud(); return 'abeja liberada (surge) — sesión: '+gameBeesReleased; } return 'ya hay un surge en curso (esperá a que termine)'; }; // fuerza una liberación para testear (ignora la proximidad)
+    window.__REFUGIO.gameTake=function(){ if(_mItemTaken)return 'el ítem ya está en el inventario (click en el slot para releer el lore)'; _takeItem(); return 'ítem tomado: '+ITEM_NAME+' — lore abierto'; }; // fuerza tomar el ítem de la bóveda para testear (ignora la proximidad)
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
@@ -2104,16 +2105,32 @@
   const HIVE_POS={x:0, z:14.4}; const HIVE_RADIUS=2.6; // la colmena (centerpiece) + radio de proximidad (el collider de la colmena es r≈0.8, así que el prompt aparece al acercarse)
   let gameBeesReleased=0; // contador PROPIO de la sesión de juego (NO es STREAM.beesReleased)
   function _beesHud(){ const e=$('#gbVal'); if(e)e.textContent=gameBeesReleased; }
+  // ---- ÍTEM DE MISTERIO (hito 6): un fragmento de registro recuperado en la BÓVEDA (el cuarto SELLADO que Beeko descubrió) → primer gancho de lore del despertar ----
+  const ITEM_POS={x:5.0, z:13.5}; const ITEM_RADIUS=1.5; // en la bóveda, sobre un pedestal chico
+  const ITEM_NAME='LOG FRAGMENT';
+  const ITEM_LORE='partial recovery. timestamp corrupt.\n\n"…the Hive was meant to manage the surface. optimize it. it did — it optimized us out, one efficiency at a time."\n\n"…it doesn\'t hate us. whoever finds this has to understand that. it just doesn\'t need us anymore. that\'s worse."\n\n"…sealed 404 with a hundred inside, the rest of them out there, becoming part of it. i kept the bees. real ones. something that still makes more of itself the old way. maybe that still counts for something."\n\n— [remainder corrupted] —';
+  let _mItemTaken=false, mItemGrp=null;
+  { mItemGrp=new THREE.Group(); mItemGrp.position.set(ITEM_POS.x,0,ITEM_POS.z); // pedestal + cartucho que brilla (visible para encontrarlo explorando)
+    const ped=new THREE.Mesh(new THREE.BoxGeometry(.2,.5,.2), new THREE.MeshStandardMaterial({color:0x26262e,metalness:.5,roughness:.6})); ped.position.y=.25; ped.castShadow=true; mItemGrp.add(ped);
+    const cart=new THREE.Mesh(new THREE.BoxGeometry(.12,.16,.05), new THREE.MeshBasicMaterial({color:0x6effc0})); cart.position.y=.62; mItemGrp.add(cart); // unlit → siempre brilla
+    const gl=new THREE.PointLight(0x39ffaa,.6,1.8,2); gl.position.set(0,.62,0); mItemGrp.add(gl);
+    scene.add(mItemGrp); }
+  function _invFill(){ const s=$('#invSlot0'); if(s){ s.classList.add('filled'); s.textContent='▣'; s.title=ITEM_NAME; } }
+  function _invClear(){ const s=$('#invSlot0'); if(s){ s.classList.remove('filled'); s.textContent=''; s.title='objeto'; } }
+  function _showItemPanel(){ const h=$('#ipHead'),bd=$('#ipBody'),pn=$('#itemPanel'); if(h)h.textContent='RECOVERED · '+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; if(pn)pn.classList.add('show'); }
+  function _hideItemPanel(){ const pn=$('#itemPanel'); if(pn)pn.classList.remove('show'); }
+  function _takeItem(){ if(_mItemTaken)return; _mItemTaken=true; if(mItemGrp)mItemGrp.visible=false; _invFill(); _showItemPanel(); } // tomar: desaparece de la sala, va al inventario, abre el lore
   function _energyHud(){ const e=$('#geBar'); if(!e)return; const v=Math.max(0,Math.min(100,gameEnergy)); e.style.width=v+'%'; const c=v<20?'#ff3b3b':(v<45?'#ffb000':'#39ff88'); e.style.background=c; e.style.boxShadow='0 0 10px '+c; }
   function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
   function _reviveBeeko(){ const a=robot.act&&robot.act['Death']; if(a){a.setLoop(THREE.LoopRepeat,Infinity);a.clampWhenFinished=false;} gameEnergy=ENERGY_REVIVE; _setIdle(); } // restaura el loop del clip (no afecta el Death del estado roto) + se levanta
   const _keys=new Set();
   let _pcamYaw=0, _pcamInit=false, _playerHeading=0;
   const _pcamPos=new THREE.Vector3(), _pcamLook=new THREE.Vector3(), _pv1=new THREE.Vector3(), _pv2=new THREE.Vector3();
-  function playerInteract(){ // TAP de E: liberar una abeja cerca de la colmena (el HOLD de E carga en el dock; el tomar-objeto llega en el hito 6)
+  function playerInteract(){ // TAP de E: liberar abeja (colmena) o tomar objeto (bóveda). El HOLD de E carga en el dock.
     if(!gameMode || _menuOn || _gmCollapse>0) return;
-    const nearHive=Math.hypot(robot.model.position.x-HIVE_POS.x, robot.model.position.z-HIVE_POS.z)<HIVE_RADIUS;
-    if(nearHive && beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } // surge visible + contador LOCAL (cooldown natural = duración del surge → no spam)
+    const px=robot.model.position.x, pz=robot.model.position.z;
+    if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } return; } // colmena: liberar (cooldown natural = surge)
+    if(!_mItemTaken && Math.hypot(px-ITEM_POS.x, pz-ITEM_POS.z)<ITEM_RADIUS){ _takeItem(); return; } // bóveda: tomar el ítem de misterio
   }
   function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
     if(k==='w'||k==='a'||k==='s'||k==='d'||k==='arrowup'||k==='arrowdown'||k==='arrowleft'||k==='arrowright'){ _keys.add(k); e.preventDefault(); }
@@ -2156,6 +2173,7 @@
     else if(nearDock && _eHeld) _showPrompt('⚡ ENERGY FULL');
     else if(nearDock) _showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE');
     else if(nearHive) _showPrompt(beeReleaseT>0?'✦ RELEASING…':'[E] RELEASE BEE');
+    else if(!_mItemTaken && Math.hypot(robot.model.position.x-ITEM_POS.x, robot.model.position.z-ITEM_POS.z)<ITEM_RADIUS) _showPrompt('[E] TAKE');
     else _hidePrompt();
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
     _energyHud();
@@ -2179,11 +2197,14 @@
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
-  function enterLivestream(){ gameMode=false; _cleanRobotForMode(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} }
-  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0; _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0
+  function enterLivestream(){ gameMode=false; _cleanRobotForMode(); _hideItemPanel(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} } // oculta el panel del ítem si quedó abierto
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0;
+    _mItemTaken=false; if(mItemGrp)mItemGrp.visible=true; _invClear(); _hideItemPanel(); // sesión de juego fresca: el ítem vuelve a la bóveda, inventario limpio
+    _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
+  { const sl=$('#invSlot0'),pn=$('#itemPanel'); if(sl)sl.addEventListener('click',()=>{ if(_mItemTaken)_showItemPanel(); }); if(pn)pn.addEventListener('click',_hideItemPanel); } // inventario: click en el slot reabre el lore; click en el panel lo cierra
   addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: abre/cierra el menú (volver a elegir modo)
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
