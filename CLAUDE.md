@@ -17,7 +17,17 @@ de marketing y mini-juego de supervivencia.
   (`--screen` verde, `--amber`, `--enj` rosa "enjambre", `--cyan`, `--void`).
 - **Motor:** Three.js **r128 (0.128.0)** + sus ejemplos (postprocesado, GLTFLoader,
   shaders). Todo en **un solo archivo HTML** (`index.html`).
-- **Idioma:** toda la UI y narrativa están en **español rioplatense** (voseo). Mantenerlo.
+- **Idioma:** el búnker es **bilingüe EN/ES** con toggle en el panel de config. **Default
+  inglés** (sesión limpia); la elección persiste en `localStorage 'refugio_lang'`. El
+  motor es `js/i18n.js` (`STR.en`/`STR.es` + `T('key', ...args)` + `applyI18n()` +
+  `setLang()` + `onLang()`); el DOM estático se marca con `data-i18n` y lo dinámico se
+  re-renderiza vía el hook `_relangDynamic()` (en `game.js`, registrado con `onLang`). La
+  **interfaz** ya es bilingüe (Fase 1). La **voz de Beeko** (pensamientos, fragmento de la
+  bóveda, textos de TV/radio/computadora, awakening, resumen de lore) sigue **en inglés**
+  y se traduce al español por tandas en la **Fase 2** (ojo: los arrays index-aligned del
+  despertar — `awakening`/`BEEKO_LOOKUP`/`BEEKO_HEARD` y sus `*_MIN_STAGE` — deben mantener
+  largo y orden al traducir). El **español es rioplatense (voseo)**. La pantalla de carga
+  tiene su propio mini-dicc EN/ES inline (corre antes de `i18n.js`).
 - **Experiencia single-player.** Por ahora es **un solo jugador** sobreviviendo solo en
   el búnker (multijugador es a futuro). El slider HOLDERS es la **métrica/atmósfera** del
   trailer (almas a salvo adentro vs. afuera con el enjambre), **no** una colonia que
@@ -112,7 +122,10 @@ comentarios `// ---- ... ----`:
 
 ## Convenciones a mantener
 
-- **Español rioplatense (voseo)** en toda la UI y textos.
+- **Bilingüe EN/ES** (default EN, toggle en config). Todo texto VISIBLE pasa por i18n
+  (`data-i18n` en el DOM estático, `T('key')` en el JS, `_relangDynamic()` para lo
+  dinámico). El **español es rioplatense (voseo)**. Al agregar UI nueva, agregá su key en
+  `STR.en` y `STR.es` — no hardcodees strings visibles.
 - **CSS muy compacto** (muchas reglas por línea); variables de color en `:root`.
 - **JS denso de una sola línea por bloque lógico** es el estilo existente — al separar a
   archivos, conservar el código tal cual; no reformatear ni "modernizar" porque sí.
