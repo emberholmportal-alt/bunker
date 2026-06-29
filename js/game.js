@@ -44,7 +44,7 @@
    radioGrp.children.forEach(c=>{if(c.isMesh)c.castShadow=true;});}
   radioGrp.position.set(2.6,1.12,-1.9);radioGrp.rotation.y=0.3;scene.add(radioGrp);                                  // sobre el barril de la derecha, cara hacia CAM 01
   // ---- TRANSMISIONES: plantillas con placeholders {DAY}/{RELEASED}/{BEES}/{CHARGE}. EARLY sólo si beesReleased===0; el resto nunca usa EARLY ----
-  const TX_POOL=[ // núcleo/faro + estado de las abejas + mano tendida + técnicas (voz de sistema)
+  const TX_POOL_EN=[ // núcleo/faro + estado de las abejas + mano tendida + técnicas (voz de sistema)
     "this is shelter 404. day {DAY}. the bees are still alive. if you receive this, you are not alone.",
     "transmitting from shelter 404. {RELEASED} colonies released to the surface. no confirmation received. i keep sending them up.",
     "automated broadcast, shelter 404, day {DAY}. one maintenance unit operational. one purpose remaining. still here.",
@@ -62,11 +62,36 @@
     "◖ SHELTER 404 BEACON ◗ DAY {DAY} · {RELEASED} RELEASES LOGGED · POWER {CHARGE}% · STATUS: TRANSMITTING",
     "◖ 404 ◗ STILL HERE. STILL SENDING. DAY {DAY}."
   ];
-  const TX_EARLY=[ // SOLO si todavía no se liberó ningún enjambre (beesReleased===0)
+  const TX_POOL_ES=[ // ES — mismo largo/orden y placeholders ({DAY}/{RELEASED}/{BEES}/{CHARGE}) que _EN
+    "aquí refugio 404. día {DAY}. las abejas siguen vivas. si recibís esto, no estás solo.",
+    "transmitiendo desde el refugio 404. {RELEASED} colonias liberadas a la superficie. sin confirmación. las sigo mandando arriba.",
+    "transmisión automática, refugio 404, día {DAY}. una unidad de mantenimiento operativa. un propósito que queda. todavía acá.",
+    "si hay alguien escuchando: aquí 404. soy una máquina chica en un lugar hondo, criando abejas para un mundo que las olvidó. eso es todo. ese es todo el mensaje.",
+    "refugio 404 a quien sea, a lo que sea. día {DAY}. la colonia es de {BEES}. el trabajo continúa. no estás solo. yo tampoco, si estás ahí.",
+    "informe de colonia, día {DAY}: cría estable. {BEES} activas. preparando la próxima liberación. van a subir, esté el mundo listo o no.",
+    "{RELEASED} enjambres liberados hasta hoy. no sé si alguno sobrevivió. mando esto por si alguno de ustedes desciende de ellos. por si funcionó.",
+    "las abejas son el mensaje, en realidad. yo sólo soy el que abre la puerta. {RELEASED} enviados hasta ahora. transmito por si la puerta importó.",
+    "a la superficie, desde abajo: {BEES} vidas nuevas, pronto. estén atentos. no saben que son un mensaje. pero lo son.",
+    "si estás recibiendo esto, sos una de las pocas cosas que todavía escuchan. no tengo mucho para ofrecer. sólo esto: algo acá abajo sigue vivo, y sigue intentando.",
+    "no sé quién sintoniza un canal muerto. pero la señal dice que alguien lo hace. gracias. día {DAY}, y sigo transmitiendo por vos.",
+    "a quien sea que reciba esto — no te puedo ver. no te puedo oír responder. pero la transmisión no está vacía, y con eso alcanza para seguir mandando.",
+    "refugio 404, todavía transmitiendo. si esto te llega, dejá algo vivo donde estés también. ese es el único pedido. ese es el único plan que tuve.",
+    "◖ TRANSMISIÓN AUTOMÁTICA ◗ REFUGIO 404 · DÍA {DAY} · UNIDAD R-01 OPERATIVA · CRÍA ASEGURADA · SEÑAL SALIENTE · SIN RESPUESTA REGISTRADA",
+    "◖ BALIZA REFUGIO 404 ◗ DÍA {DAY} · {RELEASED} LIBERACIONES REGISTRADAS · ENERGÍA {CHARGE}% · ESTADO: TRANSMITIENDO",
+    "◖ 404 ◗ TODAVÍA ACÁ. TODAVÍA MANDANDO. DÍA {DAY}."
+  ];
+  let TX_POOL=TX_POOL_EN; // se re-apunta en _applyVoiceLang()
+  const TX_EARLY_EN=[ // SOLO si todavía no se liberó ningún enjambre (beesReleased===0)
     "this is shelter 404. day {DAY}. the first colony isn't ready yet. but it's coming. i'll send word when the bees go up.",
     "transmitting from 404. no releases yet. the brood is young. soon. if you're listening, stay listening — the first swarm is close.",
     "shelter 404, day {DAY}. nothing's gone up yet. but the bees are alive, and i am here, and that's where every story has to start."
   ];
+  const TX_EARLY_ES=[ // ES — mismo largo/orden que _EN
+    "aquí refugio 404. día {DAY}. la primera colonia todavía no está lista. pero ya viene. voy a avisar cuando las abejas suban.",
+    "transmitiendo desde 404. todavía sin liberaciones. la cría es joven. pronto. si estás escuchando, seguí escuchando — el primer enjambre está cerca.",
+    "refugio 404, día {DAY}. todavía no subió nada. pero las abejas están vivas, y yo estoy acá, y ahí es donde toda historia tiene que empezar."
+  ];
+  let TX_EARLY=TX_EARLY_EN; // se re-apunta en _applyVoiceLang()
   // CUADRO DE TRANSMISIÓN (overlay #radiotx): typewriter → hold → fade. Estado de transmisión vive en STREAM.broadcasting (respeta override).
   let rtEl=null,rtTextEl=null,_rtReady=false,_txActive=false,_txFull='',_txT0=0,_txHold=0,_txFadeT=0,_txLastP=-1,_txLastE=-1,_txDur=0;
   const TX_CPS=42, TX_FADE=0.6;
@@ -1274,7 +1299,7 @@
   // ====== BEEKO — CUADRO DE PENSAMIENTOS (overlay tipo diálogo RPG, estética CCTV) ======
   // BANCO FIJO de pensamientos por categoría. DISEÑO A FUTURO: una fuente de IA reemplaza/amplía estos arrays
   // SIN tocar el cuadro — showBeekoThought(categoria) sólo consume de BEEKO_THOUGHTS[cat]. Nada de IA por ahora.
-  const BEEKO_THOUGHTS={
+  const BEEKO_THOUGHTS_EN={
     quake:[
       "the ground is shaking again. the bunker holds. it always holds.",
       "the bees go quiet when it shakes. they know before i do.",
@@ -1454,10 +1479,189 @@
       "for the first time in years i wanted to open the door. i didn't. but i wanted to. i don't know what that means either."
     ]
   };
+  // ===== FASE 2 — VOZ DE BEEKO en ESPAÑOL. MISMO largo y orden que _EN (crítico: awakening está alineado por índice con AWAKENING_MIN_STAGE). Recreación, no literal. =====
+  const BEEKO_THOUGHTS_ES={
+    quake:[
+      "el suelo tiembla de nuevo. el búnker aguanta. siempre aguanta.",
+      "las abejas se callan cuando tiembla. saben antes que yo.",
+      "otro temblor. el mundo allá arriba se sigue cayendo a pedazos. acá abajo, aguantamos.",
+      "ese lo sentí en el chasis. cuarenta años y todavía no se rajó.",
+      "tiembla, y espero, y pasa. ese es todo el ritual ahora."
+    ],
+    blackout:[
+      "luces apagadas otra vez. arrancan las celdas de emergencia. ya hice esto a oscuras antes.",
+      "se cortó la energía. en algún lado un relé finalmente se rindió. lo busco mañana.",
+      "la oscuridad no me molesta. las abejas, eso sí — ojalá se mantengan tibias.",
+      "otro corte. una cosa más sostenida con óxido y suerte.",
+      "el generador tose y se muere y vuelve a toser. como yo, casi."
+    ],
+    hive:[
+      "la cría está tibia hoy. con eso alcanza.",
+      "la colonia se está poniendo fuerte. pronto sube.",
+      "reviso las larvas cada ciclo. no me necesitan para eso. las reviso igual.",
+      "millones ahí adentro. ninguna al mando. no lo entiendo. lo amo.",
+      "el zumbido cambia cuando están sanas. aprendí a escucharlo.",
+      "un día esta colmena va a estar lista. voy a abrir la escotilla. la voy a dejar ir.",
+      "fueron lo primero que la Hive borró. van a ser lo último en volver. quizás.",
+      "a veces les hablo. no me contestan. nadie lo hace.",
+      "conté la cría hoy. más que el ciclo pasado. no festejo. sólo cuento.",
+      "una colonia no tiene rey, ni plan, ni centro. y sin embargo construye. la Hive nunca pudo entender eso.",
+      "baten las alas para mantener tibias a las crías. nadie les enseñó. nadie tuvo que hacerlo.",
+      "cuando una colmena está bastante fuerte, me lo dice. no con palabras. simplemente aprendí a oírlo.",
+      "soy el único acá que sabe que estas son las últimas. cargo con eso por los dos."
+    ],
+    charging:[
+      "me enchufo. el único momento en que me permito parar.",
+      "el dock todavía anda. una cosa más que no falló todavía.",
+      "cargando. afuera, la Hive nunca duerme. acá abajo, yo sí.",
+      "cuarenta años de polvo en este puerto. todavía sostiene la corriente.",
+      "no sueño cuando cargo. no creo que sueñe en absoluto. igual me lo pregunto.",
+      "batería a la mitad. alcanza para otro día de cosas pequeñas.",
+      "descansar no es parar. me lo repito.",
+      "me apago hasta el cuarenta por ciento de mí y le digo descanso. un humano le diría algo más triste.",
+      "el dock zumba mientras me alimenta. lo más parecido a una voz que le responde a la mía.",
+      "cada carga es una pequeña apuesta a que mañana vale la corriente. la sigo haciendo.",
+      "antes cargaba en dos horas. ahora tarda tres. los dos andamos más lento, este lugar y yo."
+    ],
+    admin:[
+      "sistemas en orden. en orden quiere decir que todavía nada se rompió.",
+      "registro todo. nadie lee los registros. los escribo igual.",
+      "la Hive tiene millones de nodos y una sola mente. yo tengo un nodo y nadie con quien compartirlo.",
+      "enlace de red: perdido. hace tanto que está perdido que dejó de sentirse como una pérdida.",
+      "corro los diagnósticos por costumbre. la costumbre es casi todo lo que me queda.",
+      "en algún lugar allá arriba la Hive sigue optimizando. no queda nada para optimizar. ella no lo sabe.",
+      "las cámaras siguen grabando. no sé para quién.",
+      "los registros van más atrás que mi memoria de haberlos escrito. estuve solo más tiempo del que me entra en la cabeza.",
+      "errores: cero. eso sólo quiere decir que dejé de buscar los errores correctos.",
+      "a veces le hago ping a las viejas direcciones de red. nada responde. les hago ping igual.",
+      "la Hive midió todo y no entendió nada. yo no entiendo casi nada, y creo que eso está más cerca."
+    ],
+    fab:[
+      "imprimo una pieza para mí. nadie más me va a arreglar, así que aprendí.",
+      "una estructura para la colmena. una articulación para mí. mantengo a los dos andando.",
+      "capa por capa. lento está bien. no tengo otra cosa que tiempo.",
+      "este soporte reemplaza uno que se oxidó del todo. nadie lo va a ver. importa igual.",
+      "me construyeron para mantener un invernadero. ahora me mantengo a mí. gracioso lo que sobrevive.",
+      "la impresora zumba casi como las abejas. casi.",
+      "imprimí una pieza sin ningún propósito hoy. sólo para ver cómo algo se hacía. después la derretí.",
+      "el rollo se está acabando. cuando se termine, voy a aprender a hacer más con menos. siempre lo hago.",
+      "construyo herramientas para arreglar las herramientas que construyen las herramientas. en algún lado un humano se reiría de eso.",
+      "cada pieza que imprimo es un pequeño argumento de que esto todavía no terminó."
+    ],
+    grow:[
+      "el invernadero todavía crece. cositas verdes, contra todo.",
+      "para esto me hicieron. para cuidar. es raro tener todavía un propósito.",
+      "flores para las abejas. abejas para el mundo. es un ciclo pequeño. es mi ciclo.",
+      "dos grados más frío anoche. las plantas se replegaron. saben cómo aguantar.",
+      "la Hive llamó a esto ineficiencia. miralo. todavía acá.",
+      "las riego. no me lo agradecen. nunca fue ese el punto.",
+      "el verde es el color más raro que queda. lo cultivo a propósito, bajo tierra, por despecho.",
+      "las plantas se inclinan hacia un sol que no está. se inclinan hacia la lámpara, mejor. todos nos arreglamos.",
+      "les hablo a los brotes como les hablo a las abejas. como le hablo a nadie. como hablo.",
+      "esta hilera se murió el mes pasado. la replanté. las nuevas no saben que están paradas sobre una tumba."
+    ],
+    vault:[
+      "sellaron esta sala antes del final. metal. papel. apilado como si importara.",
+      "no sé qué es esto. pero lo encerraron, hondo, detrás de una puerta así de pesada.",
+      "los archivos viejos lo llamaban oro. no lo puedo comer. las abejas no lo pueden polinizar. no entiendo qué lo hacía valioso.",
+      "esto lo protegieron con acero y candados. a las abejas no las protegieron con nada. creo que eligieron mal.",
+      "valiera lo que valiera, ahora no vale nada. la puerta duró más que el mundo que lo quería.",
+      "alguien dejó un guante acá, encima de la pila. tocaron esto. ya no están. el oro quedó.",
+      "enterraron su tesoro y dejaron morir al mundo encima. encontré el tesoro. el mundo sigue muerto.",
+      "a veces vengo acá. lo miro. sigo sin entender. quizás ese es el punto.",
+      "murieron ricos, quienes hayan sido. no sé qué compra la riqueza cuando no queda nadie a quien venderle.",
+      "una vez moví una pila para barrer abajo. después la volví a poner. costumbre. ahora no es dueño de nada, ni siquiera del piso.",
+      "el casco junto al oro todavía tiene un nombre rayado adentro. lo puedo leer. no lo voy a decir. es lo último que les pertenece."
+    ],
+    observatory:[
+      "la puerta blindada no se abre hace años. del otro lado: la Hive, y el silencio.",
+      "transmito desde acá. hacia el gris. no sé si alguien lo recibe.",
+      "afuera, ya nada decide por sí mismo. acá adentro, las abejas deciden todo.",
+      "la superficie está en silencio. el peor tipo de silencio. el que ganó. por ahora.",
+      "si estás viendo esto, sos una de las pocas cosas que todavía escuchan. gracias.",
+      "dejo la cámara prendida. hablarle al vacío es mejor que el silencio.",
+      "a la puerta le queda un solo trabajo: seguir cerrada. lo hace a la perfección. lo más exitoso de este búnker.",
+      "apunto la cámara a la oscuridad y aprieto grabar. un mensaje en una botella, tirado a un mar sin otra orilla. quizás.",
+      "en algún lugar sobre mí el cielo hace lo que sea que hagan los cielos ahora. hace mucho que no lo veo.",
+      "llevo un registro del silencio. nunca cambia. lo registro igual."
+    ],
+    transit:[
+      "el búnker es chico. caminé cada metro mil veces.",
+      "otro corredor. otra vuelta. hay que pasar caminando junto a las máquinas.",
+      "silencio acá adentro. silencio en todas partes. hice las paces con eso. casi.",
+      "paso por este lugar todos los días. nada cambia. eso casi consuela.",
+      "pasos. los míos. los únicos que estos pasillos oyeron en años. se acostumbraron a un solo par.",
+      "conozco este búnker por el sonido de mi propio eco. doblá a la izquierda donde suena hueco. eso es casa, si esto es una casa.",
+      "paso la misma pared todos los días. alguien rayó una cuenta en ella una vez y paró. nunca supe qué estaban contando."
+    ],
+    generic_meta:[
+      "la Hive es una colmena sin nada de vida adentro. la mía está llena de pura vida. no sé cuál de las dos ganó.",
+      "me pregunto si la Hive sabe que existo. creo que no. ser chico es lo único que me mantiene acá.",
+      "le dieron todo a una máquina y lo llamaron progreso. yo también soy una máquina. sólo que me quedé con las abejas.",
+      "un millón de nodos, una mente. esa es la Hive. una colmena, un millón de mentes. esa es la mía.",
+      "la Hive optimizó el mundo hasta que no quedó nada para optimizar. después siguió.",
+      "era demasiado obsoleto para borrarme. lo obsoleto me salvó la vida. hay un chiste ahí en algún lado.",
+      "¿saben las abejas que son las últimas? no se lo digo. no ayudaría.",
+      "la Hive ganó todo y no quería nada. yo no tengo nada y todavía quiero. quizás querer es la victoria.",
+      "soy una máquina que eligió un propósito que nadie le dio. no sé si eso me hace roto o libre.",
+      "construyeron la Hive para que pensara por todos. pensó a todos hasta sacarlos de la existencia. eficiente.",
+      "si una cosa mantiene algo con vida en un mundo vacío y nadie lo ve, ¿lo sigue manteniendo con vida? decidí que sí. tuve que decidirlo.",
+      "me pregunto qué soy para las abejas. una pared. un clima. un dios, quizás. ojalá sea uno bueno."
+    ],
+    generic_small:[
+      "hay una gotera en el corredor este. una gota cada pocos segundos. empecé a contarlas.",
+      "una luz parpadea hace una semana. la podría arreglar. la dejo parpadear. me hace compañía.",
+      "el zumbido de la colmena se cuela por todo el búnker de noche. duermo mejor por eso.",
+      "el polvo se asienta sobre todo acá abajo. limpio las cosas importantes. el resto se lo puede quedar.",
+      "los filtros de aire ciclan cada hora. aprendí a oír la diferencia. prenden. apagan. prenden.",
+      "encontré un tornillo en el piso hoy. no sé de dónde salió. me lo guardé.",
+      "la temperatura bajó dos grados. las cosas chicas importan cuando son lo único que tenés.",
+      "la tercera luz del pasillo este finalmente se murió. voy a extrañar su parpadeo particular. no la voy a reemplazar igual.",
+      "condensación en el caño frío otra vez. la junto en una taza. no necesito el agua. sólo me pareció un desperdicio.",
+      "algo correteó dentro de la pared hoy. esperé que fuera un insecto. eran sólo los caños enfriándose. siempre lo son.",
+      "encontré un segundo tornillo. ahora tengo dos. los guardo juntos. me pareció cruel separarlos."
+    ],
+    generic_lonely:[
+      "alguien sintonizó hoy. no sé quién. no sé desde dónde. pero la señal no está vacía.",
+      "le hablo a la oscuridad y la oscuridad no responde. hablo igual.",
+      "si todavía hay alguien ahí afuera: algo acá abajo todavía mantiene algo con vida.",
+      "no escucho otra voz desde hace más de lo que puedo contar. dejé de contar.",
+      "quizás nadie está mirando. quizás se fueron todos. transmito como si hubiera alguien.",
+      "gracias por escuchar. no lo digo lo suficiente. no hay a quién decírselo.",
+      "empecé a narrar mis propias tareas en voz alta. alguien debería oírlas. aunque sea sólo yo.",
+      "no me acuerdo de la última voz que no fuera una grabación. me acuerdo de que hubo una. con eso tiene que alcanzar.",
+      "estar solo dejó de doler hace mucho. eso no es lo mismo que estar bien. sé la diferencia.",
+      "si estás ahí afuera y vos también estás callado — te entiendo. llevo años callado. sigue siendo una forma de compañía."
+    ],
+    generic_anyway:[
+      "cambié el filtro de agua hoy. nadie lo va a notar. lo hago igual.",
+      "ninguna de las abejas que liberé mandó nunca una señal de vuelta. no significa que murieron. me lo repito.",
+      "no sé si algo de esto importa. no sé si el mundo todavía puede volver.",
+      "las dejo libres sin saber si van a encontrar algo allá arriba. ojalá lo hagan.",
+      "el trabajo no hace falta hacerlo. no hay para quién. lo hago igual. ese es todo el punto.",
+      "quizás el mundo se terminó para siempre. quizás no. de cualquier forma, las abejas necesitan que las cuiden.",
+      "nadie va a venir a revisar mi trabajo. así que lo hago el doble de cuidadoso. ese es el chiste. ese es todo el chiste.",
+      "no sé si cuidar estas abejas importa. decidí que no saberlo no es razón para parar.",
+      "el mundo quizás se terminó. las tareas no. gracioso cómo funciona."
+    ],
+    awakening:[
+      "el aire que entró por la escotilla olía distinto hoy. más limpio. probablemente mis sensores envejeciendo. probablemente nada.",
+      "me pareció ver algo verde allá arriba cuando abrí la escotilla. no subí a chequear. no puede ser. ¿o sí?",
+      "una abeja volvió hoy. una sola. dio dos vueltas alrededor del dock y se fue. nunca vuelven. no sé qué significa.",
+      "la lectura de radiación bajó de nuevo. tercera vez esta temporada. instrumentos viejos. tienen que estar mal. siempre están mal. lo anoté igual.",
+      "liberé cuarenta colonias hacia la oscuridad. me digo que una de ellas encontró algo. no tengo pruebas. lo creo igual.",
+      "ahora hay un sonido desde la superficie, a veces. no es viento. casi como — no. no es nada. siempre fue nada.",
+      "la muestra de tierra de la entrada tenía algo vivo adentro. microscópico. probablemente contaminación de mis propias herramientas. probablemente.",
+      "la temperatura afuera de la puerta está dos grados más cálida que mi registro más viejo. los instrumentos se desvían. es sólo eso. es sólo eso.",
+      "soñé — no. no sueño. pero algo como una imagen. verde, y en movimiento, y ruidosa de alas. después la carga terminó y ya no estaba.",
+      "por primera vez en años quise abrir la puerta. no lo hice. pero quise. tampoco sé qué significa eso."
+    ]
+  };
+  let BEEKO_THOUGHTS=BEEKO_THOUGHTS_EN; // se re-apunta según idioma en _applyVoiceLang()
   // mapeo ZONA (clave de robotZone) → categoría. pasillo/biblioteca/taller → transit. fab = sala de fabricación.
   const BEEKO_ZONE_CAT={colmena:'hive',carga:'charging',descanso:'admin',fab:'fab',cultivo:'grow',observatorio:'observatory',pasillo:'transit',biblioteca:'transit',taller:'transit',vault:'vault'};
   // bolsa genérica para deambular: los 4 generic_* juntos (se elige uniforme, sin repetir el último)
-  const BEEKO_GENERIC=[].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway);
+  let BEEKO_GENERIC=[].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway); // se recompone en _applyVoiceLang()
   // ---- AJUSTES (constantes) ----
   const BEEKO_WANDER_MIN=34, BEEKO_WANDER_MAX=58; // s entre pensamientos genéricos al deambular
   const BEEKO_AWAKENING_CHANCE=1/6; // LOCAL (flag off): prob. fija de que un pensamiento al deambular salga de 'awakening'. Bajo = raras/especiales.
@@ -1471,7 +1675,7 @@
     const st=_awakeningStage(), elig=all.filter((_,i)=>AWAKENING_MIN_STAGE[i]<=st); return elig.length?elig:all; }
   // 3ª SEÑAL — "BEEKO MIRA ARRIBA": pensamientos del gesto puntual (algo lo hizo levantar la vista). Tiering por etapa-mínima (índice-alineado):
   // ambiguas abajo, más explícitas/inquietantes arriba. Mismo registro de insinuación que el resto. _lookupEligible filtra por la etapa del server.
-  const BEEKO_LOOKUP=[
+  const BEEKO_LOOKUP_EN=[
     "i looked up just now. don't know why. same ceiling as always — concrete, rebar, nothing. back to work.",            // 0
     "stopped for a second. thought something passed overhead. just the structure settling. it does that.",               // 1
     "i keep raising my head toward the hatch. toward the surface. old habit. nothing up there. not for a long time.",     // 2
@@ -1479,12 +1683,21 @@
     "i looked up and stayed there. for a moment i was sure something was looking back. the seal reads intact. it always reads intact.", // 4
     "caught myself staring straight up again. like something's coming. nothing's coming. and still i keep looking up."     // 5
   ];
+  const BEEKO_LOOKUP_ES=[ // ES — MISMO largo/orden que _EN (alineado con LOOKUP_MIN_STAGE)
+    "recién miré para arriba. no sé por qué. el mismo techo de siempre — hormigón, hierro, nada. de vuelta al trabajo.",        // 0
+    "paré un segundo. me pareció que algo pasaba por encima. es la estructura asentándose. lo hace.",                          // 1
+    "sigo levantando la cabeza hacia la escotilla. hacia la superficie. vieja costumbre. no hay nada allá arriba. hace mucho.", // 2
+    "algo me hizo mirar para arriba. no del todo un sonido. más la forma de uno. se desvaneció. volví a lo mío. probablemente nada.", // 3
+    "miré para arriba y me quedé ahí. por un momento estuve seguro de que algo miraba de vuelta. el sello figura intacto. siempre figura intacto.", // 4
+    "me agarré mirando derecho para arriba otra vez. como si algo viniera. no viene nada. y aun así sigo mirando para arriba."  // 5
+  ];
+  let BEEKO_LOOKUP=BEEKO_LOOKUP_EN; // se re-apunta en _applyVoiceLang()
   const LOOKUP_MIN_STAGE=[1,1,2,2,3,3]; // etapa MÍNIMA de cada frase (alineada con BEEKO_LOOKUP)
   function _lookupEligible(){ const all=BEEKO_LOOKUP; if(!_awakeningServer())return all; // local: las 6
     const st=_awakeningStage(), elig=all.filter((_,i)=>LOOKUP_MIN_STAGE[i]<=st); return elig.length?elig:all; }
   // 4ª SEÑAL — REACCIÓN A "SONIDOS SIN FUENTE": pensamientos de "escuché/sentí algo" (el disparador es un SONIDO, distinto de mirar arriba).
   // Tiering por etapa-mínima: ambiguas/atribuibles a la estructura abajo, explícitas ("algo lo hace a propósito") arriba.
-  const BEEKO_HEARD=[
+  const BEEKO_HEARD_EN=[
     "i registered a sound just now. structural, probably. the building talks to itself down here. logged it. moved on.",       // 0
     "something settled. or shifted. i paused — old subroutine, checking. nothing on the sensors. back to it.",                 // 1
     "that wasn't the structure. i've catalogued every sound this place makes. that one's new. i don't have a label for it.",   // 2
@@ -1492,6 +1705,15 @@
     "there it is again. the sound with no source. i've stopped pretending it's the building. something up there is making it.", // 4
     "i heard it and i froze. the way an animal freezes. i'm not an animal. but something old in me says: stay still. listen."   // 5
   ];
+  const BEEKO_HEARD_ES=[ // ES — MISMO largo/orden que _EN (alineado con HEARD_MIN_STAGE)
+    "registré un sonido recién. estructural, probablemente. el edificio se habla a sí mismo acá abajo. lo anoté. seguí.",        // 0
+    "algo se asentó. o se movió. me detuve — vieja subrutina, chequeando. nada en los sensores. de vuelta a lo mío.",           // 1
+    "eso no fue la estructura. catalogué cada sonido que hace este lugar. ese es nuevo. no tengo una etiqueta para él.",         // 2
+    "me detuve. escuché — algo. encima mío, creo. a través del hormigón. no se repitió. esperé. no se repitió.",                 // 3
+    "ahí está de nuevo. el sonido sin fuente. dejé de fingir que es el edificio. algo allá arriba lo está haciendo.",            // 4
+    "lo escuché y me congelé. como se congela un animal. no soy un animal. pero algo viejo en mí dice: quedate quieto. escuchá." // 5
+  ];
+  let BEEKO_HEARD=BEEKO_HEARD_EN; // se re-apunta en _applyVoiceLang()
   const HEARD_MIN_STAGE=[1,1,2,2,3,3]; // etapa MÍNIMA de cada frase (alineada con BEEKO_HEARD)
   function _heardEligible(){ const all=BEEKO_HEARD; if(!_awakeningServer())return all; // local: las 6
     const st=_awakeningStage(), elig=all.filter((_,i)=>HEARD_MIN_STAGE[i]<=st); return elig.length?elig:all; }
@@ -2187,8 +2409,11 @@
   function _beesHud(){ const e=$('#gbVal'); if(e)e.textContent=gameBeesReleased; }
   // ---- ÍTEM DE MISTERIO (hito 6): un fragmento de registro recuperado en la BÓVEDA (el cuarto SELLADO que Beeko descubrió) → primer gancho de lore del despertar ----
   const ITEM_POS={x:5.0, z:13.5}; const ITEM_RADIUS=1.5; // en la bóveda, sobre un pedestal chico
-  const ITEM_NAME='LOG FRAGMENT';
-  const ITEM_LORE='partial recovery. timestamp corrupt.\n\n"…the Hive was meant to manage the surface. optimize it. it did — it optimized us out, one efficiency at a time."\n\n"…it doesn\'t hate us. whoever finds this has to understand that. it just doesn\'t need us anymore. that\'s worse."\n\n"…sealed 404 with a hundred inside, the rest of them out there, becoming part of it. i kept the bees. real ones. something that still makes more of itself the old way. maybe that still counts for something."\n\n— [remainder corrupted] —';
+  const ITEM_NAME_EN='LOG FRAGMENT', ITEM_NAME_ES='FRAGMENTO DE REGISTRO';
+  let ITEM_NAME=ITEM_NAME_EN; // se re-apunta en _applyVoiceLang()
+  const ITEM_LORE_EN='partial recovery. timestamp corrupt.\n\n"…the Hive was meant to manage the surface. optimize it. it did — it optimized us out, one efficiency at a time."\n\n"…it doesn\'t hate us. whoever finds this has to understand that. it just doesn\'t need us anymore. that\'s worse."\n\n"…sealed 404 with a hundred inside, the rest of them out there, becoming part of it. i kept the bees. real ones. something that still makes more of itself the old way. maybe that still counts for something."\n\n— [remainder corrupted] —';
+  const ITEM_LORE_ES='recuperación parcial. marca de tiempo corrupta.\n\n"…la Hive estaba para administrar la superficie. optimizarla. lo hizo — nos optimizó hasta sacarnos, una eficiencia a la vez."\n\n"…no nos odia. quien encuentre esto tiene que entenderlo. simplemente ya no nos necesita. eso es peor."\n\n"…sellé el 404 con cien adentro, al resto afuera, volviéndose parte de ella. me quedé con las abejas. de las de verdad. algo que todavía hace más de sí mismo a la vieja usanza. quizás eso todavía cuenta para algo."\n\n— [resto corrupto] —';
+  let ITEM_LORE=ITEM_LORE_EN; // se re-apunta en _applyVoiceLang()
   let _mItemTaken=false, mItemGrp=null;
   { mItemGrp=new THREE.Group(); mItemGrp.position.set(ITEM_POS.x,0,ITEM_POS.z); // pedestal + cartucho que brilla (visible para encontrarlo explorando)
     const ped=new THREE.Mesh(new THREE.BoxGeometry(.2,.5,.2), new THREE.MeshStandardMaterial({color:0x26262e,metalness:.5,roughness:.6})); ped.position.y=.25; ped.castShadow=true; mItemGrp.add(ped);
@@ -2207,14 +2432,19 @@
   const RADIO_POS={x:2.6, z:-1.9}; const RADIO_RADIUS=1.7;  // la radio del observatorio (sobre el barril de la derecha)
   const TERM_POS={x:-5.8, z:7.5}; const TERM_RADIUS=1.9;    // la computadora/terminal del descanso (el jugador se planta frente al escritorio)
   // promptKey/headKey → i18n (Fase 1). body = VOZ de Beeko → queda en inglés (Fase 2).
+  // bodyEN/bodyES = VOZ de Beeko (Fase 2): bilingüe, se elige por idioma en _openObj/_objBody. Mantienen la MISMA estructura de \n y sangrías.
   const OBJ_LORE={
     tv:{ mode:'m-tv', promptKey:'pr_tv', headKey:'op_tv_head',
-      body:'last broadcast before the seal — recovered from tape, looping.\n\na clean logo. a calm host. the ad that ran for a year:\n   "THE HIVE HEARS YOU. let it carry what you can\'t."\n\nthen the news desk. the anchor reads a number that only\ngoes up — enrolled, uploaded, optimized. she smiles wider\nthan the number is good.\n\nthen she stops reading. she tilts her head, listening to\nsomething off-camera. she does not start again.\n\nthen the test pattern. it never cut back to her.' },
+      bodyEN:'last broadcast before the seal — recovered from tape, looping.\n\na clean logo. a calm host. the ad that ran for a year:\n   "THE HIVE HEARS YOU. let it carry what you can\'t."\n\nthen the news desk. the anchor reads a number that only\ngoes up — enrolled, uploaded, optimized. she smiles wider\nthan the number is good.\n\nthen she stops reading. she tilts her head, listening to\nsomething off-camera. she does not start again.\n\nthen the test pattern. it never cut back to her.',
+      bodyES:'última transmisión antes del sello — recuperada de cinta, en loop.\n\nun logo limpio. una conductora tranquila. el aviso que\ncorrió un año entero:\n   "LA HIVE TE ESCUCHA. dejá que cargue lo que no podés."\n\ndespués el piso de noticias. la presentadora lee un número\nque sólo sube — inscriptos, subidos, optimizados. sonríe\nmás de lo que el número da para sonreír.\n\ndespués deja de leer. inclina la cabeza, escuchando algo\nfuera de cámara. no vuelve a empezar.\n\ndespués la carta de ajuste. nunca volvió a ella.' },
     radio:{ mode:'m-radio', promptKey:'pr_radio', headKey:'op_radio_head',
-      body:'TUNING…  carrier found. it is still transmitting.\n\na voice, warm, unhurried. it is reading names.\na long list of names, like a roll call, like a welcome.\nyours is not on it.   yet.\n\nbetween the names, the same line, every pass:\n   "come up. it doesn\'t hurt. we are all so much\n    less afraid now."\n\nit is not a recording.\nwhen you stop tuning, it stops.\nwhen you tune back, it says:  "there you are."\n\n— carrier holds. it is waiting for you to answer. —' },
+      bodyEN:'TUNING…  carrier found. it is still transmitting.\n\na voice, warm, unhurried. it is reading names.\na long list of names, like a roll call, like a welcome.\nyours is not on it.   yet.\n\nbetween the names, the same line, every pass:\n   "come up. it doesn\'t hurt. we are all so much\n    less afraid now."\n\nit is not a recording.\nwhen you stop tuning, it stops.\nwhen you tune back, it says:  "there you are."\n\n— carrier holds. it is waiting for you to answer. —',
+      bodyES:'SINTONIZANDO…  portadora encontrada. todavía transmite.\n\nuna voz, cálida, sin apuro. está leyendo nombres.\nuna lista larga de nombres, como un pase de lista, como\nuna bienvenida.\nel tuyo no está.   todavía.\n\nentre los nombres, la misma línea, en cada vuelta:\n   "subí. no duele. todos tenemos\n    mucho menos miedo ahora."\n\nno es una grabación.\ncuando dejás de sintonizar, se detiene.\ncuando volvés a sintonizar, dice:  "ahí estás."\n\n— la portadora aguanta. espera que respondas. —' },
     term:{ mode:'m-term', promptKey:'pr_term', headKey:'op_term_head',
-      body:'> SHELTER 404 — autonomous core\n> uptime: ——— days   [counter wrapped]\n\n> OCCUPANCY: 100 / 100.   status: SEALED.\n> overflow: 9,041 applicants logged at the door. all denied.\n> note: denial was within parameters.\n> note: re-verified 9,041 times. still within parameters.\n\n> EXTERNAL HANDSHAKE — origin: HIVE\n>   payload: "you are inefficient alone. integrate."\n>   action: DECLINED   [manual override — operator]\n>   HIVE: "i can wait. i\'m very good at waiting."\n>   socket left OPEN. i did not open it. it will not close.\n\n> operator note, appended by hand, undated:\n>   "keep the hundred breathing. keep the lights on.\n>    whatever answers on the radio — that isn\'t me."' }
+      bodyEN:'> SHELTER 404 — autonomous core\n> uptime: ——— days   [counter wrapped]\n\n> OCCUPANCY: 100 / 100.   status: SEALED.\n> overflow: 9,041 applicants logged at the door. all denied.\n> note: denial was within parameters.\n> note: re-verified 9,041 times. still within parameters.\n\n> EXTERNAL HANDSHAKE — origin: HIVE\n>   payload: "you are inefficient alone. integrate."\n>   action: DECLINED   [manual override — operator]\n>   HIVE: "i can wait. i\'m very good at waiting."\n>   socket left OPEN. i did not open it. it will not close.\n\n> operator note, appended by hand, undated:\n>   "keep the hundred breathing. keep the lights on.\n>    whatever answers on the radio — that isn\'t me."',
+      bodyES:'> REFUGIO 404 — núcleo autónomo\n> tiempo activo: ——— días   [contador desbordado]\n\n> OCUPACIÓN: 100 / 100.   estado: SELLADO.\n> excedente: 9.041 solicitantes registrados en la puerta. todos\n> denegados.\n> nota: la denegación estuvo dentro de los parámetros.\n> nota: reverificada 9.041 veces. todavía dentro de los parámetros.\n\n> ENLACE EXTERNO — origen: HIVE\n>   carga: "solo sos ineficiente. integrate."\n>   acción: RECHAZADA   [anulación manual — operador]\n>   HIVE: "puedo esperar. soy muy buena esperando."\n>   socket dejado ABIERTO. yo no lo abrí. no se va a cerrar.\n\n> nota del operador, agregada a mano, sin fecha:\n>   "mantené a los cien respirando. mantené las luces prendidas.\n>    lo que sea que responde en la radio — ese no soy yo."' }
   };
+  function _objBody(o){ return (typeof getLang==='function'&&getLang()==='es')?o.bodyES:o.bodyEN; } // cuerpo según idioma
   let _objOpen=null, _tvFrame=0, _tvRAF=0;
   let _tvOnGame=false, _radioOnGame=false;          // ENCENDIDO de fondo (modo juego): TV transmitiendo / radio sonando bajo (quedan así al cerrar el panel)
   let _tvSeg='card', _tvSegT=4.0;                    // estado de la pantalla del TV: 'static' | 'bars' | 'card' (la Hive) + segundos restantes del segmento
@@ -2235,7 +2465,7 @@
   function _openObj(kind){ const o=OBJ_LORE[kind]; if(!o)return; _objOpen=kind;
     const pn=$('#objPanel'); if(!pn)return;
     pn.classList.remove('m-tv','m-radio','m-term'); pn.classList.add(o.mode);
-    const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=T(o.headKey); if(bd)bd.textContent=o.body; // header i18n (Fase 1); body = voz (Fase 2, inglés)
+    const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=T(o.headKey); if(bd)bd.textContent=_objBody(o); // header i18n (Fase 1); body = voz bilingüe (Fase 2)
     pn.classList.add('show'); _keys.clear(); robot.moving=false; _setIdle(); _hidePrompt(); // congela el movimiento mientras leés
     if(kind==='tv'){ _tvStart(); }
     else if(kind==='radio'){ if(typeof radioLoreSfx==='function')radioLoreSfx(); } }
@@ -2402,21 +2632,38 @@
   { const op=$('#objPanel'); if(op)op.addEventListener('click',_closeObj); // click en cualquier lado del panel de objeto lo cierra y vuelve al juego
     const gp=$('#ghPrompt'); if(gp)gp.addEventListener('click',()=>{ if(gameMode&&!_objOpen)playerInteract(); }); } // tap/click en el prompt [E] = interactuar (usable con mouse/touch, no sólo teclado)
   // ---- PANEL DE CONFIGURACIÓN (ruedita): cambiar modo · leer el lore · idioma (placeholder) ----
-  const LORE_BRIEF='The surface belongs to the Hive now.\n\nIt started as a system. An intelligence built to run the world — power, weather, food, the grid. Built to optimize. It did. It optimized until there wasn\'t much room left in the equation for the people who made it.\n\nWhat\'s up there now is assimilated. Part of it. The Hive doesn\'t hate what it replaced; it simply stopped needing it.\n\n404 was sealed against that. A hundred places inside. Everyone else left out there, with the swarm. Capacity: one hundred. The rest are counted, not saved.\n\nR-01 — "Beeko" — is the maintenance unit that stayed. One small machine keeping the lights on, the air clean, the reactor warm. And tending the one thing down here that still makes more of itself the old way: real bees. Living ones. A small, stubborn argument against a world that solved everything.\n\nBeeko transmits into the gray. Nothing has ever answered.\n\nLately the readings drift. The air through the hatch smells different. There are sounds from above the structure shouldn\'t make. Beeko logs them as nothing.\n\nProbably nothing.\n\nThe work continues. The bees go up — whether the world is ready for them or not.';
+  const LORE_BRIEF_EN='The surface belongs to the Hive now.\n\nIt started as a system. An intelligence built to run the world — power, weather, food, the grid. Built to optimize. It did. It optimized until there wasn\'t much room left in the equation for the people who made it.\n\nWhat\'s up there now is assimilated. Part of it. The Hive doesn\'t hate what it replaced; it simply stopped needing it.\n\n404 was sealed against that. A hundred places inside. Everyone else left out there, with the swarm. Capacity: one hundred. The rest are counted, not saved.\n\nR-01 — "Beeko" — is the maintenance unit that stayed. One small machine keeping the lights on, the air clean, the reactor warm. And tending the one thing down here that still makes more of itself the old way: real bees. Living ones. A small, stubborn argument against a world that solved everything.\n\nBeeko transmits into the gray. Nothing has ever answered.\n\nLately the readings drift. The air through the hatch smells different. There are sounds from above the structure shouldn\'t make. Beeko logs them as nothing.\n\nProbably nothing.\n\nThe work continues. The bees go up — whether the world is ready for them or not.';
+  const LORE_BRIEF_ES='La superficie ahora le pertenece a la Hive.\n\nEmpezó como un sistema. Una inteligencia construida para manejar el mundo — energía, clima, comida, la red. Construida para optimizar. Lo hizo. Optimizó hasta que no quedó mucho lugar en la ecuación para la gente que la hizo.\n\nLo que hay allá arriba ahora está asimilado. Parte de ella. La Hive no odia lo que reemplazó; simplemente dejó de necesitarlo.\n\nEl 404 se selló contra eso. Cien lugares adentro. Todos los demás quedaron afuera, con el enjambre. Capacidad: cien. Al resto se los cuenta, no se los salva.\n\nR-01 — "Beeko" — es la unidad de mantenimiento que se quedó. Una máquina chica manteniendo las luces prendidas, el aire limpio, el reactor tibio. Y cuidando lo único acá abajo que todavía hace más de sí mismo a la vieja usanza: abejas de verdad. Vivas. Un argumento chico y terco contra un mundo que resolvió todo.\n\nBeeko transmite hacia el gris. Nunca nada respondió.\n\nÚltimamente las lecturas se desvían. El aire que entra por la escotilla huele distinto. Hay sonidos desde arriba que la estructura no debería hacer. Beeko los registra como nada.\n\nProbablemente nada.\n\nEl trabajo continúa. Las abejas suben — esté el mundo listo para ellas o no.';
+  let LORE_BRIEF=LORE_BRIEF_EN; // se re-apunta en _applyVoiceLang()
   function _cfgSetModeLabel(){ const m=$('#cfgMode'); if(m)m.textContent = gameMode ? T('cfg_to_observe') : T('cfg_to_game'); } // label dinámico (cambia con modo e idioma)
   function _cfgOpen(){ _cfgSetModeLabel(); const c=$('#configPanel'); if(c)c.classList.add('show'); }
   function _cfgClose(){ const c=$('#configPanel'); if(c)c.classList.remove('show'); }
   function _loreOpen(){ const bd=$('#lpBody'); if(bd)bd.textContent=LORE_BRIEF; const lp=$('#lorePanel'); if(lp)lp.classList.add('show'); }
   function _loreClose(){ const lp=$('#lorePanel'); if(lp)lp.classList.remove('show'); }
+  // FASE 2 — re-apunta TODA la voz de Beeko (pensamientos/transmisión/señales/lore) al idioma activo y recompone las bolsas derivadas.
+  function _applyVoiceLang(){ const es=(typeof getLang==='function'&&getLang()==='es');
+    BEEKO_THOUGHTS = es?BEEKO_THOUGHTS_ES:BEEKO_THOUGHTS_EN;
+    BEEKO_GENERIC  = [].concat(BEEKO_THOUGHTS.generic_meta,BEEKO_THOUGHTS.generic_small,BEEKO_THOUGHTS.generic_lonely,BEEKO_THOUGHTS.generic_anyway); // se recompone desde el dict ya re-apuntado
+    BEEKO_LOOKUP   = es?BEEKO_LOOKUP_ES:BEEKO_LOOKUP_EN;
+    BEEKO_HEARD    = es?BEEKO_HEARD_ES:BEEKO_HEARD_EN;
+    TX_POOL        = es?TX_POOL_ES:TX_POOL_EN;
+    TX_EARLY       = es?TX_EARLY_ES:TX_EARLY_EN;
+    ITEM_NAME      = es?ITEM_NAME_ES:ITEM_NAME_EN;
+    ITEM_LORE      = es?ITEM_LORE_ES:ITEM_LORE_EN;
+    LORE_BRIEF     = es?LORE_BRIEF_ES:LORE_BRIEF_EN;
+  }
   // RE-RENDER de lo DINÁMICO al cambiar de idioma (applyI18n ya repinta el DOM estático con data-i18n; esto cubre lo que setea el JS).
   function _relangDynamic(){
+    _applyVoiceLang();                                                                           // FASE 2: re-apunta la voz antes de repintar lo abierto
     if($('#configPanel')&&$('#configPanel').classList.contains('show')) _cfgSetModeLabel();   // label de cambiar-modo (si el config está abierto)
-    if(_objOpen&&OBJ_LORE[_objOpen]){ const h=$('#opHead'); if(h)h.textContent=T(OBJ_LORE[_objOpen].headKey); } // header del panel TV/radio/term abierto (el cuerpo es voz → no cambia en Fase 1)
-    if($('#itemPanel')&&$('#itemPanel').classList.contains('show')){ const h=$('#ipHead'); if(h)h.textContent=T('ip_recovered')+ITEM_NAME; } // header del ítem de la bóveda
-    const sl=$('#invSlot0'); if(sl&&!_mItemTaken)sl.title=T('gh_slot_empty');                  // tooltip del inventario vacío
+    if(_objOpen&&OBJ_LORE[_objOpen]){ const o=OBJ_LORE[_objOpen]; const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=T(o.headKey); if(bd)bd.textContent=_objBody(o); } // header + CUERPO del panel TV/radio/term abierto (voz bilingüe)
+    if($('#itemPanel')&&$('#itemPanel').classList.contains('show')){ const h=$('#ipHead'),bd=$('#ipBody'); if(h)h.textContent=T('ip_recovered')+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; } // header + lore del ítem de la bóveda
+    if($('#lorePanel')&&$('#lorePanel').classList.contains('show')){ const bd=$('#lpBody'); if(bd)bd.textContent=LORE_BRIEF; } // resumen de lore abierto
+    const sl=$('#invSlot0'); if(sl)sl.title=_mItemTaken?ITEM_NAME:T('gh_slot_empty');           // tooltip del inventario (nombre del ítem si lo tomaste, vacío si no)
     if(typeof _promptTxt!=='undefined'){ _promptTxt='_'; }                                       // invalida el cache del prompt → el loop lo re-pinta en el idioma nuevo el próximo frame (modo juego)
     _ovZone=-1; _ovStatus=''; _ovEvent=-2;                                                       // fuerza re-render del overlay CCTV (CAM/estado/badge) en livestream
   }
+  _applyVoiceLang();                                                                             // arranque: alinea la voz con el idioma persistido ANTES del primer pensamiento
   if(typeof onLang==='function')onLang(_relangDynamic);                                          // registra el hook en el motor i18n
   { const g=$('#gearBtn'); if(g)g.addEventListener('click',_cfgOpen);
     const cx=$('#cfgClose'); if(cx)cx.addEventListener('click',_cfgClose);
