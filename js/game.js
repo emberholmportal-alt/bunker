@@ -1684,7 +1684,8 @@
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
-      },undefined,function(){});
+        window.__robotReady=true;                                   // señal real de "listo" para la pantalla de carga
+      },undefined,function(){ window.__robotReady=true; });          // si el GLB falla, no dejes la pantalla de carga colgada
     }catch(e){}
   })();
   function setRobotAnim(name){if(!robot.mixer||!robot.act[name])return;const nx=robot.act[name];if(nx===robot.cur)return;if(robot.cur)robot.cur.fadeOut(0.3);nx.reset().fadeIn(0.3).play();robot.cur=nx;}
@@ -2497,4 +2498,12 @@
     catch(e){ window.__r01=open; }
   })();
   try{_psxBoot();}catch(e){} // PSX por defecto ON (pixel 2) — ANTES del primer render para que el búnker arranque en PSX sin parpadeo nítido
-  loop();setTimeout(()=>{const b=$('#boot');b.style.opacity=0;setTimeout(()=>b.style.display='none',750);try{_modeBoot();}catch(e){}},1500); // tras el boot: menú de inicio (o directo al modo guardado)
+  loop();
+  // PANTALLA DE CARGA → MENÚ: se cierra cuando el robot YA cargó (señal real), con un mínimo en pantalla (no parpadea en recargas cacheadas) y un techo de
+  // seguridad (si el GLB nunca llega, igual entra). __ld.finish() lleva la barra a 100%; después se funde #boot y arranca _modeBoot (menú o modo guardado).
+  (function(){ const now=()=>((window.performance&&performance.now)?performance.now():Date.now()); const t0=now(); const MIN=1000, MAX=9000;
+    function fade(){ const b=$('#boot'); if(b){ b.style.opacity=0; setTimeout(()=>{b.style.display='none';},760); } try{_modeBoot();}catch(e){} }
+    function fin(){ try{window.__ld&&window.__ld.finish();}catch(e){} setTimeout(fade,340); } // barra a 100% → (deja verla llena) → funde y abre el menú
+    function chk(){ const el=now()-t0; if((window.__robotReady&&el>=MIN)||el>=MAX) fin(); else setTimeout(chk,100); }
+    chk();
+  })();
