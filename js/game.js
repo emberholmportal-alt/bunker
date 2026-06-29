@@ -1215,8 +1215,9 @@
     // CÁMARA DE SEGURIDAD (reemplaza 1ª persona + movimiento). El robot reporta su sala a STREAM;
     // la cámara LEE STREAM.zone y corta. No detecta al robot para decidir la zona.
     if(shake>0&&evType!=='quake')shake-=dt*1.6;const sh=Math.max(0,shake); // en temblor lo maneja eventTick; si no, decae normal
-    robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas)
-    applySecurityCam(dt,t,mv,sh); // posa/corta la cámara según STREAM.zone y encuadra al robot
+    robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas) — sigue corriendo en juego (útil para "en qué sala está")
+    if(gameMode) applyPlayerCam(dt,t,mv);        // MODO JUEGO: cámara 3ª persona siguiendo a Beeko
+    else applySecurityCam(dt,t,mv,sh);           // LIVESTREAM: cámara CCTV según STREAM.zone
     updateOverlay(dt);            // overlay (CAM/zona, timestamp, día) — lee de STREAM
     tickBeeko(dt);                // cuadro de pensamientos de Beeko (triggers + typewriter + render del retrato)
 
@@ -1907,6 +1908,10 @@
     // MODOS: livestream ↔ juego + menú. gameMode(true)=juego · gameMode(false)/gameMode()=livestream · menu()=abre el menú de inicio.
     window.__REFUGIO.gameMode=function(on){ const want=(on===undefined)?false:!!on; if(want)enterGame(); else enterLivestream(); return 'modo: '+(gameMode?'JUEGO (lo manejás vos)':'LIVESTREAM (Beeko autónomo)'); };
     window.__REFUGIO.menu=function(){ showMenu(); return 'menú de inicio abierto (elegí OBSERVAR o TOMAR CONTROL)'; };
+    // CALIBRACIÓN del feel del modo juego (velocidad + cámara 3ª persona). Sin args devuelven el valor actual.
+    window.__REFUGIO.gameSpeed=function(n){ if(n!==undefined)PLAYER_SPEED=Math.max(0.2,+n||1.9); return 'velocidad de Beeko: '+PLAYER_SPEED+' u/s'; };
+    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)PLAYER_TURN=Math.max(1,+n||11); return 'giro de Beeko (lerp): '+PLAYER_TURN; };
+    window.__REFUGIO.gameCam=function(dist,height,lag){ if(dist!==undefined)CAM_DIST=Math.max(0.5,+dist||CAM_DIST); if(height!==undefined)CAM_HEIGHT=Math.max(0.3,+height||CAM_HEIGHT); if(lag!==undefined){CAM_POS_LERP=Math.max(0.5,+lag||CAM_POS_LERP);CAM_YAW_LERP=Math.max(0.5,+lag*0.7||CAM_YAW_LERP);} return {dist:CAM_DIST,height:CAM_HEIGHT,lookY:CAM_LOOKY,posLerp:+CAM_POS_LERP.toFixed(2),yawLerp:+CAM_YAW_LERP.toFixed(2)}; }; // OP.gameCam(distancia, altura, lag) — lag chico = sigue más pegada
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
@@ -2068,16 +2073,65 @@
   // del juego reseteo la máquina de estados de la rutina (robot.rt/path/status) → el próximo routineTick re-inicializa y Beeko retoma su agenda.
   let gameMode=false, _menuOn=false;
   function _setIdle(){ if(robot.model&&robot.act&&robot.act['Idle']&&robot.cur!==robot.act['Idle'])setRobotAnim('Idle'); }
-  function tickPlayer(dt){ _setIdle(); } // PASO 1: Beeko quieto (el control por teclado llega en el paso 2)
+  // ---- CONTROL DEL JUGADOR (hito 2): input + movimiento relativo a la cámara + cámara 3ª persona. CONSTANTES CALIBRABLES (OP.gameSpeed/gameCam): ----
+  let PLAYER_SPEED=1.9;        // velocidad de Beeko (u/s). CALIBRABLE (OP.gameSpeed)
+  let PLAYER_TURN=11;          // qué tan rápido gira Beeko hacia donde camina (lerp). CALIBRABLE
+  let CAM_DIST=3.3, CAM_HEIGHT=2.05, CAM_LOOKY=1.05; // 3ª persona: distancia atrás · altura · a qué altura mira. CALIBRABLE (OP.gameCam)
+  let CAM_POS_LERP=4.5, CAM_YAW_LERP=3.2;            // suavizado de la cámara: posición · giro detrás de Beeko (lag). CALIBRABLE (OP.gameCam)
+  const GAME_FOV=68;
+  const _keys=new Set();
+  let _pcamYaw=0, _pcamInit=false, _playerHeading=0;
+  const _pcamPos=new THREE.Vector3(), _pcamLook=new THREE.Vector3(), _pv1=new THREE.Vector3(), _pv2=new THREE.Vector3();
+  function playerInteract(){ /* hitos 4-6: cargar / liberar abeja / tomar objeto. Listener de E ya cableado. */ }
+  function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
+    if(k==='w'||k==='a'||k==='s'||k==='d'||k==='arrowup'||k==='arrowdown'||k==='arrowleft'||k==='arrowright'){ _keys.add(k); e.preventDefault(); }
+    else if(k==='e'){ if(!e.repeat)playerInteract(); e.preventDefault(); } }
+  function _pcKeyUp(e){ const k=(e.key||'').toLowerCase(); _keys.delete(k); }
+  addEventListener('keydown',_pcKeyDown); addEventListener('keyup',_pcKeyUp);
+  // MOVIMIENTO del jugador: dirección de input relativa al yaw de la cámara, con la MISMA colisión que el robot autónomo (steering anti-COLLIDER +
+  // contención por AREAS + push-out duro). Beeko gira hacia donde camina y dispara Walking/Idle. No atraviesa paredes ni sale de las salas.
+  function tickPlayer(dt){
+    if(!robot.model)return;
+    if(_menuOn){ robot.moving=false; _setIdle(); return; }
+    const inF=((_keys.has('w')||_keys.has('arrowup'))?1:0)-((_keys.has('s')||_keys.has('arrowdown'))?1:0);
+    const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0);
+    const y=_pcamYaw, fwdX=Math.sin(y), fwdZ=Math.cos(y), rX=Math.cos(y), rZ=-Math.sin(y); // base relativa a la cámara
+    let mx=fwdX*inF+rX*inR, mz=fwdZ*inF+rZ*inR; const mag=Math.hypot(mx,mz);
+    if(mag>0.001){ mx/=mag; mz/=mag;
+      const px=robot.model.position.x, pz=robot.model.position.z;
+      for(const o of COLLIDERS){const ox=px-o.x,oz=pz-o.z,od=Math.hypot(ox,oz)||.001,rng=o.r+.55;if(od<rng){const ff=(rng-od)/rng*1.8;mx+=ox/od*ff;mz+=oz/od*ff;}} // steering anti-objeto (igual que el robot)
+      const ml=Math.hypot(mx,mz)||1; mx/=ml; mz/=ml;
+      const sp=PLAYER_SPEED*dt; let nx=px+mx*sp, nz=pz+mz*sp;
+      if(!inArea(nx,nz)){ if(inArea(nx,pz))nz=pz; else if(inArea(px,nz))nx=px; else {nx=px;nz=pz;} } // contención por AREAS (paredes/puertas) — no sale de las salas
+      robot.model.position.x=nx; robot.model.position.z=nz;
+      for(const c of COLLIDERS){const cx=robot.model.position.x-c.x,cz=robot.model.position.z-c.z,cd=Math.hypot(cx,cz);if(cd<c.r+.2&&cd>0.001){const k=(c.r+.2)/cd;robot.model.position.x=c.x+cx*k;robot.model.position.z=c.z+cz*k;}} // push-out duro
+      if(!inArea(robot.model.position.x,robot.model.position.z)){ robot.model.position.x=px; robot.model.position.z=pz; } // GARANTÍA: si el push-out lo dejó fuera de toda sala, revierte al lugar anterior (válido) → nunca atraviesa paredes
+      _playerHeading=Math.atan2(mx,mz);
+      robot.model.rotation.y += ((_playerHeading-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*PLAYER_TURN); // gira suave hacia el rumbo
+      robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
+    } else { robot.moving=false; _setIdle(); }
+  }
+  // CÁMARA 3ª PERSONA: detrás/arriba de Beeko, lo sigue suave (posición lerpeada + yaw que se acomoda detrás del rumbo → lag agradable).
+  function applyPlayerCam(dt,t,mv){
+    if(!robot.model)return; const bp=robot.model.position;
+    if(!_pcamInit){ _pcamYaw=robot.model.rotation.y; _pcamPos.set(bp.x-Math.sin(_pcamYaw)*CAM_DIST,bp.y+CAM_HEIGHT,bp.z-Math.cos(_pcamYaw)*CAM_DIST); _pcamLook.set(bp.x,bp.y+CAM_LOOKY,bp.z); _pcamInit=true; }
+    if(robot.moving){ let d=((_playerHeading-_pcamYaw+Math.PI*3)%(Math.PI*2))-Math.PI; _pcamYaw+=d*Math.min(1,dt*CAM_YAW_LERP); } // el yaw se acomoda detrás del rumbo
+    _pv1.set(bp.x-Math.sin(_pcamYaw)*CAM_DIST, bp.y+CAM_HEIGHT, bp.z-Math.cos(_pcamYaw)*CAM_DIST);
+    _pcamPos.lerp(_pv1, Math.min(1,dt*CAM_POS_LERP)); _pcamLook.lerp(_pv2.set(bp.x,bp.y+CAM_LOOKY,bp.z), Math.min(1,dt*CAM_POS_LERP*1.25));
+    if(camera.fov!==GAME_FOV){camera.fov=GAME_FOV;camera.updateProjectionMatrix();}
+    const j=mv?0.0012:0; // micro-jitter "grabado" leve (textura found-footage; mucho más suave que la CCTV)
+    camera.position.set(_pcamPos.x+(Math.random()-.5)*j,_pcamPos.y+(Math.random()-.5)*j,_pcamPos.z+(Math.random()-.5)*j);
+    camera.lookAt(_pcamLook);
+  }
   function _cleanRobotForMode(){ // reset del estado de la rutina + corta poses/gestos → entrar/salir sin romper la máquina de estados
     robot.rt=null; robot.path=null; robot.dest=-1; robot.moving=false; robot.status='idle'; robot.atDesk=false; robot.atFab=false; robot.atRadio=false;
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
-    _luPhase=''; _luAmt=0; _exprActive=false; _soundPauseT=0; _setIdle(); }
+    _luPhase=''; _luAmt=0; _exprActive=false; _soundPauseT=0; _keys.clear(); _setIdle(); } // _keys.clear: teclas sostenidas no se quedan pegadas al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} }
-  function enterGame(){ gameMode=true; _cleanRobotForMode(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} }
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // _pcamInit=false → la cámara 3ª persona se reubica detrás de Beeko al entrar
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
