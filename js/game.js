@@ -1101,7 +1101,7 @@
     // PLACA DE CARGA: glow + pulso + luz del dock se encienden SÓLO cuando Beeko está PARADO sobre la placa y la acción es 'charging'
     // (respeta el override del operador vía STREAM.action). Reemplaza al viejo halo como indicador visual de "transferencia de energía activa".
     {const onP=robot.model&&Math.abs(robot.model.position.x-PLATE_CX)<PLATE_HX&&Math.abs(robot.model.position.z-PLATE_CZ)<PLATE_HZ;
-     const act=onP&&STREAM.action==='charging';
+     const act=gameMode ? _playerCharging : (onP&&STREAM.action==='charging'); // MODO JUEGO: la placa se enciende cuando el jugador carga; livestream: como siempre
      _plateLvl+=((act?1:0)-_plateLvl)*Math.min(1,dt*3.5);                       // fundido suave: enciende al pisarla, se apaga gradual al irse
      const g=_plateLvl*(mv?(.78+.22*Math.sin(t*3.0)):1);                        // pulso suave de transferencia (respeta reduced-motion)
      if(plateMat)plateMat.emissiveIntensity=g*PLATE_GLOW;                       // glow contenido (no neón de videojuego); PLATE_GLOW = pico ajustable
@@ -1915,6 +1915,7 @@
     // ENERGÍA (hito 3): setear a mano (probar el colapso) + calibrar el drenaje.
     window.__REFUGIO.gameEnergy=function(n){ if(n!==undefined){ gameEnergy=Math.max(0,Math.min(100,+n||0)); _energyHud(); } return 'energía: '+Math.round(gameEnergy)+'%'+(_gmCollapse>0?' (colapsado, revive en '+_gmCollapse.toFixed(1)+'s)':''); }; // OP.gameEnergy(0) → colapso · OP.gameEnergy(100) → llena
     window.__REFUGIO.gameDrain=function(idle,move){ if(idle!==undefined)ENERGY_DRAIN=Math.max(0,+idle||0); if(move!==undefined)ENERGY_MOVE=Math.max(0,+move||0); return {drenajeReposo:ENERGY_DRAIN+' %/s', extraMovimiento:ENERGY_MOVE+' %/s', durLlenaReposo:Math.round(100/(ENERGY_DRAIN||0.0001))+'s', durLlenaCaminando:Math.round(100/((ENERGY_DRAIN+ENERGY_MOVE)||0.0001))+'s'}; }; // OP.gameDrain(reposo, extraMov)
+    window.__REFUGIO.gameCharge=function(n){ if(n!==undefined)CHARGE_RATE=Math.max(1,+n||32); return 'recarga en el dock: '+CHARGE_RATE+' %/s (de 0 a 100 en ~'+(100/CHARGE_RATE).toFixed(1)+'s manteniendo E)'; }; // OP.gameCharge(n)
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
     // SEÑAL ENTRANTE (2ª señal del despertar): sub-flag propio + disparo manual para testear cada etapa. La frecuencia/carácter automáticos
@@ -2088,6 +2089,12 @@
   let ENERGY_MOVE=1.0;    // %/s EXTRA al moverse. CALIBRABLE (OP.gameDrain)
   const ENERGY_REVIVE=20; // % al que auto-revive tras el colapso
   const COLLAPSE_DUR=2.6; // s que dura el colapso (Death) antes de revivir
+  // ---- CARGAR (hito 4): proximidad al dock → prompt [E] CHARGE → mantener E recarga (rápido) + enciende la placa que ya existe ----
+  const CHARGE_POS={x:-5.75, z:1.3}; const CHARGE_RADIUS=1.5; // la placa del dock (donde Beeko se planta a cargar) + radio de proximidad
+  let CHARGE_RATE=32;     // %/s de recarga mientras mantenés E. CALIBRABLE (OP.gameCharge)
+  let _eHeld=false, _playerCharging=false, _promptTxt='';
+  function _showPrompt(t){ if(_promptTxt===t)return; _promptTxt=t; const e=$('#ghPrompt'); if(e){e.textContent=t; e.classList.add('show');} }
+  function _hidePrompt(){ if(_promptTxt===''){const e=$('#ghPrompt'); if(e)e.classList.remove('show'); return;} _promptTxt=''; const e=$('#ghPrompt'); if(e)e.classList.remove('show'); }
   function _energyHud(){ const e=$('#geBar'); if(!e)return; const v=Math.max(0,Math.min(100,gameEnergy)); e.style.width=v+'%'; const c=v<20?'#ff3b3b':(v<45?'#ffb000':'#39ff88'); e.style.background=c; e.style.boxShadow='0 0 10px '+c; }
   function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
   function _reviveBeeko(){ const a=robot.act&&robot.act['Death']; if(a){a.setLoop(THREE.LoopRepeat,Infinity);a.clampWhenFinished=false;} gameEnergy=ENERGY_REVIVE; _setIdle(); } // restaura el loop del clip (no afecta el Death del estado roto) + se levanta
@@ -2097,16 +2104,16 @@
   function playerInteract(){ /* hitos 4-6: cargar / liberar abeja / tomar objeto. Listener de E ya cableado. */ }
   function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
     if(k==='w'||k==='a'||k==='s'||k==='d'||k==='arrowup'||k==='arrowdown'||k==='arrowleft'||k==='arrowright'){ _keys.add(k); e.preventDefault(); }
-    else if(k==='e'){ if(!e.repeat)playerInteract(); e.preventDefault(); } }
-  function _pcKeyUp(e){ const k=(e.key||'').toLowerCase(); _keys.delete(k); }
+    else if(k==='e'){ _eHeld=true; if(!e.repeat)playerInteract(); e.preventDefault(); } } // E: sostener carga (cerca del dock); el tap dispara playerInteract (hitos 5-6)
+  function _pcKeyUp(e){ const k=(e.key||'').toLowerCase(); _keys.delete(k); if(k==='e')_eHeld=false; }
   addEventListener('keydown',_pcKeyDown); addEventListener('keyup',_pcKeyUp);
   // MOVIMIENTO del jugador: dirección de input relativa al yaw de la cámara, con la MISMA colisión que el robot autónomo (steering anti-COLLIDER +
   // contención por AREAS + push-out duro). Beeko gira hacia donde camina y dispara Walking/Idle. No atraviesa paredes ni sale de las salas.
   function tickPlayer(dt){
     if(!robot.model)return;
     // COLAPSO (energía 0): control BLOQUEADO, Death sostenido, cuenta regresiva → auto-revive con ENERGY_REVIVE%
-    if(_gmCollapse>0){ _gmCollapse-=dt; robot.moving=false; if(_gmCollapse<=0){_gmCollapse=0;_reviveBeeko();} _energyHud(); return; }
-    if(_menuOn){ robot.moving=false; _setIdle(); _energyHud(); return; }
+    if(_gmCollapse>0){ _gmCollapse-=dt; robot.moving=false; _playerCharging=false; _hidePrompt(); if(_gmCollapse<=0){_gmCollapse=0;_reviveBeeko();} _energyHud(); return; }
+    if(_menuOn){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; }
     const inF=((_keys.has('w')||_keys.has('arrowup'))?1:0)-((_keys.has('s')||_keys.has('arrowdown'))?1:0);
     const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0);
     const y=_pcamYaw, fwdX=Math.sin(y), fwdZ=Math.cos(y), rX=Math.cos(y), rZ=-Math.sin(y); // base relativa a la cámara
@@ -2124,7 +2131,13 @@
       robot.model.rotation.y += ((_playerHeading-robot.model.rotation.y+Math.PI*3)%(Math.PI*2)-Math.PI)*Math.min(1,dt*PLAYER_TURN); // gira suave hacia el rumbo
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
     } else { robot.moving=false; _setIdle(); }
-    gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); // DRENAJE: constante + extra al moverse
+    // CARGAR: proximidad al dock → prompt; mantener E recarga rápido (y enciende la placa). Si no carga, drena normal.
+    const nearDock=Math.hypot(robot.model.position.x-CHARGE_POS.x, robot.model.position.z-CHARGE_POS.z)<CHARGE_RADIUS;
+    const wantCharge=nearDock && _eHeld;
+    if(wantCharge && gameEnergy<100){ _playerCharging=true; gameEnergy=Math.min(100, gameEnergy+CHARGE_RATE*dt); _showPrompt('⚡ CHARGING…'); } // recargando
+    else if(wantCharge){ _playerCharging=false; _showPrompt('⚡ ENERGY FULL'); } // lleno y enchufado → no drena (sin parpadeo en el borde)
+    else { _playerCharging=false; gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); // DRENAJE: constante + extra al moverse
+      if(nearDock)_showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE'); else _hidePrompt(); }
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
     _energyHud();
   }
@@ -2143,7 +2156,7 @@
   function _cleanRobotForMode(){ // reset del estado de la rutina + corta poses/gestos → entrar/salir sin romper la máquina de estados
     robot.rt=null; robot.path=null; robot.dest=-1; robot.moving=false; robot.status='idle'; robot.atDesk=false; robot.atFab=false; robot.atRadio=false;
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
-    _luPhase=''; _luAmt=0; _exprActive=false; _soundPauseT=0; _keys.clear(); _setIdle(); } // _keys.clear: teclas sostenidas no se quedan pegadas al cambiar de modo
+    _luPhase=''; _luAmt=0; _exprActive=false; _soundPauseT=0; _keys.clear(); _eHeld=false; _playerCharging=false; _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
