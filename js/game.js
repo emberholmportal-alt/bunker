@@ -1637,10 +1637,11 @@
     ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:0,y:0,z:0},   LowerArmL:{x:0,y:0,z:0},
     ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:-0.5,y:0,z:-0.7}, LowerArmR:{x:2.1,y:0,z:0}
   };
-  // POSE VIEWMODEL (1ª persona): levanta AMBOS brazos hacia adelante para que las manos/antebrazos entren en cuadro abajo (como un shooter). CALIBRABLE (OP.poseTarget('viewmodel') + OP.arm).
+  // POSE VIEWMODEL (1ª persona): lleva AMBOS brazos hacia adelante y un poco separados, codo cerrado, para que entren desde las esquinas inferiores como
+  // dos antebrazos con manos (estilo shooter "manos vacías"). El torso se oculta a la cámara → el centro queda despejado. CALIBRABLE (OP.poseTarget('viewmodel') + OP.arm).
   const VIEWMODEL_POSE={
-    ShoulderL:{x:0,y:0,z:0}, UpperArmL:{x:-1.7,y:-0.15,z:0.2}, LowerArmL:{x:2.3,y:0,z:0.1},
-    ShoulderR:{x:0,y:0,z:0}, UpperArmR:{x:-1.7,y:0.15,z:-0.2}, LowerArmR:{x:2.3,y:0,z:-0.1}
+    ShoulderL:{x:0,y:0,z:0.3}, UpperArmL:{x:-1.2,y:-0.15,z:0.25}, LowerArmL:{x:1.6,y:0,z:0.15},
+    ShoulderR:{x:0,y:0,z:-0.3}, UpperArmR:{x:-1.2,y:0.15,z:-0.25}, LowerArmR:{x:1.6,y:0,z:-0.15}
   };
   let poseTarget='admin'; // a qué pose apuntan OP.arm/armDump/armReset: 'admin' (teclado) o 'radio'. OP.poseTarget(...) lo cambia; holdRadio() lo pone en 'radio'.
   let _radioHold=false;   // modo calibración: Beeko fijado en la radio en pose (no corre la rutina)
@@ -1667,7 +1668,9 @@
         robot.armBones={sL:findB('shoulderl'),uL:findB('upperarml'),lL:findB('lowerarml'),sR:findB('shoulderr'),uR:findB('upperarmr'),lR:findB('lowerarmr')};
         if(robot.armBones.uL&&robot.armBones.uR&&robot.armBones.lL&&robot.armBones.lR){const R={},Q={};for(const k in robot.armBones){if(robot.armBones[k]){R[k]=robot.armBones[k].rotation.clone();Q[k]=robot.armBones[k].quaternion.clone();}}robot.armRest=R;robot.armRestQ=Q;}else robot.armBones=null; // reposo en QUATERNION (base estable, sin singularidad de Euler) + Euler (referencia)
         robot.headBones={head:findB('head1')||findB('head'), neck:findB('neck')}; // SEÑAL "mirar arriba": cabeza + cuello (huesos DISTINTOS de los del brazo → cero conflicto con admin/radio)
-        if(robot.headBones.head)_headScale0=robot.headBones.head.scale.x||1; // escala original de la cabeza (la 1ª persona la oculta escalándola a ~0 y la restaura al salir)
+        // 1ª PERSONA: meshes que se OCULTAN a la cámara (cabeza Head_2/3/4 + torso Torso_2/3) con colorWrite=false — NO se escalan ni se apagan, así el cuerpo
+        // ENTERO sigue proyectando su sombra en el piso. El torso comparte material con brazos/pies → se le CLONA el material para aislarlo (si no, ocultarlo ocultaría los brazos).
+        robot.fpHideMeshes=[]; robot.model.traverse(o=>{ if(o.isMesh&&(/^Head_\d/.test(o.name)||/^Torso_\d/.test(o.name))){ if(/^Torso_\d/.test(o.name)&&o.material&&!Array.isArray(o.material))o.material=o.material.clone(); robot.fpHideMeshes.push(o); } });
         setRobotAnim('Idle');
         robot.model.traverse(o=>{if(o.isMesh&&o.material&&o.material.isMeshStandardMaterial){const old=o.material;const tn=new THREE.MeshToonMaterial({color:old.color?old.color.getHex():0xffffff,gradientMap:_GRAD});tn.skinning=!!o.isSkinnedMesh;tn.morphTargets=!!(o.morphTargetInfluences&&o.morphTargetInfluences.length);celReg.push({m:o,toon:tn,std:old});}});
         applyCel();renderRobot();
@@ -1921,9 +1924,10 @@
     window.__REFUGIO.menu=function(){ showMenu(); return 'menú de inicio abierto (elegí OBSERVAR o TOMAR CONTROL)'; };
     // CALIBRACIÓN del feel del modo juego (velocidad + cámara 3ª persona). Sin args devuelven el valor actual.
     window.__REFUGIO.gameSpeed=function(n){ if(n!==undefined)PLAYER_SPEED=Math.max(0.2,+n||1.9); return 'velocidad de Beeko: '+PLAYER_SPEED+' u/s'; };
-    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)FP_TURN=Math.max(0.3,+n||2.3); return 'velocidad de giro (1ª persona, A/D): '+FP_TURN+' rad/s'; };
+    window.__REFUGIO.gameTurn=function(n){ if(n!==undefined)FP_TURN=Math.max(0.3,+n||2.3); return 'velocidad de giro (1ª persona, A/D y ←/→): '+FP_TURN+' rad/s'; };
+    window.__REFUGIO.gamePitch=function(spd){ if(spd!==undefined)FP_PITCH_SPD=Math.max(0.2,+spd||1.5); return {velocidadPitch:FP_PITCH_SPD, topeArribaAbajo:FP_PITCH_MAX, nota:'↑/↓ inclinan la vista; spd=rad/s; el tope es fijo (FP_PITCH_MAX)'}; }; // OP.gamePitch(velocidad)
     window.__REFUGIO.gameFP=function(fwd,up,pitch){ if(fwd!==undefined)FP_EYE_FWD=+fwd; if(up!==undefined)FP_EYE_UP=+up; if(pitch!==undefined)FP_PITCH=+pitch;
-      return {ojosAdelante:FP_EYE_FWD, ojosArriba:FP_EYE_UP, pitch:FP_PITCH, nota:'fwd=cuánto adelante de la cabeza · up=ajuste vertical · pitch negativo=mira abajo (se ven más los brazos)'}; }; // OP.gameFP(fwd, up, pitch)
+      return {camOffset:FP_EYE_FWD, ojosArriba:FP_EYE_UP, pitchBase:FP_PITCH, nota:'fwd=posición de la cámara sobre el eje de mirada (NEGATIVO=atrás de la cabeza→más brazos; ~0=pegada a los ojos→casi sin brazos) · up=ajuste vertical · pitch=inclinación BASE'}; }; // OP.gameFP(fwd, up, pitchBase)
     window.__REFUGIO.gameAccel=function(accel,decel){ if(accel!==undefined)PLAYER_ACCEL=Math.max(1,+accel||10); if(decel!==undefined)PLAYER_DECEL=Math.max(1,+decel||8); return {aceleracion:PLAYER_ACCEL, desaceleracion:PLAYER_DECEL, nota:'más bajo = más inercia/glide'}; }; // OP.gameAccel(acel, desac)
     window.__REFUGIO.gameCam=function(dist,height,lag){ if(dist!==undefined)CAM_DIST=Math.max(0.5,+dist||CAM_DIST); if(height!==undefined)CAM_HEIGHT=Math.max(0.3,+height||CAM_HEIGHT); if(lag!==undefined){CAM_POS_LERP=Math.max(0.5,+lag||CAM_POS_LERP);CAM_YAW_LERP=Math.max(0.5,+lag*0.7||CAM_YAW_LERP);} return {dist:CAM_DIST,height:CAM_HEIGHT,lookY:CAM_LOOKY,posLerp:+CAM_POS_LERP.toFixed(2),yawLerp:+CAM_YAW_LERP.toFixed(2)}; }; // OP.gameCam(distancia, altura, lag) — lag chico = sigue más pegada
     // ENERGÍA (hito 3): setear a mano (probar el colapso) + calibrar el drenaje.
@@ -2105,13 +2109,15 @@
   let PLAYER_TURN=8;           // qué tan rápido gira Beeko hacia donde camina (lerp; más bajo = giro más suave). CALIBRABLE (OP.gameTurn)
   let PLAYER_ACCEL=10;         // rapidez con que la velocidad sube hacia la deseada (más bajo = arranque más suave/inercia). CALIBRABLE (OP.gameAccel)
   let PLAYER_DECEL=8;          // rapidez con que la velocidad baja al soltar (más bajo = más glide). CALIBRABLE (OP.gameAccel)
-  // PRIMERA PERSONA (modo juego): cámara en los ojos de Beeko. CALIBRABLE (OP.gameFP / OP.gameTurn).
-  let FP_TURN=2.3;             // velocidad de giro con A/D (rad/s). CALIBRABLE (OP.gameTurn)
-  let FP_EYE_FWD=0.02;         // cuánto adelante de la cabeza va la cámara (m) — evita ver el interior, deja ver los brazos. CALIBRABLE (OP.gameFP)
-  let FP_EYE_UP=0.02;          // ajuste vertical de la cámara respecto del hueso de la cabeza (m). CALIBRABLE (OP.gameFP)
-  let FP_PITCH=-0.55;          // inclinación de la mirada (negativo = mira un poco hacia abajo → se ven más los brazos). CALIBRABLE (OP.gameFP)
+  // PRIMERA PERSONA (modo juego): cámara en los ojos de Beeko. CALIBRABLE (OP.gameFP / OP.gameTurn / OP.gamePitch).
+  let FP_TURN=2.3;             // velocidad de giro con A/D y ←/→ (rad/s). CALIBRABLE (OP.gameTurn)
+  let FP_EYE_FWD=-0.22;        // posición de la cámara sobre el eje de mirada (m). NEGATIVO = un poco ATRÁS de la cabeza → entran los brazos al cuadro (viewmodel). CALIBRABLE (OP.gameFP)
+  let FP_EYE_UP=0.04;          // ajuste vertical de la cámara respecto del hueso de la cabeza (m). CALIBRABLE (OP.gameFP)
+  let FP_PITCH=-0.12;          // inclinación BASE de la mirada (negativo = mira un toque abajo, así se ven las manos). El jugador la mueve con ↑/↓. CALIBRABLE (OP.gameFP)
+  let FP_PITCH_SPD=1.5;        // velocidad de inclinar la vista con ↑/↓ (rad/s). CALIBRABLE (OP.gamePitch)
+  const FP_PITCH_MAX=1.2;      // tope de inclinación arriba/abajo respecto de la base (~69°) → poder mirar el techo/escotilla y el piso
   const FP_FOV=78;             // campo de visión en 1ª persona (más amplio que la CCTV)
-  let _fpYaw=0, _headScale0=1; // _fpYaw = hacia dónde mira el jugador · _headScale0 = escala original de la cabeza (para restaurar al salir)
+  let _fpYaw=0, _fpPitch=0;    // _fpYaw = hacia dónde mira (horizontal) · _fpPitch = inclinación que agrega el jugador con ↑/↓
   let CAM_DIST=3.3, CAM_HEIGHT=2.05, CAM_LOOKY=1.05; // 3ª persona: distancia atrás · altura · a qué altura mira. CALIBRABLE (OP.gameCam)
   let CAM_POS_LERP=4.5, CAM_YAW_LERP=3.2;            // suavizado de la cámara: posición · giro detrás de Beeko (lag). CALIBRABLE (OP.gameCam)
   const GAME_FOV=68;
@@ -2170,10 +2176,12 @@
     // COLAPSO (energía 0): control BLOQUEADO, Death sostenido, cuenta regresiva → auto-revive con ENERGY_REVIVE%
     if(_gmCollapse>0){ _gmCollapse-=dt; robot.moving=false; _playerCharging=false; _hidePrompt(); if(_gmCollapse<=0){_gmCollapse=0;_reviveBeeko();} _energyHud(); return; }
     if(_menuOn){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; }
-    const inF=((_keys.has('w')||_keys.has('arrowup'))?1:0)-((_keys.has('s')||_keys.has('arrowdown'))?1:0);
-    const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0);
-    // PRIMERA PERSONA: A/← y D/→ GIRAN la vista; W/↑ y S/↓ mueven adelante/atrás en la dirección que mirás.
-    _fpYaw += inR*FP_TURN*dt;                                  // giro (D/→ = +yaw = derecha)
+    const inF=(_keys.has('w')?1:0)-(_keys.has('s')?1:0);       // W/S: adelante/atrás
+    const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0); // A/← D/→: giro horizontal
+    const inP=(_keys.has('arrowup')?1:0)-(_keys.has('arrowdown')?1:0); // ↑/↓: mirar arriba/abajo (pitch)
+    // PRIMERA PERSONA: A/← y D/→ GIRAN la vista; ↑/↓ inclinan (mirar techo/piso); W/S mueven adelante/atrás en la dirección que mirás.
+    _fpYaw -= inR*FP_TURN*dt;                                  // giro (D/→ = derecha · signo corregido: la derecha de pantalla es -X a yaw 0)
+    if(inP)_fpPitch=clamp(_fpPitch+inP*FP_PITCH_SPD*dt,-FP_PITCH_MAX,FP_PITCH_MAX); // ↑ sube la mirada, ↓ la baja (tope arriba/abajo)
     const fX=Math.sin(_fpYaw), fZ=Math.cos(_fpYaw), inputMove=(inF!==0);
     const tgtX=fX*inF*PLAYER_SPEED, tgtZ=fZ*inF*PLAYER_SPEED, ak=Math.min(1,(inputMove?PLAYER_ACCEL:PLAYER_DECEL)*dt); // velocidad con inercia (sólo adelante/atrás)
     _pvelX+=(tgtX-_pvelX)*ak; _pvelZ+=(tgtZ-_pvelZ)*ak;
@@ -2220,27 +2228,32 @@
     camera.position.set(_pcamPos.x+(Math.random()-.5)*j,_pcamPos.y+(Math.random()-.5)*j,_pcamPos.z+(Math.random()-.5)*j);
     camera.lookAt(_pcamLook);
   }
-  // CÁMARA PRIMERA PERSONA (modo juego, definitiva): en los ojos de Beeko (hueso de la cabeza), mirando hacia donde encara. Oculta la cabeza
-  // (escala el hueso a ~0) para no ver el interior; los brazos (otros huesos) quedan visibles y se mueven con la animación. Las anims siguen → head-bob natural.
-  function _restoreHead(){ const h=robot.headBones&&robot.headBones.head; if(h)h.scale.setScalar(_headScale0||1); } // restaura la cabeza al salir del juego
+  // CÁMARA PRIMERA PERSONA (modo juego, definitiva): anclada en la cabeza de Beeko, un poco ATRÁS (FP_EYE_FWD negativo) para que entren los BRAZOS al cuadro
+  // (viewmodel estilo shooter). Mira hacia donde encara (yaw A/D) + pitch del jugador (↑/↓ → techo/piso). La cabeza Y el torso se ocultan SÓLO a la cámara
+  // (colorWrite=false, NO se escalan) → el cuerpo COMPLETO sigue proyectando su SOMBRA entera en el piso; sólo quedan a la vista los dos brazos y las manos.
+  function _setHeadHidden(on){ const hs=robot.fpHideMeshes; if(!hs||!hs.length)return;            // oculta/restaura cabeza+torso a la cámara sin tocar su geometría (sombra intacta)
+    for(const m of hs){ const mat=m.material; if(mat){ if(Array.isArray(mat))mat.forEach(x=>{x.colorWrite=!on;}); else mat.colorWrite=!on; } m.renderOrder=on?990:0;
+      m.traverse(c=>{ if(c!==m&&c.userData&&c.userData.isOutline)c.visible=!on; }); } }                // también apaga/prende su contorno CEL
+  function _restoreHead(){ _setHeadHidden(false); } // restaura cabeza+torso (visibles a la cámara) al salir del modo juego
   function applyFirstPersonCam(dt){
     if(!robot.model)return; const h=robot.headBones&&robot.headBones.head;
     let ex,ey,ez;
     if(h){ h.updateWorldMatrix(true,false); h.getWorldPosition(_pv1); ex=_pv1.x; ey=_pv1.y; ez=_pv1.z; } // ancla en la cabeza (posición real del hueso, tras el mixer)
     else { const bp=robot.model.position; ex=bp.x; ey=bp.y+1.3; ez=bp.z; }
     const fX=Math.sin(_fpYaw), fZ=Math.cos(_fpYaw);
-    camera.position.set(ex+fX*FP_EYE_FWD, ey+FP_EYE_UP, ez+fZ*FP_EYE_FWD);   // ojos: un poco adelante de la cabeza
-    camera.lookAt(camera.position.x+fX*2, camera.position.y+FP_PITCH*2, camera.position.z+fZ*2); // mira adelante con leve pitch
+    const pit=FP_PITCH+_fpPitch, cp=Math.cos(pit), sp=Math.sin(pit);          // inclinación = base + lo que mueve el jugador con ↑/↓
+    camera.position.set(ex+fX*FP_EYE_FWD, ey+FP_EYE_UP, ez+fZ*FP_EYE_FWD);   // ojos: un toque adelante de la cabeza
+    camera.lookAt(camera.position.x+fX*cp*2, camera.position.y+sp*2, camera.position.z+fZ*cp*2); // mirada esférica: horizontal (yaw) + vertical (pitch)
     if(camera.fov!==FP_FOV){camera.fov=FP_FOV;camera.updateProjectionMatrix();}
-    if(h)h.scale.setScalar(0.0001);                                          // oculta la cabeza (se re-aplica cada frame por si el mixer la toca)
-    applyViewmodelPose();                                                    // brazos hacia adelante (viewmodel) — después del mixer
+    _setHeadHidden(true);                                                     // cabeza invisible a la cámara, SOMBRA intacta (se re-aplica por si el CEL recreó materiales)
+    applyViewmodelPose();                                                     // brazos (viewmodel) — después del mixer
   }
   function _cleanRobotForMode(){ // reset del estado de la rutina + corta poses/gestos → entrar/salir sin romper la máquina de estados
     robot.rt=null; robot.path=null; robot.dest=-1; robot.moving=false; robot.status='idle'; robot.atDesk=false; robot.atFab=false; robot.atRadio=false;
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
     ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
-    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad + restaura la cabeza al cambiar de modo
+    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _fpPitch=0; _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad/pitch + restaura la cabeza al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
