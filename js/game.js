@@ -2152,6 +2152,48 @@
   function _showItemPanel(){ const h=$('#ipHead'),bd=$('#ipBody'),pn=$('#itemPanel'); if(h)h.textContent='RECOVERED · '+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; if(pn)pn.classList.add('show'); }
   function _hideItemPanel(){ const pn=$('#itemPanel'); if(pn)pn.classList.remove('show'); }
   function _takeItem(){ if(_mItemTaken)return; _mItemTaken=true; if(mItemGrp)mItemGrp.visible=false; _invFill(); _showItemPanel(); } // tomar: desaparece de la sala, va al inventario, abre el lore
+  // ---- INTERACCIÓN NARRATIVA (modo juego): 3 objetos del búnker cuentan un pedazo distinto del lore al apretar [E]. Reutiliza proximidad+prompt+panel. ----
+  // Cada uno ilumina un ÁNGULO distinto (sin repetirse entre sí ni con el fragmento de la bóveda): TV=el mundo de ANTES (la seducción de la Hive) ·
+  // RADIO=el afuera AHORA (la voz asimilada que ya notó al búnker) · TERMINAL=el sistema del búnker (el sellado frío + el socket que la Hive dejó abierto).
+  const TV_POS={x:-2.55, z:-0.5}; const TV_RADIUS=1.7;      // el televisor del muro oeste del observatorio
+  const RADIO_POS={x:2.6, z:-1.9}; const RADIO_RADIUS=1.7;  // la radio del observatorio (sobre el barril de la derecha)
+  const TERM_POS={x:-5.8, z:7.5}; const TERM_RADIUS=1.9;    // la computadora/terminal del descanso (el jugador se planta frente al escritorio)
+  const OBJ_LORE={
+    tv:{ mode:'m-tv', prompt:'[E] VIEW SCREEN', head:'SIGNAL RECOVERED · BROADCAST LOOP',
+      body:'last broadcast before the seal — recovered from tape, looping.\n\na clean logo. a calm host. the ad that ran for a year:\n   "THE HIVE HEARS YOU. let it carry what you can\'t."\n\nthen the news desk. the anchor reads a number that only\ngoes up — enrolled, uploaded, optimized. she smiles wider\nthan the number is good.\n\nthen she stops reading. she tilts her head, listening to\nsomething off-camera. she does not start again.\n\nthen the test pattern. it never cut back to her.' },
+    radio:{ mode:'m-radio', prompt:'[E] TUNE RADIO', head:'INTERCEPTED · CARRIER STILL LIVE',
+      body:'TUNING…  carrier found. it is still transmitting.\n\na voice, warm, unhurried. it is reading names.\na long list of names, like a roll call, like a welcome.\nyours is not on it.   yet.\n\nbetween the names, the same line, every pass:\n   "come up. it doesn\'t hurt. we are all so much\n    less afraid now."\n\nit is not a recording.\nwhen you stop tuning, it stops.\nwhen you tune back, it says:  "there you are."\n\n— carrier holds. it is waiting for you to answer. —' },
+    term:{ mode:'m-term', prompt:'[E] ACCESS TERMINAL', head:'SHELTER 404 · CORE LOG',
+      body:'> SHELTER 404 — autonomous core\n> uptime: ——— days   [counter wrapped]\n\n> OCCUPANCY: 100 / 100.   status: SEALED.\n> overflow: 9,041 applicants logged at the door. all denied.\n> note: denial was within parameters.\n> note: re-verified 9,041 times. still within parameters.\n\n> EXTERNAL HANDSHAKE — origin: HIVE\n>   payload: "you are inefficient alone. integrate."\n>   action: DECLINED   [manual override — operator]\n>   HIVE: "i can wait. i\'m very good at waiting."\n>   socket left OPEN. i did not open it. it will not close.\n\n> operator note, appended by hand, undated:\n>   "keep the hundred breathing. keep the lights on.\n>    whatever answers on the radio — that isn\'t me."' }
+  };
+  let _objOpen=null, _tvFrame=0, _tvRAF=0;
+  function _objNear(px,pz){ // devuelve la clave del objeto en rango (o null) — mismo orden de chequeo en prompt e interacción
+    if(Math.hypot(px-TV_POS.x,pz-TV_POS.z)<TV_RADIUS)return 'tv';
+    if(Math.hypot(px-RADIO_POS.x,pz-RADIO_POS.z)<RADIO_RADIUS)return 'radio';
+    if(Math.hypot(px-TERM_POS.x,pz-TERM_POS.z)<TERM_RADIUS)return 'term';
+    return null; }
+  function _openObj(kind){ const o=OBJ_LORE[kind]; if(!o)return; _objOpen=kind;
+    const pn=$('#objPanel'); if(!pn)return;
+    pn.classList.remove('m-tv','m-radio','m-term'); pn.classList.add(o.mode);
+    const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=o.head; if(bd)bd.textContent=o.body;
+    pn.classList.add('show'); _keys.clear(); robot.moving=false; _setIdle(); _hidePrompt(); // congela el movimiento mientras leés
+    if(kind==='tv'){ _tvStart(); }
+    else if(kind==='radio'){ if(typeof radioLoreSfx==='function')radioLoreSfx(); } }
+  function _closeObj(){ if(!_objOpen)return; _objOpen=null; _tvStop(); const pn=$('#objPanel'); if(pn)pn.classList.remove('show'); }
+  // TELEVISOR: pantalla dibujada por canvas (transmisión vieja degradada) — estática + tarjeta de la Hive + ráfagas de barras de ajuste + scanlines + roll bar.
+  function _tvDraw(){ const c=$('#opCanvas'); if(!c)return; const g=c.getContext('2d'); const W=c.width,H=c.height,f=_tvFrame++;
+    g.fillStyle='#05070a'; g.fillRect(0,0,W,H);
+    for(let i=0;i<650;i++){ const v=(Math.random()*170)|0; g.fillStyle='rgba('+v+','+v+','+(v+25)+','+(0.1+Math.random()*0.22)+')'; g.fillRect((Math.random()*W)|0,(Math.random()*H)|0,1+(Math.random()*2|0),1+(Math.random()*2|0)); }
+    if(f%260<34){ const bars=['#c9c9c9','#c9c900','#00c9c9','#00c900','#c900c9','#c90000','#0000c9'],bw=W/bars.length; g.globalAlpha=.5; for(let i=0;i<bars.length;i++){ g.fillStyle=bars[i]; g.fillRect(i*bw,0,bw+1,H); } g.globalAlpha=1; } // ráfaga de barras de ajuste cada ~4s
+    else { const glitch=(f%170>162), ox=glitch?(Math.random()*8-4):0; g.save(); g.translate(ox,0);
+      g.strokeStyle='#bfe0ff'; g.lineWidth=2; const cx=W/2,cy=H*0.34,r=24; g.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i-Math.PI/2,x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r; i?g.lineTo(x,y):g.moveTo(x,y); } g.closePath(); g.stroke(); // hexágono = la Hive
+      g.textAlign='center'; g.fillStyle='#bfe0ff'; g.font='bold 9px monospace'; g.fillText('THE HIVE', cx, cy+3);
+      g.fillStyle='#eaf4ff'; g.font='13px monospace'; g.fillText('OPTIMIZED LIVING', cx, H*0.60);
+      g.fillStyle='#9fc8ff'; g.font='10px monospace'; g.fillText('ENROLLED  '+(38420317+f*7), cx, H*0.72); g.restore(); }
+    g.fillStyle='rgba(0,0,0,0.28)'; for(let y=0;y<H;y+=3)g.fillRect(0,y,W,1);                       // scanlines
+    g.fillStyle='rgba(180,210,255,0.05)'; g.fillRect(0,(f*2)%H,W,18); }                              // roll bar
+  function _tvStart(){ _tvStop(); const step=()=>{ if(_objOpen!=='tv')return; _tvDraw(); _tvRAF=requestAnimationFrame(step); }; step(); }
+  function _tvStop(){ if(_tvRAF)cancelAnimationFrame(_tvRAF); _tvRAF=0; }
   function _energyHud(){ const e=$('#geBar'); if(!e)return; const v=Math.max(0,Math.min(100,gameEnergy)); e.style.width=v+'%'; const c=v<20?'#ff3b3b':(v<45?'#ffb000':'#39ff88'); e.style.background=c; e.style.boxShadow='0 0 10px '+c; }
   function _playDeathOnce(){ const a=robot.act&&robot.act['Death']; if(!a)return; if(robot.cur&&robot.cur!==a)robot.cur.fadeOut(0.2); a.reset(); a.setLoop(THREE.LoopOnce,1); a.clampWhenFinished=true; a.fadeIn(0.2).play(); robot.cur=a; } // colapso: cae y se sostiene
   function _reviveBeeko(){ const a=robot.act&&robot.act['Death']; if(a){a.setLoop(THREE.LoopRepeat,Infinity);a.clampWhenFinished=false;} gameEnergy=ENERGY_REVIVE; _setIdle(); } // restaura el loop del clip (no afecta el Death del estado roto) + se levanta
@@ -2163,8 +2205,10 @@
     const px=robot.model.position.x, pz=robot.model.position.z;
     if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } return; } // colmena: liberar (cooldown natural = surge)
     if(!_mItemTaken && Math.hypot(px-ITEM_POS.x, pz-ITEM_POS.z)<ITEM_RADIUS){ _takeItem(); return; } // bóveda: tomar el ítem de misterio
+    const obj=_objNear(px,pz); if(obj){ _openObj(obj); return; } // TV / radio / terminal: abrir el panel de lore
   }
   function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
+    if(_objOpen){ if(k==='e'||k==='escape'){ _closeObj(); e.preventDefault(); } return; } // con un panel de lore abierto, E/Esc lo cierran y nada más mueve
     if(k==='w'||k==='a'||k==='s'||k==='d'||k==='arrowup'||k==='arrowdown'||k==='arrowleft'||k==='arrowright'){ _keys.add(k); e.preventDefault(); }
     else if(k==='e'){ _eHeld=true; if(!e.repeat)playerInteract(); e.preventDefault(); } } // E: sostener carga (cerca del dock); el tap dispara playerInteract (hitos 5-6)
   function _pcKeyUp(e){ const k=(e.key||'').toLowerCase(); _keys.delete(k); if(k==='e')_eHeld=false; }
@@ -2176,6 +2220,7 @@
     // COLAPSO (energía 0): control BLOQUEADO, Death sostenido, cuenta regresiva → auto-revive con ENERGY_REVIVE%
     if(_gmCollapse>0){ _gmCollapse-=dt; robot.moving=false; _playerCharging=false; _hidePrompt(); if(_gmCollapse<=0){_gmCollapse=0;_reviveBeeko();} _energyHud(); return; }
     if(_menuOn){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; }
+    if(_objOpen){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; } // leyendo lore de un objeto: congelado (no se mueve ni drena)
     const inF=(_keys.has('w')?1:0)-(_keys.has('s')?1:0);       // W/S: adelante/atrás
     const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0); // A/← D/→: giro horizontal
     const inP=(_keys.has('arrowup')?1:0)-(_keys.has('arrowdown')?1:0); // ↑/↓: mirar arriba/abajo (pitch)
@@ -2212,7 +2257,7 @@
     else if(nearDock) _showPrompt(gameEnergy>=100?'⚡ ENERGY FULL':'[E] CHARGE');
     else if(nearHive) _showPrompt(beeReleaseT>0?'✦ RELEASING…':'[E] RELEASE BEE');
     else if(!_mItemTaken && Math.hypot(robot.model.position.x-ITEM_POS.x, robot.model.position.z-ITEM_POS.z)<ITEM_RADIUS) _showPrompt('[E] TAKE');
-    else _hidePrompt();
+    else { const obj=_objNear(robot.model.position.x,robot.model.position.z); if(obj)_showPrompt(OBJ_LORE[obj].prompt); else _hidePrompt(); } // TV/radio/terminal: verbo propio
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
     _energyHud();
   }
@@ -2253,7 +2298,7 @@
     if(typeof _radioPosed!=='undefined'&&_radioPosed){ if(typeof releaseArmPose==='function')releaseArmPose(); _radioPosed=false; }
     ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
-    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _fpPitch=0; _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad/pitch + restaura la cabeza al cambiar de modo
+    _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _fpPitch=0; _closeObj(); _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad/pitch + cierra panel de lore + restaura la cabeza al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
@@ -2265,6 +2310,8 @@
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
   { const sl=$('#invSlot0'),pn=$('#itemPanel'); if(sl)sl.addEventListener('click',()=>{ if(_mItemTaken)_showItemPanel(); }); if(pn)pn.addEventListener('click',_hideItemPanel); } // inventario: click en el slot reabre el lore; click en el panel lo cierra
+  { const op=$('#objPanel'); if(op)op.addEventListener('click',_closeObj); // click en cualquier lado del panel de objeto lo cierra y vuelve al juego
+    const gp=$('#ghPrompt'); if(gp)gp.addEventListener('click',()=>{ if(gameMode&&!_objOpen)playerInteract(); }); } // tap/click en el prompt [E] = interactuar (usable con mouse/touch, no sólo teclado)
   // ---- PANEL DE CONFIGURACIÓN (ruedita): cambiar modo · leer el lore · idioma (placeholder) ----
   const LORE_BRIEF='The surface belongs to the Hive now.\n\nIt started as a system. An intelligence built to run the world — power, weather, food, the grid. Built to optimize. It did. It optimized until there wasn\'t much room left in the equation for the people who made it.\n\nWhat\'s up there now is assimilated. Part of it. The Hive doesn\'t hate what it replaced; it simply stopped needing it.\n\n404 was sealed against that. A hundred places inside. Everyone else left out there, with the swarm. Capacity: one hundred. The rest are counted, not saved.\n\nR-01 — "Beeko" — is the maintenance unit that stayed. One small machine keeping the lights on, the air clean, the reactor warm. And tending the one thing down here that still makes more of itself the old way: real bees. Living ones. A small, stubborn argument against a world that solved everything.\n\nBeeko transmits into the gray. Nothing has ever answered.\n\nLately the readings drift. The air through the hatch smells different. There are sounds from above the structure shouldn\'t make. Beeko logs them as nothing.\n\nProbably nothing.\n\nThe work continues. The bees go up — whether the world is ready for them or not.';
   function _cfgOpen(){ const m=$('#cfgMode'); if(m)m.textContent = gameMode ? '▶ OBSERVAR — volver al livestream' : '⦿ TOMAR CONTROL DE R-01'; const s=$('#cfgSoon'); if(s)s.classList.remove('show'); const c=$('#configPanel'); if(c)c.classList.add('show'); }
@@ -2280,7 +2327,7 @@
     const es=$('#cfgEs'); if(es)es.addEventListener('click',()=>{ const s=$('#cfgSoon'); if(s)s.classList.add('show'); }); // IDIOMA: placeholder (el español es una tarea aparte) — muestra "próximamente", no cambia nada
     const lc=$('#lpClose'); if(lc)lc.addEventListener('click',_loreClose);
     const lp=$('#lorePanel'); if(lp)lp.addEventListener('click',e=>{ if(e.target===lp)_loreClose(); }); }
-  addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: abre/cierra el menú (volver a elegir modo)
+  addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: cierra el panel de lore si está abierto; si no, abre/cierra el menú
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)

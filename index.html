@@ -80,6 +80,15 @@
     <div class="ip-foot">[ click para cerrar ]</div>
   </div></div>
 
+  <!-- Panel de INTERACCIÓN NARRATIVA (modo juego): TV / radio / computadora. Una estructura, 3 estilos (m-tv azul · m-radio ámbar · m-term verde).
+       La pantalla (canvas) sólo se muestra en modo TV (transmisión vieja con estática). Click para cerrar y volver al juego. -->
+  <div id="objPanel"><div class="op-frame">
+    <div class="op-head"><span class="op-rec">●</span> <span id="opHead"></span></div>
+    <div class="op-screen" id="opScreen"><canvas id="opCanvas" width="320" height="240"></canvas></div>
+    <div class="op-body" id="opBody"></div>
+    <div class="op-foot">[ click para cerrar ]</div>
+  </div></div>
+
   <div id="boot"><h2 data-i18n="boot_title">OPENING SHELTER</h2><p class="blink" data-i18n="boot_sub">sealing hatches…</p></div>
 
   <!-- MENÚ DE INICIO (estética CCTV: pantalla de selección de un sistema de vigilancia viejo). Aparece al cargar salvo que una elección previa esté

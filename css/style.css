@@ -167,6 +167,26 @@
   #itemPanel .ip-foot{margin-top:14px;font-size:13px;letter-spacing:2px;color:rgba(201,201,184,.55);text-align:right}
   @media (max-width:760px){#gamehud .gh-slot{width:30px;height:30px}#itemPanel .ip-frame{padding:16px 16px}#itemPanel .ip-body{font-size:17px}}
   @media (max-width:760px){#gamehud{left:12px;bottom:12px}#gamehud .gh-bar{width:160px}}
+  /* ---- Panel de interacción narrativa (TV / radio / computadora) — mismo lenguaje CCTV que itemPanel, con 3 variantes de color ---- */
+  #objPanel{position:fixed;inset:0;z-index:23;display:none;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(4,8,6,.5),rgba(2,3,4,.85) 80%);font-family:'VT323',monospace;cursor:pointer}
+  #objPanel.show{display:flex;animation:smIn .25s ease}
+  #objPanel .op-frame{position:relative;width:min(560px,92vw);padding:18px 24px 16px;background:linear-gradient(180deg,rgba(7,16,11,.93),rgba(3,8,6,.96));border:1px solid rgba(110,255,192,.4);box-shadow:0 0 40px rgba(0,0,0,.7),inset 0 0 50px rgba(57,255,170,.05);cursor:default}
+  #objPanel .op-head{font-size:15px;letter-spacing:3px;color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.4);margin-bottom:12px}#objPanel .op-rec{color:var(--enj);text-shadow:0 0 8px var(--enj)}
+  #objPanel .op-body{font-size:18px;line-height:1.42;color:#bdf5cf;text-shadow:0 0 7px rgba(143,255,176,.28),0 0 2px #000;white-space:pre-wrap;max-height:52vh;overflow-y:auto}
+  #objPanel .op-foot{margin-top:14px;font-size:13px;letter-spacing:2px;color:rgba(201,201,184,.55);text-align:right}
+  #objPanel .op-screen{display:none;position:relative;margin:0 auto 12px;width:min(400px,78vw);aspect-ratio:4/3;border:2px solid rgba(120,150,170,.45);box-shadow:0 0 24px rgba(80,140,200,.22),inset 0 0 30px rgba(0,0,0,.6);background:#000;overflow:hidden}
+  #objPanel .op-screen canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+  #objPanel.m-tv .op-screen{display:block}
+  #objPanel.m-tv .op-frame{border-color:rgba(120,170,210,.45)}
+  #objPanel.m-tv .op-head{color:#9fd0ff;text-shadow:0 0 8px rgba(120,180,255,.5)}
+  #objPanel.m-tv .op-body{color:#cfe6ff;text-shadow:0 0 6px rgba(140,190,255,.25),0 0 2px #000}
+  #objPanel.m-term .op-frame{border-color:rgba(57,255,160,.5)}
+  #objPanel.m-term .op-head{color:var(--screen);text-shadow:0 0 8px rgba(57,255,160,.5)}
+  #objPanel.m-term .op-body{color:#9dffc4;font-size:17px;text-shadow:0 0 7px rgba(57,255,160,.3),0 0 2px #000}
+  #objPanel.m-radio .op-frame{border-color:rgba(255,176,0,.45)}
+  #objPanel.m-radio .op-head{color:var(--amber)}
+  #objPanel.m-radio .op-body{color:#ffe2ad;text-shadow:0 0 7px rgba(255,176,0,.3),0 0 2px #000}
+  @media (max-width:760px){#objPanel .op-body{font-size:16px}#objPanel .op-frame{padding:16px 16px}#objPanel.m-term .op-body{font-size:15px}}
   /* Prompt de interacción [E] (sólo modo juego, sólo cerca de algo interactuable) */
   #ghPrompt{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(6px);z-index:10;display:none;padding:7px 16px;font-family:'VT323',monospace;font-size:21px;letter-spacing:2px;color:var(--screen);background:rgba(6,12,9,.7);border:1px solid rgba(143,255,176,.5);box-shadow:0 0 16px rgba(57,255,160,.25),0 0 3px #000;text-shadow:0 0 8px rgba(57,255,160,.5);opacity:0;transition:opacity .15s,transform .15s;pointer-events:none}
   body.gamemode #ghPrompt.show{display:block;opacity:1;transform:translateX(-50%) translateY(0)}
