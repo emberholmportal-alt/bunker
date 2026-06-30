@@ -2620,8 +2620,10 @@
     else { const bp=robot.model.position; ex=bp.x; ey=bp.y+1.3; ez=bp.z; }
     const fX=Math.sin(_fpYaw), fZ=Math.cos(_fpYaw);
     const pit=FP_PITCH+_fpPitch, cp=Math.cos(pit), sp=Math.sin(pit);          // inclinación = base + lo que mueve el jugador con ↑/↓
-    camera.position.set(ex+fX*FP_EYE_FWD, ey+FP_EYE_UP, ez+fZ*FP_EYE_FWD);   // ojos: un toque adelante de la cabeza
-    camera.lookAt(camera.position.x+fX*cp*2, camera.position.y+sp*2, camera.position.z+fZ*cp*2); // mirada esférica: horizontal (yaw) + vertical (pitch)
+    const sk=(typeof shake!=='undefined'&&shake>0)?shake:0;                    // TEMBLOR (quake): sacude la cámara del jugador. shake ya respeta reduced-motion (escalado en eventArc). Sólo modo beta (esta cámara sólo corre en gameMode); el livestream usa applySecurityCam sin tocar.
+    const jx=sk?(Math.random()-.5)*sk*0.13:0, jy=sk?(Math.random()-.5)*sk*0.13:0, jz=sk?(Math.random()-.5)*sk*0.11:0, lj=sk?sk*0.07:0;
+    camera.position.set(ex+fX*FP_EYE_FWD+jx, ey+FP_EYE_UP+jy, ez+fZ*FP_EYE_FWD+jz);   // ojos: un toque adelante de la cabeza (+ sacudón del temblor)
+    camera.lookAt(camera.position.x+fX*cp*2+(Math.random()-.5)*lj, camera.position.y+sp*2+(Math.random()-.5)*lj, camera.position.z+fZ*cp*2+(Math.random()-.5)*lj); // mirada esférica (yaw+pitch) + jitter del temblor
     if(camera.fov!==FP_FOV){camera.fov=FP_FOV;camera.updateProjectionMatrix();}
     _setHeadHidden(true);                                                     // cabeza invisible a la cámara, SOMBRA intacta (se re-aplica por si el CEL recreó materiales)
     applyViewmodelPose();                                                     // brazos (viewmodel) — después del mixer
@@ -2956,9 +2958,10 @@
   ];
   // --- CAPTURA de luces de cada sala (por AREA) para las fallas dramáticas: guarda intensidad/color base de cada PointLight ambiente. NO toca el código de la escena. ---
   function _zoneAt(x,z){ for(let i=0;i<AREAS.length;i++){const a=AREAS[i]; if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return ZONES[i];} return null; }
-  const _roomLights={}; try{ for(const tk of TASKS)_roomLights[tk.room]=[];
-    scene.traverse(o=>{ if(o.isPointLight && o.intensity>0.05){ const z=_zoneAt(o.position.x,o.position.z); if(z&&_roomLights[z])_roomLights[z].push({l:o, bi:o.intensity, bc:o.color.getHex()}); } });
-  }catch(e){}
+  const _roomLights={}, _allLights=[]; try{ for(const tk of TASKS)_roomLights[tk.room]=[];
+    scene.traverse(o=>{ if(o.isPointLight && o.intensity>0.05){ const rec={l:o, bi:o.intensity, bc:o.color.getHex()}; _allLights.push(rec); const z=_zoneAt(o.position.x,o.position.z); if(z&&_roomLights[z])_roomLights[z].push(rec); } });
+  }catch(e){} // _allLights = TODAS las luces del búnker (para la falla eléctrica global de LIGHTING); _roomLights[room] = por sala (fallas localizadas)
+  function _taskLightSet(tk){ return tk.id==='lights' ? _allLights : (_roomLights[tk.room]||[]); } // LIGHTING falla en TODO el búnker; el resto en su sala
   const _SICK=new THREE.Color(0x6a7a18), _RED=new THREE.Color(0xff2a14), _FRED=new THREE.Color(0xff3a14), _AMB=new THREE.Color(0xff8a2a); // colores objetivo de las fallas (pre-creados, sin GC por frame)
   const _taskLights={}, _coolAlarm={a:null}, _fabSpark={a:null}; let _taskSwarm=null,_swarmPos=null,_swarmBase=null,_buzzGain=null;
   try{ for(const tk of TASKS){ const L=new THREE.PointLight(0xff5a3c,0,3.2,2); L.position.set(tk.anchor.x,1.5,tk.anchor.z); L.visible=false; scene.add(L); _taskLights[tk.id]=L; }
@@ -2975,15 +2978,15 @@
   function _isActive(id){ return _active.some(t=>t.id===id); }
   function _taskPick(){ let pool=TASKS.filter(t=>!_isActive(t.id)&&t.id!==_taskLastId); if(!pool.length)pool=TASKS.filter(t=>!_isActive(t.id)); return pool.length?pool[Math.floor(Math.random()*pool.length)]:null; }
   function _buzz(on){ try{ if(typeof actx==='undefined'||!actx||!_af()){ if(_buzzGain)_buzzGain.gain.value=0; return; } if(!_buzzGain){ const s=actx.createBufferSource();s.buffer=noiseBuf;s.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=235;bp.Q.value=4.5;_buzzGain=actx.createGain();_buzzGain.gain.value=0;s.connect(bp);bp.connect(_buzzGain);_buzzGain.connect(master);s.start(); } _buzzGain.gain.setTargetAtTime(on?0.06:0, actx.currentTime, 0.15); }catch(e){} } // zumbido sostenido del enjambre
-  function _fxRestore(tk){ const ls=_roomLights[tk.room]||[]; for(const e of ls){ e.l.intensity=e.bi; e.l.color.setHex(e.bc); } } // devuelve las luces de la sala a su base (al resolver / al pausar)
+  function _fxRestore(tk){ const ls=_taskLightSet(tk); for(const e of ls){ e.l.intensity=e.bi; e.l.color.setHex(e.bc); } } // devuelve las luces (sala, o TODO el búnker si es LIGHTING) a su base (al resolver / al pausar)
   function _swarmAnimate(dt,mv){ if(!_taskSwarm)return; _taskSwarm.visible=true; if(!mv)return; const tt=perfNow()/1000;
     for(let i=0;i<_swarmBase.length;i++){ const b=_swarmBase[i]; b.ang+=b.spd*dt*(0.8+0.6*Math.sin(tt*2+b.ph)); const r=b.rad*(0.65+0.5*Math.sin(tt*3+b.ph));
       const cx=(b.drift>0.8?Math.sin(tt*0.5+b.ph)*1.3:0), cz=14.4-(b.drift>0.85?(1+Math.sin(tt*0.3+b.ph))*1.6:0); // algunas se desbandan hacia el búnker
       _swarmPos[i*3]=cx+Math.cos(b.ang)*r; _swarmPos[i*3+1]=b.yy+Math.sin(tt*4+b.ph)*0.45; _swarmPos[i*3+2]=cz+Math.sin(b.ang)*r; }
     _taskSwarm.geometry.attributes.position.needsUpdate=true; }
   // FALLA DRAMÁTICA por tarea (un frame). Modula las luces de la sala (capturadas) + FX dedicados + sonido. Gateado a motion() (reduced-motion → versión fija/menos intensa).
-  function _taskFxFrame(tk,dt){ const ls=_roomLights[tk.room]||[], mv=motion(), now=perfNow();
-    if(tk.id==='lights'){ const f=mv?((Math.random()<0.20)?0:(0.15+Math.random()*1.05)):0.4; for(const e of ls)e.l.intensity=e.bi*f; if(mv&&_af()&&Math.random()<0.05)eclick(); } // las luces PARPADEAN fuerte y se apagan
+  function _taskFxFrame(tk,dt){ const ls=_taskLightSet(tk), mv=motion(), now=perfNow();
+    if(tk.id==='lights'){ const f=mv?((Math.random()<0.20)?0:(0.15+Math.random()*1.05)):0.4; for(const e of ls)e.l.intensity=e.bi*f; if(mv&&_af()&&Math.random()<0.05)eclick(); } // FALLA ELÉCTRICA GLOBAL: TODAS las luces del búnker parpadean/se apagan
     else if(tk.id==='grow'){ const f=mv?(0.1+Math.abs(Math.sin(now/95))*0.5*(Math.random()<0.85?1:0.15)):0.28; for(const e of ls){ e.l.intensity=e.bi*f; e.l.color.setHex(e.bc); e.l.color.lerp(_SICK,0.6); } if(mv&&_af()&&Math.random()<0.02)eclick(); } // lámparas fallan + color enfermizo
     else if(tk.id==='coolant'){ const p=mv?(0.5+0.5*Math.sin(now/130)):0.7; for(const e of ls){ e.l.intensity=e.bi*(0.4+0.7*p); e.l.color.setHex(e.bc); e.l.color.lerp(_RED,0.7*p); } if(_coolAlarm.a)_coolAlarm.a.intensity=2.4*p; tk._snd=(tk._snd||0)-dt; if(_af()&&tk._snd<=0){ if(typeof alarm==='function')alarm(); tk._snd=1.3; } } // alarma ROJA pulsante + klaxon
     else if(tk.id==='fab'){ const black=mv&&Math.random()<0.3; for(const e of ls){ e.l.intensity=e.bi*(black?0.1:1.0); e.l.color.setHex(e.bc); e.l.color.lerp(_FRED,0.5); } if(_fabSpark.a)_fabSpark.a.intensity=(mv&&Math.random()<0.28)?2.8:0.1; if(mv&&_af()&&Math.random()<0.06){ (Math.random()<0.5?blip:eclick)(); } } // impresora se traba: chispas rojas + clunks
