@@ -156,7 +156,8 @@
   #gamehud .gh-label{font-size:15px;letter-spacing:3px;color:var(--screen);text-shadow:0 0 8px rgba(57,255,160,.5),0 0 2px #000}
   #gamehud .gh-bar{width:220px;height:16px;border:1px solid rgba(143,255,176,.45);background:rgba(6,12,9,.55);box-shadow:inset 0 0 10px rgba(0,0,0,.5)}
   #gamehud .gh-bar i{display:block;height:100%;width:100%;background:var(--screen);box-shadow:0 0 10px var(--screen);transition:width .12s linear,background .25s,box-shadow .25s}
-  #gamehud .gh-bees{margin-top:7px;font-size:16px;letter-spacing:2px;color:var(--ash);text-shadow:0 0 4px #000}#gamehud .gh-bees b{color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.5)}#gamehud .gh-bstar{color:var(--amber);text-shadow:0 0 8px var(--amber)}
+  #gamehud .gh-colony{margin-top:7px;font-size:16px;letter-spacing:2px;color:var(--ash);text-shadow:0 0 4px #000}#gamehud .gh-colony b{color:var(--screen);text-shadow:0 0 8px rgba(57,255,160,.55)}#gamehud .gh-cstar{color:var(--screen);text-shadow:0 0 8px var(--screen)}
+  #gamehud .gh-bees{margin-top:3px;font-size:16px;letter-spacing:2px;color:var(--ash);text-shadow:0 0 4px #000}#gamehud .gh-bees b{color:var(--amber);text-shadow:0 0 8px rgba(255,176,0,.5)}#gamehud .gh-bstar{color:var(--amber);text-shadow:0 0 8px var(--amber)}
   #gamehud .gh-inv{margin-top:9px}#gamehud .gh-slots{display:flex;gap:7px;margin-top:3px;pointer-events:auto}
   #gamehud .gh-slot{width:34px;height:34px;border:1px solid rgba(143,255,176,.32);background:rgba(6,12,9,.5);box-shadow:inset 0 0 8px rgba(0,0,0,.5)}
   #gamehud .gh-slot.filled{border-color:rgba(110,255,192,.7);box-shadow:0 0 12px rgba(57,255,170,.4),inset 0 0 8px rgba(57,255,170,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;color:#6effc0;font-size:20px;text-shadow:0 0 8px #39ffaa}

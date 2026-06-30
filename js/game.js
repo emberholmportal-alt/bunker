@@ -2215,7 +2215,7 @@
     window.__REFUGIO.gameDrain=function(idle,move){ if(idle!==undefined)ENERGY_DRAIN=Math.max(0,+idle||0); if(move!==undefined)ENERGY_MOVE=Math.max(0,+move||0); return {drenajeReposo:ENERGY_DRAIN+' %/s', extraMovimiento:ENERGY_MOVE+' %/s', durLlenaReposo:Math.round(100/(ENERGY_DRAIN||0.0001))+'s', durLlenaCaminando:Math.round(100/((ENERGY_DRAIN+ENERGY_MOVE)||0.0001))+'s'}; }; // OP.gameDrain(reposo, extraMov)
     window.__REFUGIO.gameCharge=function(n){ if(n!==undefined)CHARGE_RATE=Math.max(1,+n||32); return 'recarga en el dock: '+CHARGE_RATE+' %/s (de 0 a 100 en ~'+(100/CHARGE_RATE).toFixed(1)+'s manteniendo E)'; }; // OP.gameCharge(n)
     window.__REFUGIO.gameBees=function(){ return 'abejas liberadas en esta sesión (LOCAL, no toca el beesReleased del backend): '+gameBeesReleased; }; // lee el contador local del juego
-    window.__REFUGIO.gameRelease=function(){ if(_releaseSurge()){ gameBeesReleased++; _beesHud(); return 'abeja liberada (surge) — sesión: '+gameBeesReleased; } return 'ya hay un surge en curso (esperá a que termine)'; }; // fuerza una liberación para testear (ignora la proximidad)
+    window.__REFUGIO.gameRelease=function(){ if(!_colonyCanRelease())return 'COLONY muy baja ('+Math.floor(colony)+'<'+COLONY_REL_MIN+'): atendé la colmena para subirla'; if(_releaseSurge()){ _colonyDoRelease(); gameBeesReleased++; _beesHud(); return 'abeja liberada — RELEASED: '+gameBeesReleased+' · COLONY: '+Math.floor(colony)+' (−'+COLONY_REL_COST+')'; } return 'ya hay un surge en curso (esperá a que termine)'; }; // fuerza una liberación (gate COLONY≥umbral + descuento)
     window.__REFUGIO.gameTake=function(){ if(_mItemTaken)return 'el ítem ya está en el inventario (click en el slot para releer el lore)'; _takeItem(); return 'ítem tomado: '+ITEM_NAME+' — lore abierto'; }; // fuerza tomar el ítem de la bóveda para testear (ignora la proximidad)
     window.__REFUGIO.restart=function(){rst();return true;}; // reinicia el robot a su base + resync del reloj del stream
     window.__REFUGIO.broadcast=function(){return broadcast();}; // RADIO: dispara una transmisión YA (esté donde esté Beeko) para testear el cuadro
@@ -2415,8 +2415,18 @@
   function _hidePrompt(){ if(_promptTxt===''){const e=$('#ghPrompt'); if(e)e.classList.remove('show'); return;} _promptTxt=''; const e=$('#ghPrompt'); if(e)e.classList.remove('show'); }
   // ---- LIBERAR ABEJAS (hito 5): proximidad a la colmena → [E] RELEASE BEE → surge del enjambre (sin tocar el beesReleased del backend) + contador LOCAL de sesión ----
   const HIVE_POS={x:0, z:14.4}; const HIVE_RADIUS=2.6; // la colmena (centerpiece) + radio de proximidad (el collider de la colmena es r≈0.8, así que el prompt aparece al acercarse)
-  let gameBeesReleased=0; // contador PROPIO de la sesión de juego (NO es STREAM.beesReleased)
+  let gameBeesReleased=0; // RELEASED: contador histórico de la sesión (solo sube; NO es STREAM.beesReleased)
   function _beesHud(){ const e=$('#gbVal'); if(e)e.textContent=gameBeesReleased; }
+  // ---- COLONY: POBLACIÓN viva de la colmena (stat de sesión, modo beta). Crece sola lento + atender BROOD; muere si dejás el descontrol BROOD sin atender; liberar
+  //      consume −COLONY_REL_COST y exige COLONY≥COLONY_REL_MIN. Todo tuneable por OP. Recuperación desde 0 garantizada por el crecimiento solo (sin dead-end). ----
+  const COLONY_INIT=25; let COLONY_MAX=120, COLONY_GROW_SEC=8, COLONY_TEND=6, COLONY_DEATH_BASE=0.5, COLONY_DEATH_MAX=1.6, COLONY_DEATH_RAMP=20, COLONY_REL_COST=4, COLONY_REL_MIN=20;
+  let colony=COLONY_INIT; // float interno; se muestra floor()
+  function _colonyHud(){ const e=$('#colVal'); if(e)e.textContent=Math.floor(colony); }
+  function _colonyGrow(dt){ if(colony<COLONY_MAX){ colony=Math.min(COLONY_MAX, colony+dt/COLONY_GROW_SEC); _colonyHud(); } }     // +1 cada COLONY_GROW_SEC (corre cuando NO hay descontrol BROOD)
+  function _colonyDie(dt,neglect){ const dr=Math.min(COLONY_DEATH_MAX, COLONY_DEATH_BASE+(neglect/COLONY_DEATH_RAMP)*(COLONY_DEATH_MAX-COLONY_DEATH_BASE)); if(colony>0){ colony=Math.max(0,colony-dt*dr); _colonyHud(); } } // muerte escalada por tiempo de descuido
+  function _colonyTend(){ colony=Math.min(COLONY_MAX, colony+COLONY_TEND); _colonyHud(); }                                      // atender BROOD → +COLONY_TEND
+  function _colonyCanRelease(){ return colony>=COLONY_REL_MIN; }
+  function _colonyDoRelease(){ if(!_colonyCanRelease())return false; colony=Math.max(0,colony-COLONY_REL_COST); _colonyHud(); return true; }
   // ---- ÍTEM DE MISTERIO (hito 6): un fragmento de registro recuperado en la BÓVEDA (el cuarto SELLADO que Beeko descubrió) → primer gancho de lore del despertar ----
   const ITEM_POS={x:5.0, z:13.5}; const ITEM_RADIUS=1.5; // en la bóveda, sobre un pedestal chico
   const ITEM_NAME_EN='LOG FRAGMENT', ITEM_NAME_ES='FRAGMENTO DE REGISTRO';
@@ -2530,7 +2540,7 @@
     if(!gameMode || _menuOn || _gmCollapse>0 || _uiBlocking()) return; // no se interactúa a través de un panel modal (lore/carta/final)
     const px=robot.model.position.x, pz=robot.model.position.z;
     if(_taskAtPlayer(px,pz)) return; // PRIORIDAD: si hay una tarea activa en tu ancla, el TAP de E no libera abeja / no toma ítem / no abre panel — la tarea (HOLD E) manda
-    if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } return; } // colmena: liberar (cooldown natural = surge)
+    if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0){ if(!_colonyCanRelease()){ if(typeof showAlert==='function')showAlert(T('pr_col_low')); } else if(_releaseSurge()){ _colonyDoRelease(); gameBeesReleased++; _beesHud(); } } return; } // colmena: liberar — exige COLONY≥umbral y consume −COLONY_REL_COST (surge = cooldown natural)
     if(!_mItemTaken && Math.hypot(px-ITEM_POS.x, pz-ITEM_POS.z)<ITEM_RADIUS){ _takeItem(); return; } // bóveda: tomar el ítem de misterio
     const obj=_objNear(px,pz); if(obj){ _objInteract(obj); return; } // TV / radio / terminal: encender+panel · apagar · (terminal sólo panel)
   }
@@ -2588,7 +2598,7 @@
     else if(charging) _showPrompt(T('pr_charging'));
     else if(nearDock && _eHeld) _showPrompt(T('pr_energy_full'));
     else if(nearDock) _showPrompt(gameEnergy>=100?T('pr_energy_full'):T('pr_charge'));
-    else if(nearHive) _showPrompt(beeReleaseT>0?T('pr_releasing'):T('pr_release'));
+    else if(nearHive) _showPrompt(beeReleaseT>0?T('pr_releasing'):(_colonyCanRelease()?T('pr_release'):T('pr_col_low'))); // si la población < umbral, el prompt avisa en vez de ofrecer liberar
     else if(!_mItemTaken && Math.hypot(robot.model.position.x-ITEM_POS.x, robot.model.position.z-ITEM_POS.z)<ITEM_RADIUS) _showPrompt(T('pr_take'));
     else { const obj=_objNear(robot.model.position.x,robot.model.position.z); if(obj)_showPrompt(_objPrompt(obj)); else _hidePrompt(); } // TV/radio/terminal: verbo propio (TURN OFF si ya está encendido)
     if(gameEnergy<=0){ _gmCollapse=COLLAPSE_DUR; robot.moving=false; _playDeathOnce(); } // SIN ENERGÍA → colapso (Death), revive solo con ENERGY_REVIVE%
@@ -2641,7 +2651,7 @@
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
   function hideMenu(){ _menuOn=false; const m=$('#startmenu'); if(m)m.classList.remove('show'); }
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); _hideItemPanel(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} } // oculta el panel del ítem si quedó abierto
-  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; _fpYaw=robot.model?robot.model.rotation.y:0; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0;
+  function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; _fpYaw=robot.model?robot.model.rotation.y:0; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0; colony=COLONY_INIT; _colonyHud();
     _mItemTaken=false; if(mItemGrp)mItemGrp.visible=true; _invClear(); _hideItemPanel(); // sesión de juego fresca: el ítem vuelve a la bóveda, inventario limpio
     _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); if(typeof _cardArm==='function')_cardArm(); if(typeof _taskResetAll==='function')_taskResetAll(); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0 + re-arma cartas y tareas (no disparan al instante)
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
@@ -2995,7 +3005,7 @@
   function _taskActivate(tk){ if(!tk||_isActive(tk.id))return; tk._prog=0; tk._snd=0; _active.push(tk); _taskLastId=tk.id; const L=_taskLights[tk.id]; if(L)L.visible=true; if(typeof showAlert==='function')showAlert(T(tk.alert)); if(_af()&&typeof thud==='function')thud(); }
   function _taskResolve(tk){ if(!tk)return; const i=_active.indexOf(tk); if(i<0)return; _active.splice(i,1); const L=_taskLights[tk.id]; if(L){L.visible=false;L.intensity=0;} _fxRestore(tk);
     if(tk.id==='coolant'&&_coolAlarm.a)_coolAlarm.a.intensity=0; if(tk.id==='fab'&&_fabSpark.a)_fabSpark.a.intensity=0;
-    if(tk.id==='brood'){ if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); gameBeesReleased=Math.min(999,gameBeesReleased+2); _beesHud(); } // atender la cría RECUPERA + corta el descontrol
+    if(tk.id==='brood'){ if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); _colonyTend(); } // atender la cría → +COLONY_TEND a la población + corta el descontrol (muerte)
     _taskArm(); if(_af()&&typeof bkBlip==='function')bkBlip(); }
   function _taskCalmFx(){ for(const tk of _active)_fxRestore(tk); if(_coolAlarm.a)_coolAlarm.a.intensity=0; if(_fabSpark.a)_fabSpark.a.intensity=0; if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); } // apaga las fallas dramáticas (pausa / livestream / reset) sin resolver las tareas
   function _taskResetAll(){ _taskCalmFx(); _active.length=0; for(const k in _taskLights){ const L=_taskLights[k]; if(L){L.visible=false;L.intensity=0;} } _beeDecayAcc=0; _taskLastId=''; _taskArm(); } // reset total: livestream 100% limpio (luces normales, sin alarmas, sin enjambre)
@@ -3009,10 +3019,10 @@
     let broodActive=false;
     for(const tk of _active){ _taskFxFrame(tk,dt);
       if(tk.kind==='energy'){ gameEnergy=Math.max(0,gameEnergy-dt*TASK_DRAIN); }
-      else if(tk.kind==='bees'){ broodActive=true; _beeDecayAcc+=dt*TASK_BEE_DECAY; if(_beeDecayAcc>=1&&gameBeesReleased>0){ const n=Math.floor(_beeDecayAcc); gameBeesReleased=Math.max(0,gameBeesReleased-n); _beeDecayAcc-=n; _beesHud(); } }
+      else if(tk.kind==='bees'){ broodActive=true; tk._neglect=(tk._neglect||0)+dt; _colonyDie(dt, tk._neglect); } // DESCONTROL BROOD sin atender → muere la COLONY (escala con el tiempo de descuido)
     }
     if(_active.length)_energyHud();
-    if(!broodActive){ if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); }                   // sin brood activa → enjambre/zumbido apagados
+    if(!broodActive){ if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); _colonyGrow(dt); }   // sin brood activa → enjambre/zumbido off + la COLONY crece sola (siempre, incluso desde 0 → sin dead-end)
     if(_active.length<TASK_MAX){ _taskT-=dt; if(_taskT<=0){ const tk=_taskPick(); if(tk)_taskActivate(tk); _taskArm(); } } // SPAWN: si hay lugar y venció el gap, activá otra
   }
   if(window.__REFUGIO){
@@ -3022,6 +3032,13 @@
     window.__REFUGIO.taskMax=function(n){ if(n!==undefined)TASK_MAX=Math.max(1,Math.min(4,Math.round(+n||2))); return 'máximo de tareas activas a la vez: '+TASK_MAX+' (clamp 1..4; nunca las 5)'; }; // OP.taskMax(n)
     window.__REFUGIO.taskTune=function(drain,beeDecay){ if(drain!==undefined)TASK_DRAIN=Math.max(0,+drain); if(beeDecay!==undefined)TASK_BEE_DECAY=Math.max(0,+beeDecay); return {drenajeEnergiaPorTarea:TASK_DRAIN+' %/s', decaeAbejas:TASK_BEE_DECAY+'/s', fix:TASK_FIX+'s'}; }; // OP.taskTune(drenaje, decaeAbejas)
     window.__REFUGIO.tasks=function(){ return { activas:_active.map(t=>t.id+'('+t.room+' '+Math.round((t._prog||0)/TASK_FIX*100)+'%)'), cuantas:_active.length+'/'+TASK_MAX, proximaEn:(_active.length<TASK_MAX?Math.round(_taskT)+'s':'(tope alcanzado)'), gap:TASK_GAP_MIN+'-'+TASK_GAP_MAX+'s', pool:TASKS.map(t=>t.id), modoJuego:gameMode }; }; // inspeccionar
+    // --- COLONY (población de la colmena) ---
+    window.__REFUGIO.colony=function(n){ if(n!==undefined){ colony=Math.max(0,Math.min(COLONY_MAX,+n||0)); _colonyHud(); } return { poblacion:Math.floor(colony), techo:COLONY_MAX, puedeLiberar:_colonyCanRelease()+(' (umbral '+COLONY_REL_MIN+')'), liberadas:gameBeesReleased }; }; // OP.colony(n) set/lee la población viva
+    window.__REFUGIO.colonyGrow=function(seg){ if(seg!==undefined)COLONY_GROW_SEC=Math.max(0.2,+seg||8); return 'crecimiento solo: +1 cada '+COLONY_GROW_SEC+'s ('+(60/COLONY_GROW_SEC).toFixed(1)+'/min) — corre cuando NO hay descontrol BROOD'; }; // OP.colonyGrow(seg)
+    window.__REFUGIO.colonyTend=function(n){ if(n!==undefined)COLONY_TEND=Math.max(0,Math.round(+n||6)); return 'atender BROOD suma +'+COLONY_TEND+' a la población'; }; // OP.colonyTend(n)
+    window.__REFUGIO.colonyDeath=function(base,max){ if(base!==undefined)COLONY_DEATH_BASE=Math.max(0,+base); if(max!==undefined)COLONY_DEATH_MAX=Math.max(COLONY_DEATH_BASE,+max); return {muerteInicial:COLONY_DEATH_BASE+'/s', muerteMax:COLONY_DEATH_MAX+'/s', rampaSeg:COLONY_DEATH_RAMP+'s', nota:'mientras el descontrol BROOD está sin atender'}; }; // OP.colonyDeath(base,max)
+    window.__REFUGIO.colonyRelease=function(costo,umbral){ if(costo!==undefined)COLONY_REL_COST=Math.max(0,Math.round(+costo||4)); if(umbral!==undefined)COLONY_REL_MIN=Math.max(0,Math.round(+umbral||20)); return {costoPorLiberacion:COLONY_REL_COST, umbralMinimo:COLONY_REL_MIN}; }; // OP.colonyRelease(costo,umbral)
+    window.__REFUGIO.colonyCap=function(n){ if(n!==undefined)COLONY_MAX=Math.max(1,Math.round(+n||120)); if(colony>COLONY_MAX){colony=COLONY_MAX;_colonyHud();} return 'techo de población: '+COLONY_MAX; }; // OP.colonyCap(n)
   }
   // =====================================================================================================================
   addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_cardOpen||_storyEndOpen)return; if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: inerte con carta/final abiertos; si no, cierra lore o abre/cierra el menú
