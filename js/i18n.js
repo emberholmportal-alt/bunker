@@ -67,7 +67,7 @@
       cfg_menu:'‹ START MENU', cfg_lore:'READ THE LORE',
       cfg_to_observe:'▶ OBSERVE — back to livestream', cfg_to_game:'⦿ TAKE CONTROL OF R-01',
       // HUD del modo juego
-      gh_energy:'ENERGY', gh_bees:'BEES RELEASED', gh_inv:'INVENTORY', gh_slot_empty:'item',
+      gh_energy:'ENERGY', gh_bees:'RELEASED', gh_colony:'COLONY', gh_inv:'INVENTORY', gh_slot_empty:'item', pr_col_low:'COLONY TOO LOW',
       // prompts de interacción [E]
       pr_charge:'[E] CHARGE', pr_charging:'⚡ CHARGING…', pr_energy_full:'⚡ ENERGY FULL',
       pr_release:'[E] RELEASE BEE', pr_releasing:'✦ RELEASING…', pr_take:'[E] TAKE',
@@ -130,7 +130,7 @@
       cfg_title:'⚙ CONFIGURACIÓN', cfg_mode:'MODO', cfg_world:'MUNDO', cfg_lang:'IDIOMA',
       cfg_menu:'‹ MENÚ DE INICIO', cfg_lore:'LEER EL LORE',
       cfg_to_observe:'▶ OBSERVAR — volver al livestream', cfg_to_game:'⦿ TOMAR CONTROL DE R-01',
-      gh_energy:'ENERGÍA', gh_bees:'ABEJAS LIBERADAS', gh_inv:'INVENTARIO', gh_slot_empty:'objeto',
+      gh_energy:'ENERGÍA', gh_bees:'LIBERADAS', gh_colony:'COLONIA', gh_inv:'INVENTARIO', gh_slot_empty:'objeto', pr_col_low:'COLONIA MUY BAJA',
       pr_charge:'[E] CARGAR', pr_charging:'⚡ CARGANDO…', pr_energy_full:'⚡ ENERGÍA LLENA',
       pr_release:'[E] LIBERAR ABEJA', pr_releasing:'✦ LIBERANDO…', pr_take:'[E] TOMAR',
       pr_tv:'[E] VER PANTALLA', pr_radio:'[E] SINTONIZAR RADIO', pr_term:'[E] ACCEDER A TERMINAL', pr_turnoff:'[E] APAGAR',
