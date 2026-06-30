@@ -130,6 +130,23 @@
     <div class="op-foot" data-i18n="op_close">[ click to close ]</div>
   </div></div>
 
+  <!-- CARTA DE DECISIÓN (modo juego BETA, EXCLUSIVO de gameMode): situación + opciones → consecuencia. Verde/ámbar CRT. NUNCA aparece en el livestream.
+       Las opciones se generan en JS (#cpOpts); tras elegir, el cuerpo pasa a la consecuencia y aparece CONTINUE (#cpFoot). El fondo NO cierra: hay que elegir. -->
+  <div id="cardPanel"><div class="cp-frame">
+    <div class="cp-head"><span class="cp-rec">●</span> <span id="cpHead">INCIDENT</span></div>
+    <div class="cp-body" id="cpBody"></div>
+    <div class="cp-opts" id="cpOpts"></div>
+    <div class="cp-foot" id="cpFoot"></div>
+  </div></div>
+
+  <!-- FINAL de la historia de Beeko (modo juego BETA): pantalla completa, look CRT. Dispara tras STORY_LEN decisiones según el péndulo. CONTINUE reinicia la historia. -->
+  <div id="storyEnd"><div class="se-scan"></div><div class="se-vig"></div><div class="se-inner">
+    <div class="se-top"><span class="se-rrec">●</span> <span id="seTop">SHELTER 404 · EPILOGUE</span></div>
+    <h2 class="se-title" id="seTitle">—</h2>
+    <div class="se-body" id="seBody"></div>
+    <div class="se-foot"><button id="seAgain" class="cp-btn cp-cont">CONTINUE</button></div>
+  </div></div>
+
   <!-- PANTALLA DE CARGA (cubre toda la carga inicial: vendor + escena + robot.glb). Estética CCTV/terminal: título + mensajes de terminal + barra.
        Al terminar la carga real (window.__robotReady), game.js la funde y muestra el menú. -->
   <div id="boot">

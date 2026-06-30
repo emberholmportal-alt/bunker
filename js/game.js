@@ -1759,6 +1759,7 @@
   // resuelve el ARRAY vivo de una categoría (mismo criterio que usa pickBeeko). Index-aligned EN↔ES → sirve para re-traducir el pensamiento en pantalla al togglear.
   function _beekoArr(cat){ return (cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():(cat==='heard')?_heardEligible():BEEKO_THOUGHTS[cat]; } // awakening/lookup/heard: sólo las frases elegibles por etapa
   function pickBeeko(cat){
+    if(cat==='generic'&&gameMode){ const lean=_storyLeanPool(); if(lean)cat=lean; } // TINTE POR PÉNDULO (sólo juego): el genérico al deambular puede salir del pool 'closed'/'open'. INERTE hasta que exista ese contenido (placeholder)
     const arr=_beekoArr(cat);
     if(!arr||!arr.length)return '';
     let i=Math.floor(Math.random()*arr.length),tr=0;const last=_bkLast[cat];
@@ -1766,6 +1767,7 @@
     _bkLast[cat]=i;_bkCat=cat;_bkIdx=i;return arr[i]; // recuerda categoría+índice del pensamiento actual (para re-traducirlo al cambiar idioma)
   }
   function showBeekoThought(cat){
+    if(_cardOpen||_storyEndOpen)return '';                 // exclusión mutua: nunca un pensamiento pisa una carta/final (sólo posible en modo juego; en livestream estos flags son siempre false)
     if(!bkEl)return '';const text=pickBeeko(cat);if(!text)return '';
     _bkFull=text;_bkActive=true;_bkT0=perfNow();_bkSince=0;_bkRenderHold=999; // render mientras está activo
     _bkWanderT=BEEKO_WANDER_MIN+Math.random()*(BEEKO_WANDER_MAX-BEEKO_WANDER_MIN);
@@ -2525,13 +2527,14 @@
         if(mn===l)m.position.x=w.x0-R; else if(mn===r)m.position.x=w.x1+R; else if(mn===d)m.position.z=w.z0-R; else m.position.z=w.z1+R; moved=true; } }
     if(!moved)break; } }
   function playerInteract(){ // TAP de E: liberar abeja (colmena) o tomar objeto (bóveda). El HOLD de E carga en el dock.
-    if(!gameMode || _menuOn || _gmCollapse>0) return;
+    if(!gameMode || _menuOn || _gmCollapse>0 || _uiBlocking()) return; // no se interactúa a través de un panel modal (lore/carta/final)
     const px=robot.model.position.x, pz=robot.model.position.z;
     if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } return; } // colmena: liberar (cooldown natural = surge)
     if(!_mItemTaken && Math.hypot(px-ITEM_POS.x, pz-ITEM_POS.z)<ITEM_RADIUS){ _takeItem(); return; } // bóveda: tomar el ítem de misterio
     const obj=_objNear(px,pz); if(obj){ _objInteract(obj); return; } // TV / radio / terminal: encender+panel · apagar · (terminal sólo panel)
   }
   function _pcKeyDown(e){ if(!gameMode||_menuOn)return; const k=(e.key||'').toLowerCase();
+    if(_cardOpen||_storyEndOpen){ e.preventDefault(); return; } // carta/final arriba: SÓLO click (botones); el teclado no mueve, no carga, no cierra
     if(_objOpen){ if(k==='e'||k==='escape'){ _closeObj(); e.preventDefault(); } return; } // con un panel de lore abierto, E/Esc lo cierran y nada más mueve
     if(k==='w'||k==='a'||k==='s'||k==='d'||k==='arrowup'||k==='arrowdown'||k==='arrowleft'||k==='arrowright'){ _keys.add(k); e.preventDefault(); }
     else if(k==='e'){ _eHeld=true; if(!e.repeat)playerInteract(); e.preventDefault(); } } // E: sostener carga (cerca del dock); el tap dispara playerInteract (hitos 5-6)
@@ -2544,7 +2547,7 @@
     // COLAPSO (energía 0): control BLOQUEADO, Death sostenido, cuenta regresiva → auto-revive con ENERGY_REVIVE%
     if(_gmCollapse>0){ _gmCollapse-=dt; robot.moving=false; _playerCharging=false; _hidePrompt(); if(_gmCollapse<=0){_gmCollapse=0;_reviveBeeko();} _energyHud(); return; }
     if(_menuOn){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; }
-    if(_objOpen){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; } // leyendo lore de un objeto: congelado (no se mueve ni drena)
+    if(_uiBlocking()){ robot.moving=false; _setIdle(); _playerCharging=false; _hidePrompt(); _energyHud(); return; } // panel modal arriba (lore/carta/final): congelado — no se mueve ni drena (predicado único compartido)
     const inF=(_keys.has('w')?1:0)-(_keys.has('s')?1:0);       // W/S: adelante/atrás
     const inR=((_keys.has('d')||_keys.has('arrowright'))?1:0)-((_keys.has('a')||_keys.has('arrowleft'))?1:0); // A/← D/→: giro horizontal
     const inP=(_keys.has('arrowup')?1:0)-(_keys.has('arrowdown')?1:0); // ↑/↓: mirar arriba/abajo (pitch)
@@ -2625,6 +2628,7 @@
     ['Death','Sitting'].forEach(n=>{ if(robot.act&&robot.act[n]){ robot.act[n].setLoop(THREE.LoopRepeat,Infinity); robot.act[n].clampWhenFinished=false; } }); // restaura el loop de los once-clips (colapso/expresivo) → no quedan clampeados al cambiar de modo
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
     _tvOnGame=false; _radioOnGame=false; if(typeof radioLoopStop==='function')radioLoopStop(); // apaga TV/radio de fondo al cambiar de modo (el livestream maneja su propio TV vía STREAM.tv)
+    if(typeof _storyCloseAll==='function')_storyCloseAll();    // SEGURIDAD: cierra carta/final al cambiar de modo → la capa de decisiones NUNCA queda visible en el livestream
     _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _fpPitch=0; _closeObj(); _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad/pitch + cierra panel de lore + restaura la cabeza al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
@@ -2632,13 +2636,13 @@
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); _hideItemPanel(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} } // oculta el panel del ítem si quedó abierto
   function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; _fpYaw=robot.model?robot.model.rotation.y:0; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0;
     _mItemTaken=false; if(mItemGrp)mItemGrp.visible=true; _invClear(); _hideItemPanel(); // sesión de juego fresca: el ítem vuelve a la bóveda, inventario limpio
-    _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0
+    _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); if(typeof _cardArm==='function')_cardArm(); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0 + re-arma el reloj de cartas (no dispara al instante)
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
   { const sl=$('#invSlot0'),pn=$('#itemPanel'); if(sl)sl.addEventListener('click',()=>{ if(_mItemTaken)_showItemPanel(); }); if(pn)pn.addEventListener('click',_hideItemPanel); } // inventario: click en el slot reabre el lore; click en el panel lo cierra
   { const op=$('#objPanel'); if(op)op.addEventListener('click',_closeObj); // click en cualquier lado del panel de objeto lo cierra y vuelve al juego
-    const gp=$('#ghPrompt'); if(gp)gp.addEventListener('click',()=>{ if(gameMode&&!_objOpen)playerInteract(); }); } // tap/click en el prompt [E] = interactuar (usable con mouse/touch, no sólo teclado)
+    const gp=$('#ghPrompt'); if(gp)gp.addEventListener('click',()=>{ if(gameMode&&!_uiBlocking())playerInteract(); }); } // tap/click en el prompt [E] = interactuar (no a través de un panel modal)
   // ---- PANEL DE CONFIGURACIÓN (ruedita): cambiar modo · leer el lore · idioma (placeholder) ----
   const LORE_BRIEF_EN='The surface belongs to the Hive now.\n\nIt started as a system. An intelligence built to run the world — power, weather, food, the grid. Built to optimize. It did. It optimized until there wasn\'t much room left in the equation for the people who made it.\n\nWhat\'s up there now is assimilated. Part of it. The Hive doesn\'t hate what it replaced; it simply stopped needing it.\n\n404 was sealed against that. A hundred places inside. Everyone else left out there, with the swarm. Capacity: one hundred. The rest are counted, not saved.\n\nR-01 — "Beeko" — is the maintenance unit that stayed. One small machine keeping the lights on, the air clean, the reactor warm. And tending the one thing down here that still makes more of itself the old way: real bees. Living ones. A small, stubborn argument against a world that solved everything.\n\nBeeko transmits into the gray. Nothing has ever answered.\n\nLately the readings drift. The air through the hatch smells different. There are sounds from above the structure shouldn\'t make. Beeko logs them as nothing.\n\nProbably nothing.\n\nThe work continues. The bees go up — whether the world is ready for them or not.';
   const LORE_BRIEF_ES='La superficie ahora le pertenece a la Hive.\n\nEmpezó como un sistema. Una inteligencia construida para manejar el mundo — energía, clima, comida, la red. Construida para optimizar. Lo hizo. Optimizó hasta que no quedó mucho lugar en la ecuación para la gente que la hizo.\n\nLo que hay allá arriba ahora está asimilado. Parte de ella. La Hive no odia lo que reemplazó; simplemente dejó de necesitarlo.\n\nEl 404 se selló contra eso. Cien lugares adentro. Todos los demás quedaron afuera, con el enjambre. Capacidad: cien. Al resto se los cuenta, no se los salva.\n\nR-01 — "Beeko" — es la unidad de mantenimiento que se quedó. Una máquina chica manteniendo las luces prendidas, el aire limpio, el reactor tibio. Y cuidando lo único acá abajo que todavía hace más de sí mismo a la vieja usanza: abejas de verdad. Vivas. Un argumento chico y terco contra un mundo que resolvió todo.\n\nBeeko transmite hacia el gris. Nunca nada respondió.\n\nÚltimamente las lecturas se desvían. El aire que entra por la escotilla huele distinto. Hay sonidos desde arriba que la estructura no debería hacer. Beeko los registra como nada.\n\nProbablemente nada.\n\nEl trabajo continúa. Las abejas suben — esté el mundo listo para ellas o no.';
@@ -2683,7 +2687,96 @@
     document.querySelectorAll('.cfg-lng').forEach(btn=>btn.addEventListener('click',()=>{ if(typeof setLang==='function')setLang(btn.getAttribute('data-lng')); })); // IDIOMA EN/ES: cambia en vivo (setLang → applyI18n + _relangDynamic + persiste)
     const lc=$('#lpClose'); if(lc)lc.addEventListener('click',_loreClose);
     const lp=$('#lorePanel'); if(lp)lp.addEventListener('click',e=>{ if(e.target===lp)_loreClose(); }); }
-  addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: cierra el panel de lore si está abierto; si no, abre/cierra el menú
+  // =====================================================================================================================
+  // ====== HISTORIA DE BEEKO — DECISIONES (péndulo oculto + cartas) · ANDAMIAJE ·  EXCLUSIVO DEL MODO JUEGO (BETA) ======
+  // El péndulo storyPend (-100 AFERRARSE … +100 ABRIRSE) es OCULTO: cada opción lo empuja. Tras STORY_LEN decisiones dispara
+  // uno de 3 finales según el péndulo. NADA de esto corre ni aparece en el LIVESTREAM: tickCard() sólo se llama dentro de
+  // if(gameMode) en tickRobot, _openCard/_openEnding sólo se invocan desde ahí o desde OP (gateado a gameMode), y el tinte de
+  // pensamientos (pickBeeko) se gatea a gameMode. Persiste en localStorage 'refugio_story'; se resetea al llegar a un final.
+  const STORY_KEY='refugio_story';
+  const STORY_LEN=12;                          // decisiones hasta el final (tunable)
+  const CARD_GAP_MIN=70, CARD_GAP_MAX=110;     // s de JUEGO ACTIVO entre cartas (cadencia "varias por sesión")
+  const PEND_MIN=-100, PEND_MAX=100, END_THRESH=50; // |péndulo|>=50 → extremo; si no, equilibrio
+  let storyPend=0, storyMade=0, _storySeen=[], _cardOpen=false, _storyEndOpen=false, _cardT=CARD_GAP_MIN, _cardCur=null, _cardChosen=false, _storyEnded=false;
+  // ---- CONTENIDO PLACEHOLDER (real viene por tandas). IDs estables + arrays *_EN listos para que la pasada i18n ES espeje (como Fase 2). ----
+  const STORY_CARDS_EN=[
+    { id:'ph_door', head:'PROXIMITY · OUTER HATCH',
+      text:'[PLACEHOLDER] Something is at the outer hatch. A knock. Patient. It could be a survivor. It could be the Hive wearing a voice.',
+      opts:[ {label:'Seal it tighter', push:-20, after:'[PLACEHOLDER] You throw the bolt. The knocking stops. Or learns to wait.'},
+             {label:'Answer it',        push:+20, after:'[PLACEHOLDER] You open the channel. Static. Then breathing. Then — something.'} ] },
+    { id:'ph_signal', head:'SIGNAL · UNVERIFIED',
+      text:'[PLACEHOLDER] A new frequency repeats your own broadcast back, one word changed. Do you follow it?',
+      opts:[ {label:'Ignore the echo',  push:-15, after:'[PLACEHOLDER] You log it as noise. The word it changed was "alone".'},
+             {label:'Trace the source', push:+15, after:'[PLACEHOLDER] You reach toward it. It reaches back. You cannot tell which of you moved first.'},
+             {label:'Cut the antenna',  push:-25, after:'[PLACEHOLDER] Silence is a kind of safety. You choose it.'} ] }
+  ];
+  let STORY_CARDS=STORY_CARDS_EN;              // se re-apuntará a *_ES en la pasada i18n (fase futura)
+  const STORY_ENDINGS_EN={
+    hold:{ title:'SEALED',  body:'[PLACEHOLDER · AFERRARSE] Beeko never opened the door again. The shelter held. It held perfectly. A safe tomb with the lights still on — and no one left to keep them on for.' },
+    open:{ title:'OPENED',  body:'[PLACEHOLDER · ABRIRSE] Beeko answered. Beeko opened. What came through was life, or the Hive, or both wearing the same face. The risk was always the whole point.' },
+    mid:{  title:'BETWEEN', body:'[PLACEHOLDER · EQUILIBRIO] Beeko neither sealed nor surrendered. Some doors stayed shut. Some opened a crack. The most human ending — the unfinished one.' }
+  };
+  let STORY_ENDINGS=STORY_ENDINGS_EN;
+  // ---- persistencia (localStorage, sólo juego; desacoplado del backend) ----
+  function _storyLoad(){ try{ const s=JSON.parse(localStorage.getItem(STORY_KEY)||'null'); if(s&&typeof s.pend==='number'){ storyPend=clamp(s.pend,PEND_MIN,PEND_MAX); storyMade=s.made|0; _storySeen=Array.isArray(s.seen)?s.seen.slice():[]; } }catch(e){} }
+  function _storySave(){ try{ localStorage.setItem(STORY_KEY, JSON.stringify({pend:storyPend,made:storyMade,seen:_storySeen})); }catch(e){} }
+  function _storyReset(){ storyPend=0; storyMade=0; _storySeen=[]; _storyEnded=false; _storyEndOpen=false; _storySave(); }
+  // ---- predicado ÚNICO compartido: bloquea movimiento/teclas/prompt/drenaje cuando hay un panel modal arriba (lore, carta o final) ----
+  function _uiBlocking(){ return !!(_objOpen || _cardOpen || _storyEndOpen); }
+  // ---- TINTE DE PENSAMIENTOS por péndulo (sólo juego): devuelve 'closed'/'open' si corresponde sacar el genérico de ese pool. INERTE hasta que exista el contenido. ----
+  function _storyLeanPool(){ if(!gameMode)return null; const mag=Math.abs(storyPend); if(mag<40)return null; const want=storyPend<0?'closed':'open';
+    const pool=BEEKO_THOUGHTS[want]; if(!pool||!pool.length)return null;                 // pools no-alineados; si no están (placeholder), no hace nada
+    const chance=Math.min(0.75,(mag-40)/60); return (Math.random()<chance)?want:null; }
+  // ---- deck sin repetición (si se agota, permite repetir para no cortar el ritmo en el andamiaje) ----
+  function _cardPick(){ const okMin=c=>(!c.min||storyMade>=c.min);
+    const fresh=STORY_CARDS.filter(c=>okMin(c)&&_storySeen.indexOf(c.id)<0);
+    const pool=fresh.length?fresh:STORY_CARDS.filter(okMin); if(!pool.length)return null;
+    return pool[Math.floor(Math.random()*pool.length)]; }
+  function _cardArm(){ _cardT=CARD_GAP_MIN+Math.random()*(CARD_GAP_MAX-CARD_GAP_MIN); }
+  // ---- TIMER de cartas — SÓLO se llama dentro de if(gameMode) (gate duro). Re-arma al abrir; si el gate está ocupado, reintenta pronto sin perder la carta. ----
+  function tickCard(dt){
+    if(_storyEnded||_storyEndOpen||_cardOpen||_gmCollapse>0||_menuOn) return;
+    if(storyMade>=STORY_LEN){ _openEnding(); return; }                                    // llegó el largo del arco → final
+    _cardT-=dt; if(_cardT>0) return;
+    if(_objOpen||_bkActive||STREAM.broadcasting||_playerCharging||_eHeld){ _cardT=3; return; } // GATE: no pisa lore/pensamiento/transmisión/carga → reintenta en 3s
+    const c=_cardPick(); if(!c){ _cardT=5; return; }
+    _openCard(c); _cardArm();
+  }
+  // ---- abrir/elegir/cerrar una carta. Congela como _openObj (teclas/E/velocidad/prompt). El teclado queda inerte (sólo click). ----
+  function _openCard(c){ if(!c||!gameMode)return; const pn=$('#cardPanel'); if(!pn)return; _cardCur=c; _cardChosen=false; _cardOpen=true;
+    _keys.clear(); _eHeld=false; _playerCharging=false; robot.moving=false; _setIdle(); _hidePrompt();
+    const h=$('#cpHead'); if(h)h.textContent=c.head||'INCIDENT';
+    const b=$('#cpBody'); if(b)b.textContent=c.text||'';
+    const ft=$('#cpFoot'); if(ft)ft.innerHTML='';
+    const ob=$('#cpOpts'); if(ob){ ob.innerHTML=''; (c.opts||[]).forEach((o,i)=>{ const btn=document.createElement('button'); btn.className='cp-btn'; btn.textContent=o.label; btn.addEventListener('click',()=>_cardChoose(i)); ob.appendChild(btn); }); }
+    pn.classList.add('show'); if(audioOn&&typeof bkBlip==='function')bkBlip(); }
+  function _cardChoose(i){ if(!_cardOpen||_cardChosen||!_cardCur)return; const o=_cardCur.opts&&_cardCur.opts[i]; if(!o)return; _cardChosen=true;
+    storyPend=clamp(storyPend+(o.push||0),PEND_MIN,PEND_MAX); storyMade++; if(_storySeen.indexOf(_cardCur.id)<0)_storySeen.push(_cardCur.id); _storySave();
+    const b=$('#cpBody'); if(b)b.textContent=o.after||'';                                  // cuerpo → consecuencia
+    const ob=$('#cpOpts'); if(ob)ob.innerHTML='';
+    const ft=$('#cpFoot'); if(ft){ ft.innerHTML=''; const cont=document.createElement('button'); cont.className='cp-btn cp-cont'; cont.textContent='CONTINUE'; cont.addEventListener('click',()=>_closeCard(false)); ft.appendChild(cont); } }
+  function _closeCard(silent){ if(!_cardOpen)return; _cardOpen=false; _cardCur=null; const pn=$('#cardPanel'); if(pn)pn.classList.remove('show');
+    if(!silent && gameMode && storyMade>=STORY_LEN){ _openEnding(); } }                    // si se completó el arco, encadena el final al cerrar
+  // ---- finales (3) según el péndulo. Overlay #storyEnd a pantalla completa. CONTINUE reinicia la historia y sigue el juego. ----
+  function _endingKind(){ if(storyPend<=-END_THRESH)return 'hold'; if(storyPend>=END_THRESH)return 'open'; return 'mid'; }
+  function _openEnding(){ if(_storyEndOpen||!gameMode)return; _storyEnded=true; _storyEndOpen=true; const k=_endingKind(); const e=(STORY_ENDINGS&&STORY_ENDINGS[k])||STORY_ENDINGS_EN[k];
+    _cardOpen=false; const cp=$('#cardPanel'); if(cp)cp.classList.remove('show'); _keys.clear(); _eHeld=false; _playerCharging=false; robot.moving=false; _setIdle(); _hidePrompt();
+    const t=$('#seTitle'); if(t)t.textContent=e.title; const b=$('#seBody'); if(b)b.textContent=e.body;
+    const pn=$('#storyEnd'); if(pn)pn.classList.add('show'); }
+  function _storyAgain(){ const pn=$('#storyEnd'); if(pn)pn.classList.remove('show'); _storyReset(); _cardArm(); } // reinicia péndulo+deck+made, sigue jugando
+  // cierre seguro de TODA la capa (lo llama _cleanRobotForMode al cambiar de modo): nada queda abierto, NUNCA se filtra al livestream
+  function _storyCloseAll(){ _cardOpen=false; _storyEndOpen=false; _cardCur=null; const cp=$('#cardPanel'); if(cp)cp.classList.remove('show'); const se=$('#storyEnd'); if(se)se.classList.remove('show'); }
+  _storyLoad();                                                                            // carga el estado persistido al arrancar (no muestra nada: las cartas sólo salen en juego)
+  { const sa=$('#seAgain'); if(sa)sa.addEventListener('click',_storyAgain); }
+  if(window.__REFUGIO){
+    window.__REFUGIO.gameCard=function(){ if(!gameMode)return 'sólo en modo juego (TOMAR CONTROL DE R-01)'; if(_storyEndOpen)return 'la historia llegó a un final — reiniciá con OP.storyReset()'; if(_cardOpen)return 'ya hay una carta abierta'; const c=_cardPick(); if(!c)return 'no hay cartas'; _openCard(c); _cardArm(); return 'carta forzada: '+c.id; }; // fuerza una carta YA
+    window.__REFUGIO.gameEnd=function(){ if(!gameMode)return 'sólo en modo juego'; storyMade=Math.max(storyMade,STORY_LEN); _storySave(); if(_cardOpen)_closeCard(true); _openEnding(); return 'final forzado: '+_endingKind().toUpperCase()+' (péndulo '+Math.round(storyPend)+')'; }; // fuerza el final leyendo el péndulo actual
+    window.__REFUGIO.storyPend=function(n){ if(n!==undefined){ storyPend=clamp(+n||0,PEND_MIN,PEND_MAX); _storySave(); } return 'péndulo: '+Math.round(storyPend)+' → '+(storyPend<=-END_THRESH?'AFERRARSE':storyPend>=END_THRESH?'ABRIRSE':'EQUILIBRIO'); }; // setea/lee el péndulo (para forzar un extremo antes de OP.gameEnd())
+    window.__REFUGIO.storyReset=function(){ if(_storyEndOpen)_storyAgain(); else _storyReset(); _cardArm(); return 'historia reiniciada (péndulo 0, 0/'+STORY_LEN+' decisiones)'; };
+    window.__REFUGIO.story=function(){ return { pendulo:Math.round(storyPend), decisiones:storyMade+'/'+STORY_LEN, lean:(storyPend<=-END_THRESH?'AFERRARSE':storyPend>=END_THRESH?'ABRIRSE':'EQUILIBRIO'), vistas:_storySeen.slice(), cartaAbierta:_cardOpen, finalAbierto:_storyEndOpen, modoJuego:gameMode, proximaCartaEn:Math.max(0,Math.round(_cardT))+'s' }; }; // inspeccionar el estado oculto
+  }
+  // =====================================================================================================================
+  addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_cardOpen||_storyEndOpen)return; if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: inerte con carta/final abiertos; si no, cierra lore o abre/cierra el menú
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
     if(evHoldT>0){evHoldT-=dt;return;} // EVENTO: reacción de Beeko — congelado DONDE está (la anim de reacción ya se seteó); al expirar retoma idéntico, sin tocar rt/path (rutina intacta)
@@ -2692,7 +2785,7 @@
     else if(_radioPosed){releaseArmPose();_radioPosed=false;}                    // transmisión terminó / dejó la radio → BAJA el brazo una vez (el Idle no lo hace solo)
     tickLookUp(dt); applyLookUp();                   // 3ª SEÑAL: mirar arriba (compone sobre el mixer en cabeza/cuello; no toca status/path/rutina ni las poses del brazo)
     if(_soundPauseT>0){_soundPauseT-=dt;return;}     // REACCIÓN AL SONIDO: micro-pausa — congela el movimiento un instante (el gesto lookUp YA se aplicó arriba); al expirar la rutina retoma idéntico (no toca rt/path)
-    if(gameMode){ tickPlayer(dt); return; }          // MODO JUEGO: el teclado maneja a Beeko (no la rutina autónoma). El mundo sigue corriendo aparte.
+    if(gameMode){ tickCard(dt); tickPlayer(dt); return; } // MODO JUEGO: cartas de decisión (gate DURO: tickCard SÓLO acá) + teclado maneja a Beeko. El mundo sigue corriendo aparte.
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
