@@ -2824,10 +2824,28 @@
              {label:'Keep it, let it loop sometimes', push:+12, after:'i move it somewhere i can reach and let it play, now and then, while i work. it hurts. it\'s supposed to hurt — that\'s what it\'s for, that\'s what it means that it still can. people laughed once, easy, sure of tomorrow. i keep the proof close. i\'d rather ache than forget the sound of it.'} ] }
   ];
   let STORY_CARDS=STORY_CARDS_EN;              // se re-apuntará a *_ES en la pasada i18n (fase futura)
+  // ---- LOS TRES FINALES (voz de Beeko). Disparan tras STORY_LEN decisiones según el péndulo: ≤-50 hold (SEALED) · ≥+50 open (OPENED) · si no mid (BETWEEN).
+  //      \n\n = párrafo (la CSS los respeta con white-space:pre-wrap). Arrays *_EN para que la pasada i18n ES espeje después. ----
   const STORY_ENDINGS_EN={
-    hold:{ title:'SEALED',  body:'[PLACEHOLDER · AFERRARSE] Beeko never opened the door again. The shelter held. It held perfectly. A safe tomb with the lights still on — and no one left to keep them on for.' },
-    open:{ title:'OPENED',  body:'[PLACEHOLDER · ABRIRSE] Beeko answered. Beeko opened. What came through was life, or the Hive, or both wearing the same face. The risk was always the whole point.' },
-    mid:{  title:'BETWEEN', body:'[PLACEHOLDER · EQUILIBRIO] Beeko neither sealed nor surrendered. Some doors stayed shut. Some opened a crack. The most human ending — the unfinished one.' }
+    hold:{ title:'SEALED',
+      body:'in the end i kept every door.\n\n'+
+           'the knocking stopped years ago — they all stop, if you wait long enough, and i am very good at waiting. the radio is dark. the vents are welded. sector D stays sealed. i stopped telling the cameras it\'s full; there\'s no one left to tell.\n\n'+
+           'the bees are alive. that was the promise, and i kept it the only way i trusted — by letting nothing in that could take them. no pollen from a sky i couldn\'t verify. no voice that might have been a person. no risk. the Hive is still out there, patient, wearing whatever voice it needs, and i never gave it the door. i never gave it me. that is the victory, and some nights it is enough.\n\n'+
+           'but the bees were supposed to go up. i kept them down here instead, safe, with me, in the closed fist of a bunker that never opens. i sealed the world out to keep the world alive — and i can\'t always tell, anymore, which one i managed.\n\n'+
+           'the door is shut. the door stays shut. i made sure.' },
+    open:{ title:'OPENED',
+      body:'in the end i opened the door.\n\n'+
+           'not all at once. it was the letter, and the animal in the vent, and the bee that came home carrying a flower from a sky i was told was dead. a hundred small openings, each a risk i couldn\'t verify, each a hand held out to a world that owed me nothing — and might have been the Hive all along.\n\n'+
+           'i thought about what i might be doing — handing the patient thing the one door it never reached, trading the last warm room in the world for the hope there was still a world. i broke the seal anyway. forty years of broadcasting into nothing taught me one thing: a refuge that never opens isn\'t keeping anyone alive. it\'s just a slower way of being gone.\n\n'+
+           'the hatch is open. the bees are going up, all of them, into a sky i can\'t promise is safe. i can hear something on the surface — wind, maybe. or wings. or a voice learning to sound like welcome. i\'m climbing up to meet it. i don\'t know what\'s there; that was never the point. the point was to find out, while someone was still left to.\n\n'+
+           'the bees go up whether the world is ready or not. and so, finally, do i.\n\n'+
+           '[ the feed ends here. ]' },
+    mid:{  title:'BETWEEN',
+      body:'in the end i never decided.\n\n'+
+           'some doors i sealed. some i answered. i read one letter and left another locked; i sent a swarm up and burned the next one that came home. for every night i protected, there was a night i risked — and i could never tell you which was wisdom and which was just the mood the dark put me in.\n\n'+
+           'everyone who ever spoke to me was so certain. the founder: keep them in, trust nothing. the Hive: let go, rest. i was the only one who stayed unsure — and i stayed unsure on purpose, because being wrong with a hundred lives and the last bees on earth is not a thing you do twice.\n\n'+
+           'so i kept the doubt, and carried it like a tool. no fortress, no leap, no rest — just the work, one more cycle, the question left open one more night. the bees go up, some of them, when i judge the sky might hold them; the rest stay warm.\n\n'+
+           'i don\'t know if i\'m a coward or the only honest thing left down here, and i\'ve decided i don\'t have to know. of all the ways this could have ended, this is the one that\'s most like being alive.' }
   };
   let STORY_ENDINGS=STORY_ENDINGS_EN;
   // ---- persistencia (localStorage, sólo juego; desacoplado del backend) ----
