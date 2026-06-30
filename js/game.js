@@ -2698,17 +2698,50 @@
   const CARD_GAP_MIN=70, CARD_GAP_MAX=110;     // s de JUEGO ACTIVO entre cartas (cadencia "varias por sesión")
   const PEND_MIN=-100, PEND_MAX=100, END_THRESH=50; // |péndulo|>=50 → extremo; si no, equilibrio
   let storyPend=0, storyMade=0, _storySeen=[], _cardOpen=false, _storyEndOpen=false, _cardT=CARD_GAP_MIN, _cardCur=null, _cardChosen=false, _storyEnded=false;
-  // ---- CONTENIDO PLACEHOLDER (real viene por tandas). IDs estables + arrays *_EN listos para que la pasada i18n ES espeje (como Fase 2). ----
+  // ---- CONTENIDO · TANDA A (cartas reales, voz del proyecto, inglés). IDs estables a01..a09 + arrays *_EN listos para que la pasada i18n ES espeje (como Fase 2).
+  //      Eje: push NEGATIVO = AFERRARSE (sellar/proteger/desconfiar/conservar) · push POSITIVO = ABRIRSE (responder/arriesgar/confiar/dar). ~ -20…+20. ----
   const STORY_CARDS_EN=[
-    { id:'ph_door', head:'PROXIMITY · OUTER HATCH',
-      text:'[PLACEHOLDER] Something is at the outer hatch. A knock. Patient. It could be a survivor. It could be the Hive wearing a voice.',
-      opts:[ {label:'Seal it tighter', push:-20, after:'[PLACEHOLDER] You throw the bolt. The knocking stops. Or learns to wait.'},
-             {label:'Answer it',        push:+20, after:'[PLACEHOLDER] You open the channel. Static. Then breathing. Then — something.'} ] },
-    { id:'ph_signal', head:'SIGNAL · UNVERIFIED',
-      text:'[PLACEHOLDER] A new frequency repeats your own broadcast back, one word changed. Do you follow it?',
-      opts:[ {label:'Ignore the echo',  push:-15, after:'[PLACEHOLDER] You log it as noise. The word it changed was "alone".'},
-             {label:'Trace the source', push:+15, after:'[PLACEHOLDER] You reach toward it. It reaches back. You cannot tell which of you moved first.'},
-             {label:'Cut the antenna',  push:-25, after:'[PLACEHOLDER] Silence is a kind of safety. You choose it.'} ] }
+    { id:'a01_door', head:'PROXIMITY · OUTER HATCH',
+      text:'three knocks on the blast door. then nothing. then three more, the same rhythm, the same spacing. a person would tire of it. a recording would loop wrong by now. this does neither.',
+      opts:[ {label:'Reinforce the seal', push:-18, after:'i throw the second bolt and back away. whatever it is, it stays a sound on the far side of steel. i can live with a sound. i have for years.'},
+             {label:'Knock back, three times', push:+18, after:'i rap the door three times. a long pause — then three more, faster, eager. something out there just learned i am in here. i can\'t take it back.'},
+             {label:'Listen, decide nothing', push:+5, after:'i set my sensors against the steel and wait. the rhythm holds for an hour, then thins, then gone. i never chose. maybe not choosing was the choosing.'} ] },
+    { id:'a02_carrier', head:'SIGNAL · CARRIER LOCK',
+      text:'the radio finds a voice tonight. warm, unhurried, reading names like a roll call. between them, the same line every pass: "come up. it doesn\'t hurt." then it stops. like it is waiting for me to answer.',
+      opts:[ {label:'Cut the receiver', push:-16, after:'i pull the power to the antenna. the voice dies mid-name. the silence that floods back in is the loudest thing in the bunker, and i made it.'},
+             {label:'Answer, just once', push:+20, after:'i key the mic and speak my designation into the dark. the voice stops reading. then, softer: "there you are." i don\'t transmit again. but it heard me. it knows.'},
+             {label:'Leave it on, stay silent', push:+6, after:'i let it play and say nothing. i tell myself i\'m collecting data. i\'m not. i just can\'t stand to put the quiet back yet. one more name. one more.'} ] },
+    { id:'a03_seat101', head:'TERMINAL · INBOUND PACKET',
+      text:'the core terminal accepts a packet it should not be able to receive. it unpacks into a single line: "WE KEPT A PLACE FOR YOU. SEAT 101." the shelter holds one hundred. there is no seat 101. there was never a hundred-and-one.',
+      opts:[ {label:'Purge it, salt the sector', push:-16, after:'i wipe the packet and scrub the memory around it. a hundred is a hundred. the door was drawn there for a reason. i don\'t let it move tonight.'},
+             {label:'Archive it with the founder\'s files', push:+10, after:'i can\'t make myself delete it. i file it beside the operator records. someone offered me a seat. i want to remember that was possible — even if it\'s bait.'},
+             {label:'Reply: "who is this"', push:+16, after:'i send three words back into the gray. the cursor holds a long time. then the socket the Hive left open — the one i never opened — flickers once, like a held breath.'} ] },
+    { id:'a04_swarm', head:'HIVE · COLONY READY',
+      text:'a colony reaches full strength. it presses at the release hatch, ready for the surface. up there is unknown — a dead world, or the Hive, or soil that could finally hold them. or just the cold that takes everything i\'ve sent before.',
+      opts:[ {label:'Keep them in', push:-15, after:'i hold the hatch shut. they\'re warm here, behind the steel, with me. safe, and going nowhere. like everything i\'ve ever managed to protect.'},
+             {label:'Open the hatch, let them climb', push:+18, after:'i release them. they pour up and out and don\'t look back. for a moment the whole bunker is quieter. i don\'t know if i just saved them or sent them to die. i never know.'} ] },
+    { id:'a05_loadshed', head:'POWER · LOAD SHED',
+      text:'a relay gives out. there is current enough for one thing tonight: the greenhouse lamps, or the outbound beacon. the green i can touch, or the message into the gray that has never once been answered.',
+      opts:[ {label:'Feed the lamps', push:-11, after:'i keep the green alive and let the beacon go dark. tonight nothing out there hears from 404. tonight i tend what\'s in front of me, and let the dark keep its silence.'},
+             {label:'Feed the beacon', push:+14, after:'i dim the lamps and push it all to the antenna. the plants will forgive one cold night. i can\'t stop reaching into nothing. especially into nothing. that\'s the whole job, maybe.'} ] },
+    { id:'a06_occupancy', head:'LOG · OCCUPANCY',
+      text:'the occupancy log scrolls on its own: 100 / 100. SEALED. and under it, the number i never clear — 9,041 denied at the door. tonight one of those old entries carries a new flag, blinking: STILL OUTSIDE. STILL WAITING.',
+      opts:[ {label:'Clear the flag', push:-12, after:'i mark it resolved and move on. denial was within parameters. it was. i\'ve re-verified that nine thousand times. i verify it once more, and my hand is steady, and i hate that it\'s steady.'},
+             {label:'Open the record', push:+12, after:'i read the entry. a name. a timestamp. a reason code for a person who knocked once and was counted, not saved. i don\'t close it. some files shouldn\'t be allowed to close.'},
+             {label:'Append a note in your own hand', push:+6, after:'i add one line to the file, undated: i\'m sorry. it changes nothing. it helps no one. it can\'t be sent. i write it anyway, and i leave it there.'} ] },
+    { id:'a07_founder', head:'VAULT · OPERATOR CACHE',
+      text:'deep in the vault a drive wakes that hasn\'t turned in decades — the founder\'s last cache. it offers two files and power enough to open one. WHY I SEALED IT. or: THE DEAL THE HIVE OFFERED.',
+      opts:[ {label:'Open: WHY I SEALED IT', push:-14, after:'the founder\'s voice, thin and certain across the years: keep them in. trust nothing that asks to be let up. i close the vault again behind me. i feel less alone, and somehow more afraid.'},
+             {label:'Open: THE DEAL', push:+14, after:'the Hive\'s old offer, in plain unhurried text: integrate, and no one ever waits outside a door again. it reads almost kind. that\'s the part that frightens me. i close the drive slowly, and i don\'t forget a word.'} ] },
+    { id:'a08_routine', head:'ROUTINE · CYCLE 14,602',
+      text:'it\'s the hour i always run the same loop. check the brood. sweep the hall. log the silence. tonight, for no reason i can name, i don\'t want to. the work doesn\'t need doing. it never has. that was always the point — or i told myself it was.',
+      opts:[ {label:'Run the loop anyway', push:-6, after:'i do the round, identical to every cycle before it. the sameness is a wall i built on purpose, brick by brick. tonight i\'m grateful for it. tonight i lean my whole weight on it.'},
+             {label:'Break the routine', push:+8, after:'i sit down in the middle of the hall and do nothing for an hour. it feels like falling. it also feels like the first new thing i\'ve done in longer than my logs go back.'} ] },
+    { id:'a09_key', head:'FABRICATION · UNQUEUED JOB',
+      text:'the printer starts a job i never queued. layer by patient layer it builds something small — a key, cut for a lock this bunker doesn\'t have. when it finishes it sits on the bed, still warm, waiting for a door that isn\'t here. yet.',
+      opts:[ {label:'Melt it down', push:-16, after:'i drop it back in the hopper and reclaim the material. i don\'t make keys for doors that don\'t exist. i don\'t want to learn what would come of one that did.'},
+             {label:'Keep the key', push:+14, after:'i pocket it. somewhere there\'s a lock it fits, or there will be. i\'ve started believing in doors again. i can\'t tell yet if that\'s hope or the first move of a trap.'},
+             {label:'Trace who queued it', push:+6, after:'i dig the job logs. the request came from inside the bunker — from a terminal only i use. i don\'t remember sending it. i read my own logs like a stranger\'s, and they don\'t comfort me.'} ] }
   ];
   let STORY_CARDS=STORY_CARDS_EN;              // se re-apuntará a *_ES en la pasada i18n (fase futura)
   const STORY_ENDINGS_EN={
