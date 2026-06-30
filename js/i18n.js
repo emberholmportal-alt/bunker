@@ -72,6 +72,10 @@
       pr_charge:'[E] CHARGE', pr_charging:'⚡ CHARGING…', pr_energy_full:'⚡ ENERGY FULL',
       pr_release:'[E] RELEASE BEE', pr_releasing:'✦ RELEASING…', pr_take:'[E] TAKE',
       pr_tv:'[E] VIEW SCREEN', pr_radio:'[E] TUNE RADIO', pr_term:'[E] ACCESS TERMINAL', pr_turnoff:'[E] TURN OFF',
+      // TAREAS DE MANTENIMIENTO (modo beta) — labels de sistema, EN ahora; el espejo ES va con la tarea del idioma. T() cae a EN si falta la key en STR.es.
+      tk_lights:'[E] RECALIBRATE LIGHTS', tk_brood:'[E] TEND THE BROOD', tk_grow:'[E] WATER THE GREENHOUSE', tk_fab:'[E] CLEAR THE FABRICATOR', tk_coolant:'[E] VENT THE COOLANT',
+      tk_lights_do:'RECALIBRATING…', tk_brood_do:'TENDING…', tk_grow_do:'WATERING…', tk_fab_do:'CLEARING…', tk_coolant_do:'VENTING…',
+      tk_alert_lights:'⚠ LIGHTING ARRAY FAULT', tk_alert_brood:'⚠ BROOD NEEDS TENDING', tk_alert_grow:'⚠ GREENHOUSE DRYING OUT', tk_alert_fab:'⚠ FABRICATOR JAMMED', tk_alert_coolant:'⚠ COOLANT WARNING',
       // chrome de paneles (ENCABEZADOS = Fase 1; los CUERPOS son voz de Beeko = Fase 2, siguen en inglés)
       op_close:'[ click to close ]', op_tv_head:'SIGNAL RECOVERED · BROADCAST LOOP',
       op_radio_head:'INTERCEPTED · CARRIER STILL LIVE', op_term_head:'SHELTER 404 · CORE LOG',
