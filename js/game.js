@@ -2654,8 +2654,17 @@
   function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; _fpYaw=robot.model?robot.model.rotation.y:0; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0; colony=COLONY_INIT; _colonyHud();
     _mItemTaken=false; if(mItemGrp)mItemGrp.visible=true; _invClear(); _hideItemPanel(); // sesión de juego fresca: el ítem vuelve a la bóveda, inventario limpio
     _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); if(typeof _cardArm==='function')_cardArm(); if(typeof _taskResetAll==='function')_taskResetAll(); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0 + re-arma cartas y tareas (no disparan al instante)
-  function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
-    if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
+  // BOOT: el MENÚ es la PUERTA DE ENTRADA del visitante → se muestra en CADA carga (elige OBSERVAR o TOMAR CONTROL). El OPERADOR salta
+  // directo a un modo SIN comerse el menú en plena transmisión, vía la URL: ?observe (o ?stream / ?mode=observe) → OBSERVAR ·
+  // ?play (o ?game / ?mode=game) → modo beta · ?menu → fuerza el menú. El param queda RECORDADO por navegador (refugio_kiosk),
+  // así el setup del stream sigue entrando directo aunque la URL pierda el query string. ?menu limpia ese modo kiosko del operador.
+  function _modeBoot(){ let p=null; try{p=new URLSearchParams(location.search||'');}catch(e){} const m=((p&&p.get('mode'))||'').toLowerCase(), has=k=>(!!p&&p.has(k))||m===k;
+    let kiosk=null; try{kiosk=localStorage.getItem('refugio_kiosk');}catch(e){}
+    if(has('menu')){ try{localStorage.removeItem('refugio_kiosk');}catch(e){} showMenu(); return; }              // ?menu → menú + SALE del modo kiosko (el operador vuelve a ser visitante en este navegador)
+    if(has('observe')||has('stream')){ try{localStorage.setItem('refugio_kiosk','observe');}catch(e){} enterLivestream(); return; } // operador/stream: directo a OBSERVAR (+ recordado)
+    if(has('play')||has('game')){ try{localStorage.setItem('refugio_kiosk','game');}catch(e){} enterGame(); return; }            // directo al modo beta (+ recordado)
+    if(kiosk==='observe'){ enterLivestream(); return; } if(kiosk==='game'){ enterGame(); return; }              // setup del operador RECORDADO (sin query en la URL)
+    showMenu(); }                                                                                                // VISITANTE: el menú es la puerta de entrada, en cada carga
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
   { const sl=$('#invSlot0'),pn=$('#itemPanel'); if(sl)sl.addEventListener('click',()=>{ if(_mItemTaken)_showItemPanel(); }); if(pn)pn.addEventListener('click',_hideItemPanel); } // inventario: click en el slot reabre el lore; click en el panel lo cierra
   { const op=$('#objPanel'); if(op)op.addEventListener('click',_closeObj); // click en cualquier lado del panel de objeto lo cierra y vuelve al juego
