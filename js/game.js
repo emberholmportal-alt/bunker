@@ -2582,9 +2582,9 @@
     _playerCharging=charging;
     if(charging){ gameEnergy=Math.min(100, gameEnergy+CHARGE_RATE*dt); }
     else if(!(nearDock && _eHeld && gameEnergy>=100 && !task)){ gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); } // drena salvo enchufado al tope
-    if(task){ if(_eHeld){ _taskProg+=dt; if(_taskProg>=TASK_FIX)_taskResolve(); } else { _taskProg=Math.max(0,_taskProg-dt*3); } } // RESOLVER: mantené [E] → barra → resuelta (corta el penalty al instante); soltar la barra retrocede
+    if(task){ if(_eHeld){ task._prog=(task._prog||0)+dt; if(task._prog>=TASK_FIX)_taskResolve(task); } else { task._prog=Math.max(0,(task._prog||0)-dt*3); } } // RESOLVER: mantené [E] → barra → resuelta (corta el penalty al instante); soltar la barra retrocede
     // prompt (PRIORIDAD: tarea · cargando · enchufado-lleno · dock · colmena · ítem · objeto · nada)
-    if(task) _showPrompt(_taskPromptText());
+    if(task) _showPrompt(_taskPromptText(task));
     else if(charging) _showPrompt(T('pr_charging'));
     else if(nearDock && _eHeld) _showPrompt(T('pr_energy_full'));
     else if(nearDock) _showPrompt(gameEnergy>=100?T('pr_energy_full'):T('pr_charge'));
@@ -2938,13 +2938,14 @@
     window.__REFUGIO.story=function(){ return { pendulo:Math.round(storyPend), decisiones:storyMade+'/'+STORY_LEN, lean:(storyPend<=-END_THRESH?'AFERRARSE':storyPend>=END_THRESH?'ABRIRSE':'EQUILIBRIO'), vistas:_storySeen.slice(), cartaAbierta:_cardOpen, finalAbierto:_storyEndOpen, modoJuego:gameMode, proximaCartaEn:Math.max(0,Math.round(_cardT))+'s' }; }; // inspeccionar el estado oculto
   }
   // =====================================================================================================================
-  // ====== TAREAS DE MANTENIMIENTO (modo beta) · EXCLUSIVO de gameMode. Periódicas, MÁX 1 activa, penalty suave/recuperable, guía en el minimapa. ======
-  // Gate DURO: tickTasks() sólo se llama dentro de if(gameMode) en el loop; _taskFlash()→drawMapPlan da null en livestream. En el livestream NADA: ni tareas, ni
-  // penalty, ni destello, ni luces indicadoras. PRIORIDAD en anclas compartidas (terminal/panal/dock): si hay tarea activa en tu ancla, el [E] resuelve la tarea;
-  // SIN tarea, el [E] hace lo de siempre (abrir terminal / liberar abeja / cargar). Penalty: ×4 energía + ×1 abejas, gradual y acotado (máx 1 activa), recuperable.
+  // ====== TAREAS DE MANTENIMIENTO (modo beta) · EXCLUSIVO de gameMode. Periódicas, HASTA TASK_MAX activas a la vez, con FALLAS DRAMÁTICAS (luces, abejas, alarmas). ======
+  // Gate DURO: tickTasks() sólo se llama dentro de if(gameMode); _taskFlash()→drawMapPlan da null en livestream. En el livestream NADA: ni tareas, ni penalty, ni
+  // destello, ni FALLAS DRAMÁTICAS (luces normales, abejas tranquilas, sin alarmas). PRIORIDAD en anclas compartidas (terminal/panal/dock): si hay tarea activa en tu
+  // ancla, el [E] resuelve la tarea; SIN tarea, el [E] hace lo de siempre. Penalty (energía/abejas) gradual, acotado por TASK_MAX, recuperable (atender lo corta).
   const TASK_FIX=1.5;                          // s de [E] mantenido para resolver una tarea
-  let TASK_GAP_MIN=50, TASK_GAP_MAX=90;        // s de juego activo entre tareas (CALMA — siempre hay respiro). Tunable: OP.taskGap
-  let TASK_DRAIN=0.85;                          // %/s extra de energía mientras una tarea de tipo energía está activa (techo natural: máx 1 activa). Tunable: OP.taskTune
+  let TASK_GAP_MIN=20, TASK_GAP_MAX=40;        // s entre tareas (ÁGIL — siempre hay algo que atender, sin caminata vacía). Tunable: OP.taskGap
+  let TASK_MAX=2;                               // tope de tareas activas a la vez (2-3 = vivo pero manejable; NUNCA las 5). Tunable: OP.taskMax (clamp 1..4)
+  let TASK_DRAIN=0.85;                          // %/s extra de energía por cada tarea de energía activa. Tunable: OP.taskTune
   let TASK_BEE_DECAY=0.5;                        // abejas/s que decae el contador mientras BROOD está activa. Tunable: OP.taskTune
   const TASKS=[
     { id:'lights',  room:'descanso', anchor:{x:-5.8, z:7.5},  r:1.9, kind:'energy', label:'tk_lights',  doing:'tk_lights_do',  alert:'tk_alert_lights'  }, // descanso · terminal
@@ -2953,37 +2954,71 @@
     { id:'fab',     room:'fab',      anchor:{x:-5.4, z:11.0}, r:1.9, kind:'energy', label:'tk_fab',     doing:'tk_fab_do',     alert:'tk_alert_fab'     }, // fabricación · impresora
     { id:'coolant', room:'carga',    anchor:{x:-6.2, z:2.6},  r:1.4, kind:'energy', label:'tk_coolant', doing:'tk_coolant_do', alert:'tk_alert_coolant' }  // carga · panel eléctrico
   ];
-  const _taskLights={}; // indicador 3D en la ancla (ámbar-rojo, oculto salvo cuando esa tarea está activa) — también sirve de guía en 1ª persona
-  try{ for(const tk of TASKS){ const L=new THREE.PointLight(0xff5a3c,0,3.2,2); L.position.set(tk.anchor.x,1.5,tk.anchor.z); L.visible=false; scene.add(L); _taskLights[tk.id]=L; } }catch(e){}
-  let _activeTask=null, _taskT=TASK_GAP_MIN, _taskProg=0, _taskLastId='', _taskPulse=0, _beeDecayAcc=0;
+  // --- CAPTURA de luces de cada sala (por AREA) para las fallas dramáticas: guarda intensidad/color base de cada PointLight ambiente. NO toca el código de la escena. ---
+  function _zoneAt(x,z){ for(let i=0;i<AREAS.length;i++){const a=AREAS[i]; if(x>=a.x0&&x<=a.x1&&z>=a.z0&&z<=a.z1)return ZONES[i];} return null; }
+  const _roomLights={}; try{ for(const tk of TASKS)_roomLights[tk.room]=[];
+    scene.traverse(o=>{ if(o.isPointLight && o.intensity>0.05){ const z=_zoneAt(o.position.x,o.position.z); if(z&&_roomLights[z])_roomLights[z].push({l:o, bi:o.intensity, bc:o.color.getHex()}); } });
+  }catch(e){}
+  const _SICK=new THREE.Color(0x6a7a18), _RED=new THREE.Color(0xff2a14), _FRED=new THREE.Color(0xff3a14), _AMB=new THREE.Color(0xff8a2a); // colores objetivo de las fallas (pre-creados, sin GC por frame)
+  const _taskLights={}, _coolAlarm={a:null}, _fabSpark={a:null}; let _taskSwarm=null,_swarmPos=null,_swarmBase=null,_buzzGain=null;
+  try{ for(const tk of TASKS){ const L=new THREE.PointLight(0xff5a3c,0,3.2,2); L.position.set(tk.anchor.x,1.5,tk.anchor.z); L.visible=false; scene.add(L); _taskLights[tk.id]=L; }
+    _coolAlarm.a=new THREE.PointLight(0xff2a14,0,4.5,2); _coolAlarm.a.position.set(-6.2,1.7,2.6); scene.add(_coolAlarm.a);   // alarma roja del panel (coolant)
+    _fabSpark.a=new THREE.PointLight(0xff5a1e,0,3.2,2); _fabSpark.a.position.set(-5.4,1.3,11.0); scene.add(_fabSpark.a);     // chispa roja de la impresora (fab)
+    const N=72,g=new THREE.BufferGeometry(),pos=new Float32Array(N*3),base=[];                                              // ENJAMBRE AGITADO (brood): abejas enloquecidas alrededor del panal
+    for(let i=0;i<N;i++){ const ang=Math.random()*Math.PI*2,rad=0.6+Math.random()*1.7,yy=0.6+Math.random()*1.9; base.push({ang,rad,yy,spd:1.6+Math.random()*3.4,ph:Math.random()*9,drift:Math.random()}); pos[i*3]=Math.cos(ang)*rad; pos[i*3+1]=yy; pos[i*3+2]=14.4+Math.sin(ang)*rad; }
+    g.setAttribute('position',new THREE.BufferAttribute(pos,3)); _swarmPos=pos; _swarmBase=base;
+    _taskSwarm=new THREE.Points(g,new THREE.PointsMaterial({color:0xffc24a,size:0.085,transparent:true,opacity:0.95,depthWrite:false})); _taskSwarm.frustumCulled=false; _taskSwarm.visible=false; scene.add(_taskSwarm);
+  }catch(e){}
+  let _active=[], _taskT=TASK_GAP_MIN, _taskLastId='', _beeDecayAcc=0;
+  function _af(){ return typeof audioOn!=='undefined'&&audioOn; }                                // ¿audio activo? (las fallas suenan sólo si el usuario prendió el sonido)
   function _taskArm(){ _taskT=TASK_GAP_MIN+Math.random()*(TASK_GAP_MAX-TASK_GAP_MIN); }
-  function _taskPick(){ const pool=TASKS.filter(t=>t.id!==_taskLastId); const arr=pool.length?pool:TASKS; return arr[Math.floor(Math.random()*arr.length)]; } // sin repetir la anterior
-  function _taskActivate(tk){ if(!tk)return; _activeTask=tk; _taskProg=0; _taskLastId=tk.id; const L=_taskLights[tk.id]; if(L)L.visible=true; if(typeof showAlert==='function')showAlert(T(tk.alert)); }
-  function _taskResolve(){ const tk=_activeTask; if(!tk)return; const L=_taskLights[tk.id]; if(L){L.visible=false;L.intensity=0;}
-    if(tk.kind==='bees'){ gameBeesReleased=Math.min(999,gameBeesReleased+2); _beesHud(); }      // atender la cría RECUPERA un poco el contador
-    _activeTask=null; _taskProg=0; _beeDecayAcc=0; _taskArm(); if(typeof bkBlip==='function'&&typeof audioOn!=='undefined'&&audioOn)bkBlip(); }
-  function _taskResetAll(){ for(const k in _taskLights){ const L=_taskLights[k]; if(L){L.visible=false;L.intensity=0;} } _activeTask=null; _taskProg=0; _beeDecayAcc=0; _taskLastId=''; _taskArm(); } // reset: apaga TODAS las luces indicadoras (livestream 100% limpio, sin importar el estado previo)
-  function _taskAtPlayer(px,pz){ if(!_activeTask)return null; return (Math.hypot(px-_activeTask.anchor.x,pz-_activeTask.anchor.z)<_activeTask.r)?_activeTask:null; }
+  function _isActive(id){ return _active.some(t=>t.id===id); }
+  function _taskPick(){ let pool=TASKS.filter(t=>!_isActive(t.id)&&t.id!==_taskLastId); if(!pool.length)pool=TASKS.filter(t=>!_isActive(t.id)); return pool.length?pool[Math.floor(Math.random()*pool.length)]:null; }
+  function _buzz(on){ try{ if(typeof actx==='undefined'||!actx||!_af()){ if(_buzzGain)_buzzGain.gain.value=0; return; } if(!_buzzGain){ const s=actx.createBufferSource();s.buffer=noiseBuf;s.loop=true;const bp=actx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=235;bp.Q.value=4.5;_buzzGain=actx.createGain();_buzzGain.gain.value=0;s.connect(bp);bp.connect(_buzzGain);_buzzGain.connect(master);s.start(); } _buzzGain.gain.setTargetAtTime(on?0.06:0, actx.currentTime, 0.15); }catch(e){} } // zumbido sostenido del enjambre
+  function _fxRestore(tk){ const ls=_roomLights[tk.room]||[]; for(const e of ls){ e.l.intensity=e.bi; e.l.color.setHex(e.bc); } } // devuelve las luces de la sala a su base (al resolver / al pausar)
+  function _swarmAnimate(dt,mv){ if(!_taskSwarm)return; _taskSwarm.visible=true; if(!mv)return; const tt=perfNow()/1000;
+    for(let i=0;i<_swarmBase.length;i++){ const b=_swarmBase[i]; b.ang+=b.spd*dt*(0.8+0.6*Math.sin(tt*2+b.ph)); const r=b.rad*(0.65+0.5*Math.sin(tt*3+b.ph));
+      const cx=(b.drift>0.8?Math.sin(tt*0.5+b.ph)*1.3:0), cz=14.4-(b.drift>0.85?(1+Math.sin(tt*0.3+b.ph))*1.6:0); // algunas se desbandan hacia el búnker
+      _swarmPos[i*3]=cx+Math.cos(b.ang)*r; _swarmPos[i*3+1]=b.yy+Math.sin(tt*4+b.ph)*0.45; _swarmPos[i*3+2]=cz+Math.sin(b.ang)*r; }
+    _taskSwarm.geometry.attributes.position.needsUpdate=true; }
+  // FALLA DRAMÁTICA por tarea (un frame). Modula las luces de la sala (capturadas) + FX dedicados + sonido. Gateado a motion() (reduced-motion → versión fija/menos intensa).
+  function _taskFxFrame(tk,dt){ const ls=_roomLights[tk.room]||[], mv=motion(), now=perfNow();
+    if(tk.id==='lights'){ const f=mv?((Math.random()<0.20)?0:(0.15+Math.random()*1.05)):0.4; for(const e of ls)e.l.intensity=e.bi*f; if(mv&&_af()&&Math.random()<0.05)eclick(); } // las luces PARPADEAN fuerte y se apagan
+    else if(tk.id==='grow'){ const f=mv?(0.1+Math.abs(Math.sin(now/95))*0.5*(Math.random()<0.85?1:0.15)):0.28; for(const e of ls){ e.l.intensity=e.bi*f; e.l.color.setHex(e.bc); e.l.color.lerp(_SICK,0.6); } if(mv&&_af()&&Math.random()<0.02)eclick(); } // lámparas fallan + color enfermizo
+    else if(tk.id==='coolant'){ const p=mv?(0.5+0.5*Math.sin(now/130)):0.7; for(const e of ls){ e.l.intensity=e.bi*(0.4+0.7*p); e.l.color.setHex(e.bc); e.l.color.lerp(_RED,0.7*p); } if(_coolAlarm.a)_coolAlarm.a.intensity=2.4*p; tk._snd=(tk._snd||0)-dt; if(_af()&&tk._snd<=0){ if(typeof alarm==='function')alarm(); tk._snd=1.3; } } // alarma ROJA pulsante + klaxon
+    else if(tk.id==='fab'){ const black=mv&&Math.random()<0.3; for(const e of ls){ e.l.intensity=e.bi*(black?0.1:1.0); e.l.color.setHex(e.bc); e.l.color.lerp(_FRED,0.5); } if(_fabSpark.a)_fabSpark.a.intensity=(mv&&Math.random()<0.28)?2.8:0.1; if(mv&&_af()&&Math.random()<0.06){ (Math.random()<0.5?blip:eclick)(); } } // impresora se traba: chispas rojas + clunks
+    else if(tk.id==='brood'){ for(const e of ls){ e.l.intensity=e.bi*(mv?(0.55+Math.abs(Math.sin(now/68))*0.95):0.8); e.l.color.setHex(e.bc); e.l.color.lerp(_AMB,0.4); } _swarmAnimate(dt,mv); _buzz(true); } // MUCHAS abejas enloquecidas + zumbido
+  }
+  function _taskActivate(tk){ if(!tk||_isActive(tk.id))return; tk._prog=0; tk._snd=0; _active.push(tk); _taskLastId=tk.id; const L=_taskLights[tk.id]; if(L)L.visible=true; if(typeof showAlert==='function')showAlert(T(tk.alert)); if(_af()&&typeof thud==='function')thud(); }
+  function _taskResolve(tk){ if(!tk)return; const i=_active.indexOf(tk); if(i<0)return; _active.splice(i,1); const L=_taskLights[tk.id]; if(L){L.visible=false;L.intensity=0;} _fxRestore(tk);
+    if(tk.id==='coolant'&&_coolAlarm.a)_coolAlarm.a.intensity=0; if(tk.id==='fab'&&_fabSpark.a)_fabSpark.a.intensity=0;
+    if(tk.id==='brood'){ if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); gameBeesReleased=Math.min(999,gameBeesReleased+2); _beesHud(); } // atender la cría RECUPERA + corta el descontrol
+    _taskArm(); if(_af()&&typeof bkBlip==='function')bkBlip(); }
+  function _taskCalmFx(){ for(const tk of _active)_fxRestore(tk); if(_coolAlarm.a)_coolAlarm.a.intensity=0; if(_fabSpark.a)_fabSpark.a.intensity=0; if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); } // apaga las fallas dramáticas (pausa / livestream / reset) sin resolver las tareas
+  function _taskResetAll(){ _taskCalmFx(); _active.length=0; for(const k in _taskLights){ const L=_taskLights[k]; if(L){L.visible=false;L.intensity=0;} } _beeDecayAcc=0; _taskLastId=''; _taskArm(); } // reset total: livestream 100% limpio (luces normales, sin alarmas, sin enjambre)
+  function _taskAtPlayer(px,pz){ for(const tk of _active){ if(Math.hypot(px-tk.anchor.x,pz-tk.anchor.z)<tk.r)return tk; } return null; }
   function _taskBar(p){ const N=10,f=Math.max(0,Math.min(N,Math.round(p*N))); return '['+'█'.repeat(f)+'·'.repeat(N-f)+']'; }
-  function _taskPromptText(){ if(!_activeTask)return ''; return (_taskProg>0)?(T(_activeTask.doing)+' '+_taskBar(_taskProg/TASK_FIX)):T(_activeTask.label); }
-  function _taskFlash(){ if(!_activeTask)return null; return {room:_activeTask.room, a:_taskPulse}; } // lo lee el loop → drawMapPlan (null si no hay activa o en livestream)
-  function tickTasks(dt){ // SÓLO se llama dentro de if(gameMode) (gate duro). Pausa (no acumula) con panel/carta/final abiertos o colapso.
-    if(_activeTask){ _taskPulse = motion()?(0.5+0.5*Math.sin(perfNow()/180)):0.65; const L=_taskLights[_activeTask.id]; if(L)L.intensity=0.5+0.9*_taskPulse; } // pulso del destello/indicador
-    if(_uiBlocking()||_gmCollapse>0) return;                                                    // PAUSA: ni timer ni penalty mientras hay modal/colapso
-    if(_activeTask){
-      if(_activeTask.kind==='energy'){ gameEnergy=Math.max(0,gameEnergy-dt*TASK_DRAIN); _energyHud(); }                                   // penalty energía (recuperable en el dock)
-      else if(_activeTask.kind==='bees'){ _beeDecayAcc+=dt*TASK_BEE_DECAY; if(_beeDecayAcc>=1&&gameBeesReleased>0){ const n=Math.floor(_beeDecayAcc); gameBeesReleased=Math.max(0,gameBeesReleased-n); _beeDecayAcc-=n; _beesHud(); } } // penalty abejas
-      return;
+  function _taskPromptText(tk){ if(!tk)return ''; return ((tk._prog||0)>0)?(T(tk.doing)+' '+_taskBar(tk._prog/TASK_FIX)):T(tk.label); }
+  function _taskFlash(){ if(!_active.length)return null; const a=motion()?(0.5+0.5*Math.sin(perfNow()/180)):0.65; return _active.map(t=>({room:t.room,a:a})); } // ARRAY de sectores activos → drawMapPlan (null en livestream)
+  function tickTasks(dt){ // SÓLO se llama dentro de if(gameMode) (gate duro). Pausa (no acumula, fallas calmadas) con panel/carta/final abiertos o colapso.
+    const pulse=motion()?(0.5+0.5*Math.sin(perfNow()/180)):0.65; for(const tk of _active){ const L=_taskLights[tk.id]; if(L)L.intensity=0.4+0.8*pulse; } // pulso de los indicadores de ancla
+    if(_uiBlocking()||_gmCollapse>0){ _taskCalmFx(); return; }                                  // PAUSA: calma las fallas (no estresa leyendo una carta), no acumula timer ni penalty
+    let broodActive=false;
+    for(const tk of _active){ _taskFxFrame(tk,dt);
+      if(tk.kind==='energy'){ gameEnergy=Math.max(0,gameEnergy-dt*TASK_DRAIN); }
+      else if(tk.kind==='bees'){ broodActive=true; _beeDecayAcc+=dt*TASK_BEE_DECAY; if(_beeDecayAcc>=1&&gameBeesReleased>0){ const n=Math.floor(_beeDecayAcc); gameBeesReleased=Math.max(0,gameBeesReleased-n); _beeDecayAcc-=n; _beesHud(); } }
     }
-    _taskT-=dt; if(_taskT>0) return;                                                            // GAP entre tareas → calma para explorar
-    _taskActivate(_taskPick());
+    if(_active.length)_energyHud();
+    if(!broodActive){ if(_taskSwarm)_taskSwarm.visible=false; _buzz(false); }                   // sin brood activa → enjambre/zumbido apagados
+    if(_active.length<TASK_MAX){ _taskT-=dt; if(_taskT<=0){ const tk=_taskPick(); if(tk)_taskActivate(tk); _taskArm(); } } // SPAWN: si hay lugar y venció el gap, activá otra
   }
   if(window.__REFUGIO){
-    window.__REFUGIO.taskNow=function(id){ if(!gameMode)return 'sólo en modo beta (TOMAR CONTROL DE R-01)'; const tk=id?TASKS.find(t=>t.id===id):_taskPick(); if(!tk)return 'ids: '+TASKS.map(t=>t.id).join(', '); if(_activeTask)_taskResetAll(); _taskActivate(tk); return 'tarea forzada: '+tk.id+' → sala '+tk.room+' (andá y mantené [E])'; }; // fuerza una tarea YA
-    window.__REFUGIO.taskClear=function(){ if(!_activeTask)return 'no hay tarea activa'; const id=_activeTask.id; _taskResolve(); return 'resuelta: '+id; };
-    window.__REFUGIO.taskGap=function(a,b){ if(a!==undefined)TASK_GAP_MIN=Math.max(3,+a||50); if(b!==undefined)TASK_GAP_MAX=Math.max(TASK_GAP_MIN,+b||90); _taskArm(); return {gapMin:TASK_GAP_MIN+'s', gapMax:TASK_GAP_MAX+'s', proximaEn:Math.round(_taskT)+'s'}; }; // OP.taskGap(min,max)
-    window.__REFUGIO.taskTune=function(drain,beeDecay){ if(drain!==undefined)TASK_DRAIN=Math.max(0,+drain); if(beeDecay!==undefined)TASK_BEE_DECAY=Math.max(0,+beeDecay); return {drenajeEnergia:TASK_DRAIN+' %/s', decaeAbejas:TASK_BEE_DECAY+'/s', fix:TASK_FIX+'s'}; }; // OP.taskTune(drenaje, decaeAbejas)
-    window.__REFUGIO.tasks=function(){ return { activa:_activeTask?_activeTask.id:null, sala:_activeTask?_activeTask.room:null, progreso:_activeTask?(Math.round(_taskProg/TASK_FIX*100)+'%'):'-', proximaEn:_activeTask?'(hay una activa)':(Math.round(_taskT)+'s'), pool:TASKS.map(t=>t.id), gap:TASK_GAP_MIN+'-'+TASK_GAP_MAX+'s', modoJuego:gameMode }; }; // inspeccionar
+    window.__REFUGIO.taskNow=function(id){ if(!gameMode)return 'sólo en modo beta (TOMAR CONTROL DE R-01)'; const tk=id?TASKS.find(t=>t.id===id):_taskPick(); if(!tk)return id?('id desconocido. ids: '+TASKS.map(t=>t.id).join(', ')):'ya están todas activas'; if(_isActive(tk.id))return tk.id+' ya está activa'; _taskActivate(tk); return 'falla forzada: '+tk.id+' → sala '+tk.room+' (andá y mantené [E]). activas: '+_active.length+'/'+TASK_MAX; }; // fuerza una falla YA
+    window.__REFUGIO.taskClear=function(){ if(!_active.length)return 'no hay tareas activas'; const n=_active.length; for(const tk of _active.slice())_taskResolve(tk); return 'resueltas: '+n; }; // resuelve TODAS
+    window.__REFUGIO.taskGap=function(a,b){ if(a!==undefined)TASK_GAP_MIN=Math.max(3,+a||20); if(b!==undefined)TASK_GAP_MAX=Math.max(TASK_GAP_MIN,+b||40); _taskArm(); return {gapMin:TASK_GAP_MIN+'s', gapMax:TASK_GAP_MAX+'s', proximaEn:Math.round(_taskT)+'s'}; }; // OP.taskGap(min,max)
+    window.__REFUGIO.taskMax=function(n){ if(n!==undefined)TASK_MAX=Math.max(1,Math.min(4,Math.round(+n||2))); return 'máximo de tareas activas a la vez: '+TASK_MAX+' (clamp 1..4; nunca las 5)'; }; // OP.taskMax(n)
+    window.__REFUGIO.taskTune=function(drain,beeDecay){ if(drain!==undefined)TASK_DRAIN=Math.max(0,+drain); if(beeDecay!==undefined)TASK_BEE_DECAY=Math.max(0,+beeDecay); return {drenajeEnergiaPorTarea:TASK_DRAIN+' %/s', decaeAbejas:TASK_BEE_DECAY+'/s', fix:TASK_FIX+'s'}; }; // OP.taskTune(drenaje, decaeAbejas)
+    window.__REFUGIO.tasks=function(){ return { activas:_active.map(t=>t.id+'('+t.room+' '+Math.round((t._prog||0)/TASK_FIX*100)+'%)'), cuantas:_active.length+'/'+TASK_MAX, proximaEn:(_active.length<TASK_MAX?Math.round(_taskT)+'s':'(tope alcanzado)'), gap:TASK_GAP_MIN+'-'+TASK_GAP_MAX+'s', pool:TASKS.map(t=>t.id), modoJuego:gameMode }; }; // inspeccionar
   }
   // =====================================================================================================================
   addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_cardOpen||_storyEndOpen)return; if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: inerte con carta/final abiertos; si no, cierra lore o abre/cierra el menú

@@ -37,9 +37,10 @@
     const lab=(t,wx,wz)=>{const p=m(wx,wz);x.fillText(t,p[0],p[1]);};
     lab(T('room_observatory'),0,-1.2);lab(T('room_library'),-1.2,6.4);lab(T('room_cultivo'),0,9.6);lab(T('room_workshop'),5.4,7.0);lab(T('room_rest'),-5.4,7.0);
     lab(T('room_charging'),-4.6,1.1);lab(T('room_fab'),-5.2,10.0);lab(T('room_hive'),0,13.4);lab(T('room_vault'),5.3,13.5);
-    // DESTELLO de tarea de mantenimiento: el sector activo pulsa ámbar-rojo (a = alpha que viene del loop; fijo si reduced-motion). Mismas coords que los room() de arriba.
-    if(flash&&flash.room){ const R={observatorio:[-RX,RZ0,RX,RZ1],pasillo:[-1.3,RZ1,1.3,5.2],biblioteca:[-3.4,5.2,3.4,8.2],cultivo:[-3.4,8.2,3.4,11.8],taller:[3.4,5.5,7.4,8.5],descanso:[-7.4,5.5,-3.4,8.5],carga:[-6.45,-0.8,-2.7,3.05],fab:[-7.2,8.45,-3.15,11.55],colmena:[-3.25,11.55,3.25,15.25],vault:[3.4,11.8,7.2,15.4]}[flash.room];
-      if(R){ const a=m(R[0],R[1]),b=m(R[2],R[3]),al=Math.max(0,Math.min(1,flash.a==null?0.6:flash.a));
+    // DESTELLO de tareas de mantenimiento: cada sector activo pulsa ámbar-rojo. flash = {room,a} O array de {room,a} (varias tareas a la vez). Mismas coords que los room() de arriba.
+    if(flash){ const REC={observatorio:[-RX,RZ0,RX,RZ1],pasillo:[-1.3,RZ1,1.3,5.2],biblioteca:[-3.4,5.2,3.4,8.2],cultivo:[-3.4,8.2,3.4,11.8],taller:[3.4,5.5,7.4,8.5],descanso:[-7.4,5.5,-3.4,8.5],carga:[-6.45,-0.8,-2.7,3.05],fab:[-7.2,8.45,-3.15,11.55],colmena:[-3.25,11.55,3.25,15.25],vault:[3.4,11.8,7.2,15.4]};
+      const list=Array.isArray(flash)?flash:[flash];
+      for(const fl of list){ if(!fl||!fl.room)continue; const R=REC[fl.room]; if(!R)continue; const a=m(R[0],R[1]),b=m(R[2],R[3]),al=Math.max(0,Math.min(1,fl.a==null?0.6:fl.a));
         x.save();x.fillStyle='rgba(255,90,60,'+(0.10+0.28*al)+')';x.fillRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);
         x.strokeStyle='rgba(255,120,70,'+(0.4+0.6*al)+')';x.lineWidth=1.6;x.shadowColor='#ff7a46';x.shadowBlur=4+8*al;x.strokeRect(a[0],a[1],b[0]-a[0],b[1]-a[1]);x.restore();x.shadowBlur=0; } }
     // marcador = la UNIDAD R-01 (ya no hay jugador): triángulo ámbar orientado al rumbo del robot
