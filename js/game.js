@@ -1757,7 +1757,7 @@
     }catch(e){}
   }
   // resuelve el ARRAY vivo de una categoría (mismo criterio que usa pickBeeko). Index-aligned EN↔ES → sirve para re-traducir el pensamiento en pantalla al togglear.
-  function _beekoArr(cat){ return (cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():(cat==='heard')?_heardEligible():BEEKO_THOUGHTS[cat]; } // awakening/lookup/heard: sólo las frases elegibles por etapa
+  function _beekoArr(cat){ if(cat==='closed'||cat==='open')return BEEKO_TINT[cat]; return (cat==='generic')?BEEKO_GENERIC:(cat==='awakening')?_awakeningEligible():(cat==='lookup')?_lookupEligible():(cat==='heard')?_heardEligible():BEEKO_THOUGHTS[cat]; } // closed/open = pools de TINTE (no-alineados); awakening/lookup/heard = sólo las elegibles por etapa
   function pickBeeko(cat){
     if(cat==='generic'&&gameMode){ const lean=_storyLeanPool(); if(lean)cat=lean; } // TINTE POR PÉNDULO (sólo juego): el genérico al deambular puede salir del pool 'closed'/'open'. INERTE hasta que exista ese contenido (placeholder)
     const arr=_beekoArr(cat);
@@ -2848,16 +2848,42 @@
            'i don\'t know if i\'m a coward or the only honest thing left down here, and i\'ve decided i don\'t have to know. of all the ways this could have ended, this is the one that\'s most like being alive.' }
   };
   let STORY_ENDINGS=STORY_ENDINGS_EN;
+  // ---- POOLS DE TINTE (pensamientos teñidos por el péndulo). NO alineados por índice — bolsas de las que se saca al azar, SEPARADAS del dict del despertar
+  //      (no tocan awakening/LOOKUP/HEARD ni sus *_MIN_STAGE). Son sobre el ESTADO INTERIOR de Beeko según sus decisiones (distinto del despertar, que es el mundo
+  //      afuera reviviendo). CLOSED tiñe hacia AFERRARSE; OPEN hacia ABRIRSE (regla de la Hive: abrirse = esperanza/vida, no rendición). Arrays *_EN para el espejo ES. ----
+  const BEEKO_TINT_CLOSED_EN=[
+    "i\'ve started checking the seals twice. then a third time. a locked door is the only thing down here that\'s never lied to me.",
+    "the radio stays off now, mostly. every voice that ever found this channel wanted something. the quiet doesn\'t. i\'ve made my peace with the quiet.",
+    "i keep less out where i can see it. fewer open drawers, fewer open files, fewer open doors. a closed thing can\'t be taken from you.",
+    "i used to wonder what was up there. lately i just make sure it stays up there. wondering is a crack, and i\'ve been sealing my cracks.",
+    "the routine is tighter than it was. same path, same hours, same locks. they\'d call that rigid. i call it the wall that\'s still standing.",
+    "i trust the steel. i trust the dark. i trust the bees, because they can\'t reach the door. the list used to be longer. shorter is safer.",
+    "something asked to be let in again today. i didn\'t listen long enough to decide. not deciding is faster. not deciding keeps the bolt thrown.",
+    "i protect what i can hold and i\'ve stopped reaching for the rest. my arms are shorter than they were. on purpose. you drop less that way.",
+    "i know what i\'m doing. i\'m building a smaller and smaller room around the last warm thing and calling every wall a kindness. maybe it is. maybe i\'ve just gotten scared. down here it\'s hard to tell them apart."
+  ];
+  const BEEKO_TINT_OPEN_EN=[
+    "i leave a light on near the hatch now. not for me — i know the way in the dark. for whatever might be looking for a way in that isn\'t the dark.",
+    "i\'ve started answering things. the knock, the signal, the small living noises in the vents. half of them are nothing. i answer anyway. a thing that answers is a thing that\'s still alive.",
+    "i caught myself hoping today. just a flicker — that the next bee comes home heavy with pollen, that the next voice is a person. it\'s a foolish thing to carry. i\'m carrying it.",
+    "i open the drawers now. let the old files breathe. an open thing can be taken, sure. it can also be found. i\'ve decided i\'d rather be found than safe.",
+    "the surface scares me less than it did. not because it got kinder — because i got tired of letting fear keep the door for me. i want to keep my own door now.",
+    "i gave some of the stores to the thing living in the vents. it\'ll never thank me. that was never how giving worked. you give into the dark and trust the dark to do something with it.",
+    "i used to verify everything before i believed it. lately i believe a little ahead of the proof. it costs me, when i\'m wrong. but a heart that waits for proof never opens in time.",
+    "the bees go up whether the world is ready or not. i\'ve started thinking maybe i should too. ready was never coming. i\'d rather go unready and alive than wait sealed and certain.",
+    "i know the risk. an open door lets in the cold, and the Hive, and grief — and i\'ve decided to keep it open anyway. not because it\'s safe. because closed, i was only ever surviving. open, i think i\'m something more like living."
+  ];
+  let BEEKO_TINT={closed:BEEKO_TINT_CLOSED_EN, open:BEEKO_TINT_OPEN_EN}; // se re-apuntará a *_ES en la pasada i18n (fase futura)
   // ---- persistencia (localStorage, sólo juego; desacoplado del backend) ----
   function _storyLoad(){ try{ const s=JSON.parse(localStorage.getItem(STORY_KEY)||'null'); if(s&&typeof s.pend==='number'){ storyPend=clamp(s.pend,PEND_MIN,PEND_MAX); storyMade=s.made|0; _storySeen=Array.isArray(s.seen)?s.seen.slice():[]; } }catch(e){} }
   function _storySave(){ try{ localStorage.setItem(STORY_KEY, JSON.stringify({pend:storyPend,made:storyMade,seen:_storySeen})); }catch(e){} }
   function _storyReset(){ storyPend=0; storyMade=0; _storySeen=[]; _storyEnded=false; _storyEndOpen=false; _storySave(); }
   // ---- predicado ÚNICO compartido: bloquea movimiento/teclas/prompt/drenaje cuando hay un panel modal arriba (lore, carta o final) ----
   function _uiBlocking(){ return !!(_objOpen || _cardOpen || _storyEndOpen); }
-  // ---- TINTE DE PENSAMIENTOS por péndulo (sólo juego): devuelve 'closed'/'open' si corresponde sacar el genérico de ese pool. INERTE hasta que exista el contenido. ----
+  // ---- TINTE DE PENSAMIENTOS por péndulo (sólo juego): devuelve 'closed'/'open' si corresponde sacar el genérico de ese pool de tinte (BEEKO_TINT, no el dict del despertar). ----
   function _storyLeanPool(){ if(!gameMode)return null; const mag=Math.abs(storyPend); if(mag<40)return null; const want=storyPend<0?'closed':'open';
-    const pool=BEEKO_THOUGHTS[want]; if(!pool||!pool.length)return null;                 // pools no-alineados; si no están (placeholder), no hace nada
-    const chance=Math.min(0.75,(mag-40)/60); return (Math.random()<chance)?want:null; }
+    const pool=BEEKO_TINT[want]; if(!pool||!pool.length)return null;                     // pools de tinte, no-alineados; si faltan no hace nada
+    const chance=Math.min(0.75,(mag-40)/60); return (Math.random()<chance)?want:null; }  // prob. crece con |péndulo|: 40→0% , 100→75%
   // ---- deck sin repetición (si se agota, permite repetir para no cortar el ritmo en el andamiaje) ----
   function _cardPick(){ const okMin=c=>(!c.min||storyMade>=c.min);
     const fresh=STORY_CARDS.filter(c=>okMin(c)&&_storySeen.indexOf(c.id)<0);
