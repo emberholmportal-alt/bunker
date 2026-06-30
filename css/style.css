@@ -146,7 +146,8 @@
   /* ===== SWAP DE HUD: en modo juego se oculta el HUD CCTV y se muestra el HUD de juego ===== */
   #gamehud{position:fixed;left:18px;bottom:18px;z-index:9;display:none;font-family:'VT323',monospace;pointer-events:none}
   body.gamemode #gamehud{display:block}
-  body.gamemode #camhud,body.gamemode #map,body.gamemode #panel{display:none} /* CAM/PLAN/LIVE + panel del operador → ocultos en juego (vuelven en livestream) */
+  body.gamemode #camhud,body.gamemode #panel{display:none} /* CAM/LIVE + panel del operador → ocultos en juego (vuelven en livestream) */
+  body.gamemode #map{display:block;left:14px;top:14px;bottom:auto} /* MODO BETA: el minimapa SÍ se muestra (guía + destello de tareas); reubicado arriba-izq, libre del HUD de abajo. El marcador = el jugador (que es R-01). */
   /* Los pensamientos de Beeko SÍ se muestran en juego (atmósfera/narrativa), pero reubicados ARRIBA-centro para no pisar el prompt [E] (que va abajo-centro). Livestream: quedan abajo como siempre. */
   /* MODO JUEGO: el cuadro de pensamiento va ABAJO DEL CENTRO (anclado al bottom → crece hacia arriba). Así NO se cruza con el panel de transmisión (arriba,
      top:96px) ni pisa el prompt [E] (bottom:96px) ni la barra de energía/inventario (bottom:18px) ni la ruedita (abajo-der). En livestream queda donde estaba. */

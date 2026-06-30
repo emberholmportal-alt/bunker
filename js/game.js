@@ -1112,7 +1112,7 @@
     const dt=Math.min(clk.getDelta(),.05),t=clk.elapsedTime,mv=motion();
     streamTick(dt); // backbone: avanza el estado central del stream (día/tiempo). zone/action los reporta game.js (F1) / la rutina (F2).
     tickRobot(dt);tickRobotAudio(dt);radioTick(dt,t);ambientTick(dt);tickExpressive(dt);
-    mapAcc+=dt;if(mapAcc>.16){const rm=robot.model;drawMapPlan(rm?rm.position.x:0,rm?rm.position.z:0,rm?rm.rotation.y:0);mapAcc=0;} // minimapa: marca la posición del ROBOT (ya no hay jugador)
+    mapAcc+=dt;if(mapAcc>.16){const rm=robot.model;drawMapPlan(rm?rm.position.x:0,rm?rm.position.z:0,rm?rm.rotation.y:0, (gameMode&&typeof _taskFlash==='function')?_taskFlash():null);mapAcc=0;} // minimapa: marca la posición del ROBOT + destello de tarea (sólo modo beta; null en livestream → mapa intacto)
     updateUptimeBoard(streamUptime(),dt); // contador de pared: cronómetro del LIVE (HH:MM:SS desde LORE_EPOCH), lee de STREAM
     // dashboard de la estación de cómputo (sólo cuando la cámara activa es la del descanso, ~3/s): alimenta el log y redibuja
     if(STREAM.zone==='descanso'&&adminX){adminAcc+=dt;if(adminAcc>.33){adminAcc=0;
@@ -2529,6 +2529,7 @@
   function playerInteract(){ // TAP de E: liberar abeja (colmena) o tomar objeto (bóveda). El HOLD de E carga en el dock.
     if(!gameMode || _menuOn || _gmCollapse>0 || _uiBlocking()) return; // no se interactúa a través de un panel modal (lore/carta/final)
     const px=robot.model.position.x, pz=robot.model.position.z;
+    if(_taskAtPlayer(px,pz)) return; // PRIORIDAD: si hay una tarea activa en tu ancla, el TAP de E no libera abeja / no toma ítem / no abre panel — la tarea (HOLD E) manda
     if(Math.hypot(px-HIVE_POS.x, pz-HIVE_POS.z)<HIVE_RADIUS){ if(beeReleaseT<=0 && _releaseSurge()){ gameBeesReleased++; _beesHud(); } return; } // colmena: liberar (cooldown natural = surge)
     if(!_mItemTaken && Math.hypot(px-ITEM_POS.x, pz-ITEM_POS.z)<ITEM_RADIUS){ _takeItem(); return; } // bóveda: tomar el ítem de misterio
     const obj=_objNear(px,pz); if(obj){ _objInteract(obj); return; } // TV / radio / terminal: encender+panel · apagar · (terminal sólo panel)
@@ -2573,15 +2574,18 @@
       if(!inArea(robot.model.position.x,robot.model.position.z)){ robot.model.position.x=px; robot.model.position.z=pz; } // GARANTÍA: nunca queda fuera de las salas
       robot.moving=true; if(robot.act&&robot.act['Walking']&&robot.cur!==robot.act['Walking'])setRobotAnim('Walking');
     } else { _pvelX=0; _pvelZ=0; robot.moving=false; _setIdle(); }
-    // INTERACCIÓN: proximidad al dock (cargar, HOLD E) y a la colmena (liberar abeja, TAP E). El drenaje corre salvo que esté cargando.
+    // INTERACCIÓN. PRIORIDAD: una TAREA de mantenimiento activa en tu ancla manda sobre dock/colmena/terminal (mantené [E] para resolverla). SIN tarea, todo igual que siempre.
+    const task=_taskAtPlayer(robot.model.position.x, robot.model.position.z);
     const nearDock=Math.hypot(robot.model.position.x-CHARGE_POS.x, robot.model.position.z-CHARGE_POS.z)<CHARGE_RADIUS;
     const nearHive=Math.hypot(robot.model.position.x-HIVE_POS.x, robot.model.position.z-HIVE_POS.z)<HIVE_RADIUS;
-    const charging=nearDock && _eHeld && gameEnergy<100;
+    const charging = !task && nearDock && _eHeld && gameEnergy<100; // la tarea tiene prioridad: no cargás mientras la atendés
     _playerCharging=charging;
     if(charging){ gameEnergy=Math.min(100, gameEnergy+CHARGE_RATE*dt); }
-    else if(!(nearDock && _eHeld && gameEnergy>=100)){ gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); } // drena salvo enchufado al tope
-    // prompt (prioridad: cargando · enchufado-lleno · cerca dock · cerca colmena · nada)
-    if(charging) _showPrompt(T('pr_charging'));
+    else if(!(nearDock && _eHeld && gameEnergy>=100 && !task)){ gameEnergy=Math.max(0, gameEnergy - dt*(ENERGY_DRAIN + (robot.moving?ENERGY_MOVE:0))); } // drena salvo enchufado al tope
+    if(task){ if(_eHeld){ _taskProg+=dt; if(_taskProg>=TASK_FIX)_taskResolve(); } else { _taskProg=Math.max(0,_taskProg-dt*3); } } // RESOLVER: mantené [E] → barra → resuelta (corta el penalty al instante); soltar la barra retrocede
+    // prompt (PRIORIDAD: tarea · cargando · enchufado-lleno · dock · colmena · ítem · objeto · nada)
+    if(task) _showPrompt(_taskPromptText());
+    else if(charging) _showPrompt(T('pr_charging'));
     else if(nearDock && _eHeld) _showPrompt(T('pr_energy_full'));
     else if(nearDock) _showPrompt(gameEnergy>=100?T('pr_energy_full'):T('pr_charge'));
     else if(nearHive) _showPrompt(beeReleaseT>0?T('pr_releasing'):T('pr_release'));
@@ -2629,6 +2633,7 @@
     _luPhase=''; _luAmt=0; _exprActive=false; _exprOnce=false; _exprClip=''; _exprRun=false; _soundPauseT=0; evHoldT=0; _gmCollapse=0; // corta gestos/expresivos/colapso/freeze de evento
     _tvOnGame=false; _radioOnGame=false; if(typeof radioLoopStop==='function')radioLoopStop(); // apaga TV/radio de fondo al cambiar de modo (el livestream maneja su propio TV vía STREAM.tv)
     if(typeof _storyCloseAll==='function')_storyCloseAll();    // SEGURIDAD: cierra carta/final al cambiar de modo → la capa de decisiones NUNCA queda visible en el livestream
+    if(typeof _taskResetAll==='function')_taskResetAll();      // SEGURIDAD: limpia tarea activa + apaga luces indicadoras al cambiar de modo → el livestream queda intacto (sin destello ni penalty)
     _keys.clear(); _eHeld=false; _playerCharging=false; _pvelX=0; _pvelZ=0; _fpPitch=0; _closeObj(); _restoreHead(); _hidePrompt(); _setIdle(); } // limpia teclas/E/prompt/velocidad/pitch + cierra panel de lore + restaura la cabeza al cambiar de modo
   function _menuRefresh(){ const d=$('#menuDays'),b=$('#menuBees'); if(d)d.textContent=Math.max(0,Math.round(STREAM.day||0)); if(b)b.textContent=Math.max(0,Math.round(STREAM.beesReleased||0)); } // DÍA/ABEJAS del estado (backend si está; fallback a lo local)
   function showMenu(){ _menuOn=true; _menuRefresh(); const m=$('#startmenu'); if(m)m.classList.add('show'); }
@@ -2636,7 +2641,7 @@
   function enterLivestream(){ gameMode=false; _cleanRobotForMode(); _hideItemPanel(); hideMenu(); document.body.classList.remove('gamemode'); try{localStorage.setItem('refugio_mode','observe');}catch(e){} } // oculta el panel del ítem si quedó abierto
   function enterGame(){ gameMode=true; _cleanRobotForMode(); _pcamInit=false; _fpYaw=robot.model?robot.model.rotation.y:0; gameEnergy=100; _gmCollapse=0; gameBeesReleased=0;
     _mItemTaken=false; if(mItemGrp)mItemGrp.visible=true; _invClear(); _hideItemPanel(); // sesión de juego fresca: el ítem vuelve a la bóveda, inventario limpio
-    _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); if(typeof _cardArm==='function')_cardArm(); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0 + re-arma el reloj de cartas (no dispara al instante)
+    _energyHud(); _beesHud(); hideMenu(); document.body.classList.add('gamemode'); if(typeof _cardArm==='function')_cardArm(); if(typeof _taskResetAll==='function')_taskResetAll(); try{localStorage.setItem('refugio_mode','game');}catch(e){} } // entra con energía llena + contador de abejas en 0 + re-arma cartas y tareas (no disparan al instante)
   function _modeBoot(){ let saved=null; try{saved=localStorage.getItem('refugio_mode');}catch(e){} // recarga limpia → menú; con elección guardada → directo al modo (sin menú a mitad de stream)
     if(saved==='game')enterGame(); else if(saved==='observe')enterLivestream(); else showMenu(); }
   { const bo=$('#btnObserve'),bp=$('#btnPlay'); if(bo)bo.addEventListener('click',enterLivestream); if(bp)bp.addEventListener('click',enterGame); } // botones del menú
@@ -2933,6 +2938,54 @@
     window.__REFUGIO.story=function(){ return { pendulo:Math.round(storyPend), decisiones:storyMade+'/'+STORY_LEN, lean:(storyPend<=-END_THRESH?'AFERRARSE':storyPend>=END_THRESH?'ABRIRSE':'EQUILIBRIO'), vistas:_storySeen.slice(), cartaAbierta:_cardOpen, finalAbierto:_storyEndOpen, modoJuego:gameMode, proximaCartaEn:Math.max(0,Math.round(_cardT))+'s' }; }; // inspeccionar el estado oculto
   }
   // =====================================================================================================================
+  // ====== TAREAS DE MANTENIMIENTO (modo beta) · EXCLUSIVO de gameMode. Periódicas, MÁX 1 activa, penalty suave/recuperable, guía en el minimapa. ======
+  // Gate DURO: tickTasks() sólo se llama dentro de if(gameMode) en el loop; _taskFlash()→drawMapPlan da null en livestream. En el livestream NADA: ni tareas, ni
+  // penalty, ni destello, ni luces indicadoras. PRIORIDAD en anclas compartidas (terminal/panal/dock): si hay tarea activa en tu ancla, el [E] resuelve la tarea;
+  // SIN tarea, el [E] hace lo de siempre (abrir terminal / liberar abeja / cargar). Penalty: ×4 energía + ×1 abejas, gradual y acotado (máx 1 activa), recuperable.
+  const TASK_FIX=1.5;                          // s de [E] mantenido para resolver una tarea
+  let TASK_GAP_MIN=50, TASK_GAP_MAX=90;        // s de juego activo entre tareas (CALMA — siempre hay respiro). Tunable: OP.taskGap
+  let TASK_DRAIN=0.85;                          // %/s extra de energía mientras una tarea de tipo energía está activa (techo natural: máx 1 activa). Tunable: OP.taskTune
+  let TASK_BEE_DECAY=0.5;                        // abejas/s que decae el contador mientras BROOD está activa. Tunable: OP.taskTune
+  const TASKS=[
+    { id:'lights',  room:'descanso', anchor:{x:-5.8, z:7.5},  r:1.9, kind:'energy', label:'tk_lights',  doing:'tk_lights_do',  alert:'tk_alert_lights'  }, // descanso · terminal
+    { id:'brood',   room:'colmena',  anchor:{x:0,    z:14.4}, r:2.6, kind:'bees',   label:'tk_brood',   doing:'tk_brood_do',   alert:'tk_alert_brood'   }, // colmena · panal
+    { id:'grow',    room:'cultivo',  anchor:{x:2.6,  z:9.6},  r:1.8, kind:'energy', label:'tk_grow',    doing:'tk_grow_do',    alert:'tk_alert_grow'    }, // cultivo · lámparas
+    { id:'fab',     room:'fab',      anchor:{x:-5.4, z:11.0}, r:1.9, kind:'energy', label:'tk_fab',     doing:'tk_fab_do',     alert:'tk_alert_fab'     }, // fabricación · impresora
+    { id:'coolant', room:'carga',    anchor:{x:-6.2, z:2.6},  r:1.4, kind:'energy', label:'tk_coolant', doing:'tk_coolant_do', alert:'tk_alert_coolant' }  // carga · panel eléctrico
+  ];
+  const _taskLights={}; // indicador 3D en la ancla (ámbar-rojo, oculto salvo cuando esa tarea está activa) — también sirve de guía en 1ª persona
+  try{ for(const tk of TASKS){ const L=new THREE.PointLight(0xff5a3c,0,3.2,2); L.position.set(tk.anchor.x,1.5,tk.anchor.z); L.visible=false; scene.add(L); _taskLights[tk.id]=L; } }catch(e){}
+  let _activeTask=null, _taskT=TASK_GAP_MIN, _taskProg=0, _taskLastId='', _taskPulse=0, _beeDecayAcc=0;
+  function _taskArm(){ _taskT=TASK_GAP_MIN+Math.random()*(TASK_GAP_MAX-TASK_GAP_MIN); }
+  function _taskPick(){ const pool=TASKS.filter(t=>t.id!==_taskLastId); const arr=pool.length?pool:TASKS; return arr[Math.floor(Math.random()*arr.length)]; } // sin repetir la anterior
+  function _taskActivate(tk){ if(!tk)return; _activeTask=tk; _taskProg=0; _taskLastId=tk.id; const L=_taskLights[tk.id]; if(L)L.visible=true; if(typeof showAlert==='function')showAlert(T(tk.alert)); }
+  function _taskResolve(){ const tk=_activeTask; if(!tk)return; const L=_taskLights[tk.id]; if(L){L.visible=false;L.intensity=0;}
+    if(tk.kind==='bees'){ gameBeesReleased=Math.min(999,gameBeesReleased+2); _beesHud(); }      // atender la cría RECUPERA un poco el contador
+    _activeTask=null; _taskProg=0; _beeDecayAcc=0; _taskArm(); if(typeof bkBlip==='function'&&typeof audioOn!=='undefined'&&audioOn)bkBlip(); }
+  function _taskResetAll(){ for(const k in _taskLights){ const L=_taskLights[k]; if(L){L.visible=false;L.intensity=0;} } _activeTask=null; _taskProg=0; _beeDecayAcc=0; _taskLastId=''; _taskArm(); } // reset: apaga TODAS las luces indicadoras (livestream 100% limpio, sin importar el estado previo)
+  function _taskAtPlayer(px,pz){ if(!_activeTask)return null; return (Math.hypot(px-_activeTask.anchor.x,pz-_activeTask.anchor.z)<_activeTask.r)?_activeTask:null; }
+  function _taskBar(p){ const N=10,f=Math.max(0,Math.min(N,Math.round(p*N))); return '['+'█'.repeat(f)+'·'.repeat(N-f)+']'; }
+  function _taskPromptText(){ if(!_activeTask)return ''; return (_taskProg>0)?(T(_activeTask.doing)+' '+_taskBar(_taskProg/TASK_FIX)):T(_activeTask.label); }
+  function _taskFlash(){ if(!_activeTask)return null; return {room:_activeTask.room, a:_taskPulse}; } // lo lee el loop → drawMapPlan (null si no hay activa o en livestream)
+  function tickTasks(dt){ // SÓLO se llama dentro de if(gameMode) (gate duro). Pausa (no acumula) con panel/carta/final abiertos o colapso.
+    if(_activeTask){ _taskPulse = motion()?(0.5+0.5*Math.sin(perfNow()/180)):0.65; const L=_taskLights[_activeTask.id]; if(L)L.intensity=0.5+0.9*_taskPulse; } // pulso del destello/indicador
+    if(_uiBlocking()||_gmCollapse>0) return;                                                    // PAUSA: ni timer ni penalty mientras hay modal/colapso
+    if(_activeTask){
+      if(_activeTask.kind==='energy'){ gameEnergy=Math.max(0,gameEnergy-dt*TASK_DRAIN); _energyHud(); }                                   // penalty energía (recuperable en el dock)
+      else if(_activeTask.kind==='bees'){ _beeDecayAcc+=dt*TASK_BEE_DECAY; if(_beeDecayAcc>=1&&gameBeesReleased>0){ const n=Math.floor(_beeDecayAcc); gameBeesReleased=Math.max(0,gameBeesReleased-n); _beeDecayAcc-=n; _beesHud(); } } // penalty abejas
+      return;
+    }
+    _taskT-=dt; if(_taskT>0) return;                                                            // GAP entre tareas → calma para explorar
+    _taskActivate(_taskPick());
+  }
+  if(window.__REFUGIO){
+    window.__REFUGIO.taskNow=function(id){ if(!gameMode)return 'sólo en modo beta (TOMAR CONTROL DE R-01)'; const tk=id?TASKS.find(t=>t.id===id):_taskPick(); if(!tk)return 'ids: '+TASKS.map(t=>t.id).join(', '); if(_activeTask)_taskResetAll(); _taskActivate(tk); return 'tarea forzada: '+tk.id+' → sala '+tk.room+' (andá y mantené [E])'; }; // fuerza una tarea YA
+    window.__REFUGIO.taskClear=function(){ if(!_activeTask)return 'no hay tarea activa'; const id=_activeTask.id; _taskResolve(); return 'resuelta: '+id; };
+    window.__REFUGIO.taskGap=function(a,b){ if(a!==undefined)TASK_GAP_MIN=Math.max(3,+a||50); if(b!==undefined)TASK_GAP_MAX=Math.max(TASK_GAP_MIN,+b||90); _taskArm(); return {gapMin:TASK_GAP_MIN+'s', gapMax:TASK_GAP_MAX+'s', proximaEn:Math.round(_taskT)+'s'}; }; // OP.taskGap(min,max)
+    window.__REFUGIO.taskTune=function(drain,beeDecay){ if(drain!==undefined)TASK_DRAIN=Math.max(0,+drain); if(beeDecay!==undefined)TASK_BEE_DECAY=Math.max(0,+beeDecay); return {drenajeEnergia:TASK_DRAIN+' %/s', decaeAbejas:TASK_BEE_DECAY+'/s', fix:TASK_FIX+'s'}; }; // OP.taskTune(drenaje, decaeAbejas)
+    window.__REFUGIO.tasks=function(){ return { activa:_activeTask?_activeTask.id:null, sala:_activeTask?_activeTask.room:null, progreso:_activeTask?(Math.round(_taskProg/TASK_FIX*100)+'%'):'-', proximaEn:_activeTask?'(hay una activa)':(Math.round(_taskT)+'s'), pool:TASKS.map(t=>t.id), gap:TASK_GAP_MIN+'-'+TASK_GAP_MAX+'s', modoJuego:gameMode }; }; // inspeccionar
+  }
+  // =====================================================================================================================
   addEventListener('keydown',e=>{ if(e.key==='Escape'){ if(_cardOpen||_storyEndOpen)return; if(_objOpen){_closeObj();return;} if(_menuOn)hideMenu(); else showMenu(); } }); // Esc: inerte con carta/final abiertos; si no, cierra lore o abre/cierra el menú
   function tickRobot(dt){
     if(robot.mixer)robot.mixer.update(dt);
@@ -2942,7 +2995,7 @@
     else if(_radioPosed){releaseArmPose();_radioPosed=false;}                    // transmisión terminó / dejó la radio → BAJA el brazo una vez (el Idle no lo hace solo)
     tickLookUp(dt); applyLookUp();                   // 3ª SEÑAL: mirar arriba (compone sobre el mixer en cabeza/cuello; no toca status/path/rutina ni las poses del brazo)
     if(_soundPauseT>0){_soundPauseT-=dt;return;}     // REACCIÓN AL SONIDO: micro-pausa — congela el movimiento un instante (el gesto lookUp YA se aplicó arriba); al expirar la rutina retoma idéntico (no toca rt/path)
-    if(gameMode){ tickCard(dt); tickPlayer(dt); return; } // MODO JUEGO: cartas de decisión (gate DURO: tickCard SÓLO acá) + teclado maneja a Beeko. El mundo sigue corriendo aparte.
+    if(gameMode){ tickTasks(dt); tickCard(dt); tickPlayer(dt); return; } // MODO JUEGO: tareas de mantenimiento + cartas (gate DURO: tickTasks/tickCard SÓLO acá) + teclado maneja a Beeko. El mundo sigue corriendo aparte.
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
