@@ -209,10 +209,11 @@
   #storyEnd.show{display:flex;animation:smIn .4s ease}
   #storyEnd .se-scan{position:absolute;inset:0;pointer-events:none;z-index:3;background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px,rgba(0,0,0,.28) 2px 4px);opacity:.6;mix-blend-mode:multiply}
   #storyEnd .se-vig{position:absolute;inset:0;pointer-events:none;z-index:4;box-shadow:inset 0 0 180px rgba(0,0,0,.9)}
-  #storyEnd .se-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:16px;width:min(620px,90vw);text-align:center;padding:30px 34px}
+  #storyEnd .se-inner{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(640px,92vw);text-align:center;padding:22px 34px}
   #storyEnd .se-top{font-size:13px;letter-spacing:4px;color:var(--amber);opacity:.85}#storyEnd .se-rrec{color:var(--enj);text-shadow:0 0 8px var(--enj)}
-  #storyEnd .se-title{font-family:'Anton',sans-serif;font-size:46px;letter-spacing:8px;color:var(--screen);text-shadow:1.8px 0 rgba(255,40,90,.5),-1.8px 0 rgba(40,210,255,.45),0 0 26px rgba(57,255,160,.55);margin:4px 0 6px}
-  #storyEnd .se-body{font-size:20px;line-height:1.5;color:#bdf5cf;text-shadow:0 0 7px rgba(143,255,176,.28),0 0 2px #000;white-space:pre-wrap;max-width:560px}
+  #storyEnd .se-title{font-family:'Anton',sans-serif;font-size:42px;letter-spacing:7px;color:var(--screen);text-shadow:1.8px 0 rgba(255,40,90,.5),-1.8px 0 rgba(40,210,255,.45),0 0 26px rgba(57,255,160,.55);margin:2px 0 4px}
+  #storyEnd .se-body{font-size:17px;line-height:1.45;color:#bdf5cf;text-shadow:0 0 7px rgba(143,255,176,.28),0 0 2px #000;white-space:pre-wrap;max-width:580px;max-height:70vh;overflow-y:auto;text-align:left;padding-right:4px}
+  #storyEnd .se-body::-webkit-scrollbar{width:7px}#storyEnd .se-body::-webkit-scrollbar-thumb{background:rgba(57,255,160,.3)}
   #storyEnd .se-foot{margin-top:14px}
   @media (max-width:760px){#storyEnd .se-title{font-size:34px}#storyEnd .se-body{font-size:17px}#storyEnd .se-inner{padding:22px 18px}}
   /* Prompt de interacción [E] (sólo modo juego, sólo cerca de algo interactuable) */
