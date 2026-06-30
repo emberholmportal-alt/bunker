@@ -4,13 +4,18 @@
 # de fondo (asyncio) tira el dado de los eventos. CORS abierto para que el static site lo consulte.
 import asyncio
 import os
+import secrets
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 from database import engine, SessionLocal, Base
 import models
@@ -19,10 +24,43 @@ import events
 import counters
 import awakening
 
-# Token del operador. Si está VACÍO (default por ahora), las escrituras /op/* quedan ABIERTAS
-# (suficiente para probar la Fase 1). La seguridad real (token obligatorio) es la Fase 5: ese
-# día sólo hay que setear esta env var en Render, sin tocar código.
+# ===== FASE 5 — SEGURIDAD DEL BACKEND =====
+# Token del operador. FAIL-CLOSED: si esta env var NO está seteada en el servidor, TODAS las escrituras
+# /op/* quedan DENEGADAS (403) para todos. Para habilitar el control de operador hay que setear
+# OPERATOR_TOKEN en Render con un secreto fuerte. Las lecturas (/state, /health) son públicas igual.
 OPERATOR_TOKEN = os.environ.get("OPERATOR_TOKEN", "").strip()
+
+# Límites de validación de inputs del operador (defensa en profundidad: ni un atacante ni un typo
+# pueden corromper la DB o el despertar con valores absurdos).
+DAY_MAX = 1_000_000           # ~2740 años de días; techo anti-overflow/absurdo (day siempre ≥ 0)
+SPEED_MAX = 100_000           # speed siempre ≥ 1; techo razonable de aceleración de testeo
+COUNTER_BOUNDS = {            # rangos sanos por contador (clamp, no rechazo: el operador no rompe nada)
+    "charge": (0.0, 100.0),                  # medidor 0..100
+    "bees": (0.0, counters.BEE_CAP),         # cría 0..BEE_CAP(60)
+    "beesReleased": (0.0, 1_000_000.0),      # ~10 años de liberaciones; cap que el awakening (asintótico) ya satura sin corromper
+    "print": (0.0, 100.0),                   # progreso 0..100
+}
+# Tramos válidos para /op/segment (whitelist; no se aceptan strings crudos arbitrarios).
+# Además se aceptan 'auto' (volver a la agenda por hora) y null (deambular/off), que maneja op_set_segment.
+VALID_SEGMENTS = {"carga", "colmena", "admin", "fabricacion", "ronda", "ocio"}
+
+
+def _clamp(v, lo, hi):
+    return max(lo, min(hi, v))
+
+
+# ---- RATE LIMITING (slowapi). Detrás del proxy de Render usamos el 1er IP de X-Forwarded-For como
+#      clave (si no, todos compartirían el IP del proxy). Lecturas: límite suave; escrituras: estricto. ----
+def _client_ip(request: Request) -> str:
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        return xff.split(",")[0].strip()
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=_client_ip)
+RL_STATE = "90/minute"   # /state: el frontend poll cada ~4s (~15/min/pestaña) → ~6 pestañas/IP antes de cortar
+RL_OP = "20/minute"      # /op/*: las acciones de operador son infrecuentes → 20/min sobra y frena el spam
 
 
 def _segment(w, hour):
@@ -87,7 +125,11 @@ def _reanchor(w) -> None:
 
 
 def _require_op(token: Optional[str]) -> None:
-    if OPERATOR_TOKEN and token != OPERATOR_TOKEN:
+    # FAIL-CLOSED: sin OPERATOR_TOKEN configurado en el server → todo denegado (403). Con token
+    # configurado → exige que coincida (comparación de tiempo constante contra timing attacks).
+    if not OPERATOR_TOKEN:
+        raise HTTPException(status_code=403, detail="control de operador deshabilitado: el servidor no tiene OPERATOR_TOKEN configurado")
+    if not token or not secrets.compare_digest(token, OPERATOR_TOKEN):
         raise HTTPException(status_code=401, detail="token de operador inválido")
 
 
@@ -221,11 +263,17 @@ async def lifespan(app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="REFUGIO 404 — backend", version="phase1-clock", lifespan=lifespan)
+app = FastAPI(title="REFUGIO 404 — backend", version="phase5-security", lifespan=lifespan)
 
-# CORS: el frontend (static site) está en OTRO dominio → necesita CORS. /state es read-only y
-# público, así que por default permitimos cualquier origen. Se puede restringir seteando
-# ALLOWED_ORIGINS="https://tu-bunker.onrender.com,https://otro" en Render.
+# RATE LIMITING: registra el limiter y el handler 429. Los límites concretos van por-ruta (@limiter.limit).
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS: el frontend (static site) está en OTRO dominio → el navegador del site necesita CORS para leer /state.
+# Seteá ALLOWED_ORIGINS="https://bunker-bx8y.onrender.com" en Render para restringir el origen (recomendado).
+# Nota: CORS es un control del NAVEGADOR (no afecta curl/monitores server-side), así que /state sigue siendo
+# consultable por no-navegadores aunque restrinjas el origen. La protección REAL de /op/* es el OPERATOR_TOKEN.
+# Default '*' (no rompe nada si la env var falta); la whitelist se activa al setearla.
 _origins = os.environ.get("ALLOWED_ORIGINS", "*").strip()
 _allow = ["*"] if _origins == "*" else [o.strip() for o in _origins.split(",") if o.strip()]
 app.add_middleware(
@@ -254,8 +302,9 @@ def health():
 
 
 @app.get("/state")
-def get_state(db: Session = Depends(get_db)):
-    # El reloj central. El frontend lo lee cada ~4 s.
+@limiter.limit(RL_STATE)
+def get_state(request: Request, db: Session = Depends(get_db)):
+    # El reloj central. El frontend lo lee cada ~4 s. Público (read-only); rate-limit suave anti-flood.
     return _payload(_get_world(db))
 
 
@@ -269,28 +318,31 @@ class SetSpeed(BaseModel):
 
 
 @app.post("/op/clock/setDay")
-def op_set_day(body: SetDay, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_set_day(request: Request, body: SetDay, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     _require_op(x_operator_token)
     w = _get_world(db)
-    w.day_override = int(body.day)  # fuerza el día (equivale a streamForce('day'))
+    w.day_override = int(_clamp(int(body.day), 0, DAY_MAX))  # fuerza el día (clamp 0..DAY_MAX)
     db.commit()
     db.refresh(w)
     return _payload(w)
 
 
 @app.post("/op/clock/setSpeed")
-def op_set_speed(body: SetSpeed, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_set_speed(request: Request, body: SetSpeed, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     _require_op(x_operator_token)
     w = _get_world(db)
     _reanchor(w)
-    w.speed = max(1, int(body.speed))
+    w.speed = int(_clamp(int(body.speed), 1, SPEED_MAX))  # speed 1..SPEED_MAX (ya era ≥1; ahora con techo)
     db.commit()
     db.refresh(w)
     return _payload(w)
 
 
 @app.post("/op/clock/resync")
-def op_resync(db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_resync(request: Request, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     # Vuelve el reloj al tiempo real (speed=1, sin día forzado) — equivale a streamResync().
     _require_op(x_operator_token)
     w = _get_world(db)
@@ -311,7 +363,8 @@ class SetSegment(BaseModel):
 
 
 @app.post("/op/segment")
-def op_set_segment(body: SetSegment, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_set_segment(request: Request, body: SetSegment, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     _require_op(x_operator_token)
     w = _get_world(db)
     seg = body.segment
@@ -319,8 +372,10 @@ def op_set_segment(body: SetSegment, db: Session = Depends(get_db), x_operator_t
         w.seg_override = None    # vuelve a la agenda por hora
     elif seg is None:
         w.seg_override = "off"   # deambula
+    elif seg in VALID_SEGMENTS:
+        w.seg_override = seg     # fuerza el tramo (sólo de la whitelist)
     else:
-        w.seg_override = seg     # fuerza el tramo
+        raise HTTPException(status_code=400, detail="segment inválido; usá uno de " + ", ".join(sorted(VALID_SEGMENTS)) + ", 'auto' o null")
     db.commit()
     db.refresh(w)
     return _payload(w)
@@ -336,7 +391,8 @@ class SetEnabled(BaseModel):
 
 
 @app.post("/op/event")
-def op_event(body: SetEvent, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_event(request: Request, body: SetEvent, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     # Fuerza un evento YA (override). Empieza ahora, dura lo suyo, y el auto se reprograma para después (no se solapan).
     _require_op(x_operator_token)
     if body.kind not in ("quake", "blackout"):
@@ -354,7 +410,8 @@ def op_event(body: SetEvent, db: Session = Depends(get_db), x_operator_token: Op
 
 
 @app.post("/op/events")
-def op_events(body: SetEnabled, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_events(request: Request, body: SetEnabled, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     # Prende/apaga el DADO AUTOMÁTICO del server (global). Los forzados manuales siguen funcionando con esto apagado.
     _require_op(x_operator_token)
     w = _get_world(db)
@@ -375,10 +432,15 @@ class SetCounter(BaseModel):
 
 
 @app.post("/op/counter")
-def op_counter(body: SetCounter, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_counter(request: Request, body: SetCounter, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     _require_op(x_operator_token)
     w = _get_world(db)
-    name, v = body.counter, float(body.value)
+    name = body.counter
+    if name not in COUNTER_BOUNDS:
+        raise HTTPException(status_code=400, detail="counter debe ser 'charge'|'bees'|'beesReleased'|'print'")
+    lo, hi = COUNTER_BOUNDS[name]
+    v = _clamp(float(body.value), lo, hi)  # CLAMP a rango sano: un beesReleased absurdo no corrompe el contador ni el despertar
     if name == "charge":
         w.charge = v
     elif name == "bees":
@@ -387,8 +449,6 @@ def op_counter(body: SetCounter, db: Session = Depends(get_db), x_operator_token
         w.bees_released = v
     elif name == "print":
         w.print_progress = v
-    else:
-        raise HTTPException(status_code=400, detail="counter debe ser 'charge'|'bees'|'beesReleased'|'print'")
     db.commit()
     db.refresh(w)
     return _payload(w)
@@ -400,7 +460,8 @@ class SetAwakening(BaseModel):
 
 
 @app.post("/op/awakening")
-def op_awakening(body: SetAwakening, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+@limiter.limit(RL_OP)
+def op_awakening(request: Request, body: SetAwakening, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
     _require_op(x_operator_token)
     w = _get_world(db)
     if body.progress is None:
