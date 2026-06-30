@@ -471,3 +471,37 @@ def op_awakening(request: Request, body: SetAwakening, db: Session = Depends(get
     db.commit()
     db.refresh(w)
     return _payload(w)
+
+
+# ---- RESET DESTRUCTIVO del mundo compartido. Devuelve la fila singleton a sus valores INICIALES — los MISMOS
+#      defaults que la siembra en _get_world — en UNA transacción atómica. Lo ven todos los espectadores al
+#      instante. Blindado igual que el resto de /op/* (exige OPERATOR_TOKEN). El frontend (OP.resetWorld) pide
+#      confirmación explícita antes de pegarle. NO borra el events_log histórico (auditoría); sí limpia el evento vivo. ----
+@app.post("/op/reset")
+@limiter.limit(RL_OP)
+def op_reset(request: Request, db: Session = Depends(get_db), x_operator_token: Optional[str] = Header(default=None)):
+    _require_op(x_operator_token)
+    w = _get_world(db)
+    now = clock.real_ms()
+    env = os.environ.get("LORE_EPOCH_MS", "").strip()
+    w.lore_epoch_ms = int(env) if env else now   # día → 0 (mismo epoch que la siembra: env LORE_EPOCH_MS o 'ahora')
+    w.speed = 1                                  # reloj a tiempo real
+    w.anchor_wall_ms = now
+    w.anchor_now_ms = now
+    w.day_override = None                         # libera el día forzado
+    w.seg_override = None                         # segmento → auto (por hora)
+    w.evt_force_kind = None                       # limpia el evento forzado en curso
+    w.evt_force_start_ms = None
+    w.evt_force_end_ms = None
+    w.evt_next_at_ms = None                       # el scheduler reprograma el próximo auto
+    w.evt_next_kind = None
+    w.evt_enabled = True                          # dado automático ON (default de fábrica)
+    w.charge = 0.0                                # contadores → 0
+    w.bees = 0.0
+    w.bees_released = 0.0
+    w.print_progress = 0.0
+    w.cnt_tick_ms = now                           # re-ancla el ticker (sin salto de dt)
+    w.awakening_override = None                   # despertar → auto (vuelve a la curva desde bees_released=0)
+    db.commit()
+    db.refresh(w)
+    return _payload(w)

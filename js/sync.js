@@ -147,6 +147,25 @@
         post('/op/awakening', {progress: v}).then(apply).catch(e=>console.warn('[sync] awakening', e+''));
         return 'awakening → ' + (v === null ? 'auto (curva)' : v) + ' (server)';
       };
+      // RESET DESTRUCTIVO del mundo COMPARTIDO (escritura al backend blindado → exige token). Devuelve el estado a CERO:
+      // día 0 + reloj a tiempo real, contadores charge/bees/beesReleased/print en 0, despertar en auto (curva), eventos forzados
+      // limpiados + dado automático ON, segmento en auto. Lo ven TODOS los espectadores al instante. DOBLE PASO: sin 'CONFIRM' sólo
+      // explica y NO toca nada; OP.resetWorld('CONFIRM') ejecuta. Requiere estar conectado como operador (OP.backend(url, token)).
+      window.__REFUGIO.resetWorld = function(confirm){
+        if(!SYNC.on) return 'conectá primero como operador: OP.backend("https://TU-BACKEND.onrender.com", "TOKEN")';
+        if(!SYNC.token) return 'falta el TOKEN de operador (el reset es una ESCRITURA al backend blindado). Reconectá: OP.backend("https://TU-BACKEND.onrender.com", "TOKEN")';
+        if(confirm !== 'CONFIRM') return [
+          '⚠ DESTRUCTIVO — OP.resetWorld() borra el estado COMPARTIDO del livestream en el BACKEND y lo devuelve a CERO:',
+          '   · día → 0 + reloj a tiempo real (speed 1)',
+          '   · contadores charge / bees / beesReleased / print → 0',
+          '   · despertar → auto (override liberado, vuelve a la curva)',
+          '   · eventos → forzados limpiados + dado automático ON · segmento → auto (por hora)',
+          '   (no borra el historial de eventos del backend; sí limpia el evento en curso)',
+          'Lo ven TODOS los espectadores al instante. Para confirmar:  OP.resetWorld("CONFIRM")'
+        ].join('\n');
+        post('/op/reset', {}).then(apply).catch(e=>console.warn('[sync] reset', e+''));
+        return 'RESET enviado al backend — el mundo compartido vuelve a CERO (día 0, contadores 0, despertar auto, eventos limpios, segmento auto). Verificá con OP.backend() y OP.state.';
+      };
       // comandos de TIEMPO (Fase 1): en modo server escriben al backend; en local, como siempre.
       const _setDay = window.__REFUGIO.setDay, _setSpeed = window.__REFUGIO.setSpeed, _resync = window.__REFUGIO.resync;
       window.__REFUGIO.setDay = function(d){ if(SYNC.on){ post('/op/clock/setDay', {day:+d}).then(apply).catch(e=>console.warn('[sync] setDay', e+'')); return 'day → '+d+' (server)'; } return _setDay(d); };
