@@ -48,6 +48,37 @@
 </style>
 </head>
 <body class="motion">
+  <!-- ============================================================================
+       CARTEL "FUERA DE SERVICIO" — TEMPORAL. Overlay a pantalla completa por ENCIMA
+       de TODO (incluida la pantalla de carga #boot). Para REACTIVAR el sitio: borrar
+       este bloque completo (este comentario + el <div id="oos">…</div>). No toca la
+       lógica del juego: la escena sigue cargando detrás, sólo queda oculta y bloqueada.
+       ============================================================================ -->
+  <div id="oos" role="alertdialog" aria-label="Out of service / Fuera de servicio">
+    <style>
+      #oos{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#0a0602 0%,#020202 82%);font-family:'VT323',monospace;overflow:hidden}
+      #oos .oos-scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(rgba(0,0,0,0) 0 2px,rgba(0,0,0,.32) 2px 4px);opacity:.6;mix-blend-mode:multiply}
+      #oos .oos-vig{position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 180px rgba(0,0,0,.92),inset 0 0 55px rgba(0,0,0,.55)}
+      #oos .oos-inner{position:relative;z-index:2;text-align:center;width:min(520px,90vw);padding:34px 30px;border:1px solid rgba(255,176,0,.28);background:linear-gradient(180deg,rgba(18,10,2,.55),rgba(6,4,2,.55));box-shadow:0 0 60px rgba(0,0,0,.6),inset 0 0 60px rgba(255,140,0,.05)}
+      #oos .oos-rec{font-size:13px;letter-spacing:4px;color:#ff4f6a;text-shadow:0 0 8px rgba(255,79,106,.7);animation:oosrec 1.2s steps(1,end) infinite}
+      @keyframes oosrec{50%{opacity:.25}}
+      #oos .oos-title{font-family:'Anton',sans-serif;font-size:46px;letter-spacing:6px;margin:12px 0 2px;color:#ffb000;text-shadow:2px 0 rgba(255,40,90,.5),-2px 0 rgba(40,210,255,.45),0 0 26px rgba(255,150,0,.5);animation:oosab 4.2s steps(1) infinite}
+      @keyframes oosab{0%,92%,100%{text-shadow:2px 0 rgba(255,40,90,.5),-2px 0 rgba(40,210,255,.45),0 0 26px rgba(255,150,0,.5)}94%{text-shadow:4px 0 rgba(255,40,90,.6),-4px 0 rgba(40,210,255,.55),0 0 28px rgba(255,150,0,.6)}}
+      #oos .oos-sub{font-size:18px;letter-spacing:5px;color:#e9c079;opacity:.85;margin-top:-2px}
+      #oos .oos-msg{font-size:16px;letter-spacing:1px;color:#c9c9b8;opacity:.75;margin-top:18px;line-height:1.5}
+      #oos .oos-foot{font-size:12px;letter-spacing:3px;color:rgba(201,201,184,.45);margin-top:14px}
+      @media (prefers-reduced-motion:reduce){#oos .oos-rec,#oos .oos-title{animation:none}}
+      @media (max-width:760px){#oos .oos-title{font-size:34px}#oos .oos-inner{padding:26px 20px}}
+    </style>
+    <div class="oos-scan"></div><div class="oos-vig"></div>
+    <div class="oos-inner">
+      <div class="oos-rec">● OFFLINE</div>
+      <div class="oos-title">OUT OF SERVICE</div>
+      <div class="oos-sub">FUERA DE SERVICIO</div>
+      <div class="oos-msg">Shelter 404 is temporarily offline.<br>El refugio 404 está temporalmente fuera de servicio.</div>
+      <div class="oos-foot">SHELTER 404 · BEEKO PROTOCOL</div>
+    </div>
+  </div>
   <div id="app"></div><div id="flash"></div><div id="madness"></div>
   <div id="alert"></div>
   <div id="camhud">
