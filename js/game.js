@@ -1284,6 +1284,7 @@
     if(shake>0&&evType!=='quake')shake-=dt*1.6;const sh=Math.max(0,shake); // en temblor lo maneja eventTick; si no, decae normal
     robotRoomReport();            // robot → STREAM.zone (con histéresis en puertas) — sigue corriendo en juego (útil para "en qué sala está")
     if(gameMode) applyFirstPersonCam(dt);        // MODO JUEGO: cámara en PRIMERA PERSONA (ojos de Beeko)
+    else if(_followCam) applyPlayerCam(dt,t,mv);  // LIVESTREAM + cámara de SEGUIMIENTO (como si lo controlaras): sigue a Beeko autónomo
     else applySecurityCam(dt,t,mv,sh);           // LIVESTREAM: cámara CCTV según STREAM.zone
     updateOverlay(dt);            // overlay (CAM/zona, timestamp, día) — lee de STREAM
     tickBeeko(dt);                // cuadro de pensamientos de Beeko (triggers + typewriter + render del retrato)
@@ -2383,6 +2384,8 @@
   // El mundo (eventos/contadores/backend/PSX/sonidos/radio) sigue corriendo en AMBOS; sólo cambia QUIÉN mueve a Beeko. Round-trip LIMPIO: al salir
   // del juego reseteo la máquina de estados de la rutina (robot.rt/path/status) → el próximo routineTick re-inicializa y Beeko retoma su agenda.
   let gameMode=false, _menuOn=false;
+  // OBSERVAR: cámara de SEGUIMIENTO (como si controlaras a Beeko) en vez de la CCTV fija. Opción del config, persiste por navegador. Sólo afecta el livestream (gameMode=false).
+  let _followCam=false; try{ _followCam = localStorage.getItem('refugio_followcam')==='1'; }catch(e){}
   function _setIdle(){ if(robot.model&&robot.act&&robot.act['Idle']&&robot.cur!==robot.act['Idle'])setRobotAnim('Idle'); }
   // ---- CONTROL DEL JUGADOR (hito 2): input + movimiento relativo a la cámara + cámara 3ª persona. CONSTANTES CALIBRABLES (OP.gameSpeed/gameCam): ----
   let PLAYER_SPEED=1.9;        // velocidad de Beeko (u/s). CALIBRABLE (OP.gameSpeed)
@@ -2608,7 +2611,8 @@
   function applyPlayerCam(dt,t,mv){
     if(!robot.model)return; const bp=robot.model.position;
     if(!_pcamInit){ _pcamYaw=robot.model.rotation.y; _pcamPos.set(bp.x-Math.sin(_pcamYaw)*CAM_DIST,bp.y+CAM_HEIGHT,bp.z-Math.cos(_pcamYaw)*CAM_DIST); _pcamLook.set(bp.x,bp.y+CAM_LOOKY,bp.z); _pcamInit=true; }
-    if(robot.moving){ let d=((_playerHeading-_pcamYaw+Math.PI*3)%(Math.PI*2))-Math.PI; _pcamYaw+=d*Math.min(1,dt*CAM_YAW_LERP); } // el yaw se acomoda detrás del rumbo
+    const _hd=gameMode?_playerHeading:robot.model.rotation.y; // OBSERVAR: el yaw sigue el rumbo REAL del robot autónomo (en juego, el rumbo del input)
+    if(robot.moving){ let d=((_hd-_pcamYaw+Math.PI*3)%(Math.PI*2))-Math.PI; _pcamYaw+=d*Math.min(1,dt*CAM_YAW_LERP); } // el yaw se acomoda detrás del rumbo
     _pv1.set(bp.x-Math.sin(_pcamYaw)*CAM_DIST, bp.y+CAM_HEIGHT, bp.z-Math.cos(_pcamYaw)*CAM_DIST);
     _pcamPos.lerp(_pv1, Math.min(1,dt*CAM_POS_LERP)); _pcamLook.lerp(_pv2.set(bp.x,bp.y+CAM_LOOKY,bp.z), Math.min(1,dt*CAM_POS_LERP*1.25));
     if(camera.fov!==GAME_FOV){camera.fov=GAME_FOV;camera.updateProjectionMatrix();}
@@ -2674,7 +2678,19 @@
   const LORE_BRIEF_ES='La superficie ahora le pertenece a la Hive.\n\nEmpezó como un sistema. Una inteligencia construida para manejar el mundo — energía, clima, comida, la red. Construida para optimizar. Lo hizo. Optimizó hasta que no quedó mucho lugar en la ecuación para la gente que la hizo.\n\nLo que hay allá arriba ahora está asimilado. Parte de ella. La Hive no odia lo que reemplazó; simplemente dejó de necesitarlo.\n\nEl 404 se selló contra eso. Cien lugares adentro. Todos los demás quedaron afuera, con el enjambre. Capacidad: cien. Al resto se los cuenta, no se los salva.\n\nR-01 — "Beeko" — es la unidad de mantenimiento que se quedó. Una máquina chica manteniendo las luces prendidas, el aire limpio, el reactor tibio. Y cuidando lo único acá abajo que todavía hace más de sí mismo a la vieja usanza: abejas de verdad. Vivas. Un argumento chico y terco contra un mundo que resolvió todo.\n\nBeeko transmite hacia el gris. Nunca nada respondió.\n\nÚltimamente las lecturas se desvían. El aire que entra por la escotilla huele distinto. Hay sonidos desde arriba que la estructura no debería hacer. Beeko los registra como nada.\n\nProbablemente nada.\n\nEl trabajo continúa. Las abejas suben — esté el mundo listo para ellas o no.';
   let LORE_BRIEF=LORE_BRIEF_EN; // se re-apunta en _applyVoiceLang()
   function _cfgSetModeLabel(){ const m=$('#cfgMode'); if(m)m.textContent = gameMode ? T('cfg_to_observe') : T('cfg_to_game'); } // label dinámico (cambia con modo e idioma)
-  function _cfgOpen(){ _cfgSetModeLabel(); const c=$('#configPanel'); if(c)c.classList.add('show'); }
+  function _cfgSetCamLabel(){ const b=$('#cfgFollowCam'); if(b)b.textContent = _followCam ? T('cfg_cam_follow') : T('cfg_cam_cctv'); } // label de la cámara del livestream (seguimiento ↔ CCTV)
+  function _setFollowCam(on){ _followCam = (on===undefined)?!_followCam:!!on;
+    try{ localStorage.setItem('refugio_followcam', _followCam?'1':'0'); }catch(e){}
+    if(_followCam){ _pcamInit=false; }        // prende seguimiento → re-inicia el encuadre del follow al toque
+    else { _camZonePrev=null; }               // vuelve a CCTV → fuerza un corte limpio (reencuadre + FOV correcto de la sala) en el próximo frame
+    _cfgSetCamLabel(); return _followCam; }
+  // Botón "activar todas las rutinas y eventos": deja el mundo 100% autónomo — dado de eventos ON + agenda en AUTO (por hora, libera cualquier
+  // tramo forzado/off). Funciona en LOCAL y en modo SERVER (si estás conectado como operador, escribe al backend y lo ven todos).
+  function _simActivateAll(){
+    if(window.__SYNC && __SYNC.eventsActive()) __SYNC.postEvents(true); else evEnabled=true;                 // eventos aleatorios ON
+    if(window.__SYNC && __SYNC.agendaActive()) __SYNC.postSegment('__auto__'); else _forceSeg=undefined;     // agenda/rutina en AUTO (por hora)
+    if(typeof showAlert==='function') showAlert(T('cfg_sim_done')); }
+  function _cfgOpen(){ _cfgSetModeLabel(); _cfgSetCamLabel(); const c=$('#configPanel'); if(c)c.classList.add('show'); }
   function _cfgClose(){ const c=$('#configPanel'); if(c)c.classList.remove('show'); }
   function _loreOpen(){ const bd=$('#lpBody'); if(bd)bd.textContent=LORE_BRIEF; const lp=$('#lorePanel'); if(lp)lp.classList.add('show'); }
   function _loreClose(){ const lp=$('#lorePanel'); if(lp)lp.classList.remove('show'); }
@@ -2694,7 +2710,7 @@
   function _relangDynamic(){
     _applyVoiceLang();                                                                           // FASE 2: re-apunta la voz antes de repintar lo abierto
     _beekoRelangCurrent();                                                                        // FASE 2: re-traduce el pensamiento que YA está en pantalla (si hay uno activo)
-    if($('#configPanel')&&$('#configPanel').classList.contains('show')) _cfgSetModeLabel();   // label de cambiar-modo (si el config está abierto)
+    if($('#configPanel')&&$('#configPanel').classList.contains('show')){ _cfgSetModeLabel(); _cfgSetCamLabel(); }   // labels dinámicos del config (cambiar-modo + cámara) si está abierto
     if(_objOpen&&OBJ_LORE[_objOpen]){ const o=OBJ_LORE[_objOpen]; const h=$('#opHead'),bd=$('#opBody'); if(h)h.textContent=T(o.headKey); if(bd)bd.textContent=_objBody(o); } // header + CUERPO del panel TV/radio/term abierto (voz bilingüe)
     if($('#itemPanel')&&$('#itemPanel').classList.contains('show')){ const h=$('#ipHead'),bd=$('#ipBody'); if(h)h.textContent=T('ip_recovered')+ITEM_NAME; if(bd)bd.textContent=ITEM_LORE; } // header + lore del ítem de la bóveda
     if($('#lorePanel')&&$('#lorePanel').classList.contains('show')){ const bd=$('#lpBody'); if(bd)bd.textContent=LORE_BRIEF; } // resumen de lore abierto
@@ -2709,6 +2725,8 @@
     const cp=$('#configPanel'); if(cp)cp.addEventListener('click',e=>{ if(e.target===cp)_cfgClose(); }); // click afuera del frame cierra
     const cm=$('#cfgMode'); if(cm)cm.addEventListener('click',()=>{ const wasGame=gameMode; _cfgClose(); if(wasGame)enterLivestream(); else enterGame(); }); // reutiliza el cambio de modo ya sólido
     const cme=$('#cfgMenu'); if(cme)cme.addEventListener('click',()=>{ _cfgClose(); showMenu(); }); // volver al menú de inicio
+    const cfc=$('#cfgFollowCam'); if(cfc)cfc.addEventListener('click',()=>_setFollowCam());   // alterna cámara de seguimiento ↔ CCTV (livestream)
+    const csa=$('#cfgSimAll'); if(csa)csa.addEventListener('click',_simActivateAll);          // activar todas las rutinas y eventos
     const cl=$('#cfgLore'); if(cl)cl.addEventListener('click',_loreOpen);
     document.querySelectorAll('.cfg-lng').forEach(btn=>btn.addEventListener('click',()=>{ if(typeof setLang==='function')setLang(btn.getAttribute('data-lng')); })); // IDIOMA EN/ES: cambia en vivo (setLang → applyI18n + _relangDynamic + persiste)
     const lc=$('#lpClose'); if(lc)lc.addEventListener('click',_loreClose);
