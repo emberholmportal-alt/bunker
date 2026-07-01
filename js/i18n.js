@@ -66,6 +66,8 @@
       cfg_title:'⚙ CONFIGURATION', cfg_mode:'MODE', cfg_world:'WORLD', cfg_lang:'LANGUAGE',
       cfg_menu:'‹ START MENU', cfg_lore:'READ THE LORE',
       cfg_to_observe:'▶ OBSERVE — back to livestream', cfg_to_game:'⦿ TAKE CONTROL OF R-01',
+      cfg_camera:'CAMERA', cfg_cam_follow:'📹 FOLLOW R-01 (like control)', cfg_cam_cctv:'📹 SECURITY (CCTV)',
+      cfg_sim:'LIVE FEED', cfg_sim_all:'▶ ACTIVATE ALL ROUTINES & EVENTS', cfg_sim_done:'ROUTINES & EVENTS ACTIVE',
       // HUD del modo juego
       gh_energy:'ENERGY', gh_bees:'RELEASED', gh_colony:'COLONY', gh_inv:'INVENTORY', gh_slot_empty:'item', pr_col_low:'COLONY TOO LOW',
       // prompts de interacción [E]
@@ -130,6 +132,8 @@
       cfg_title:'⚙ CONFIGURACIÓN', cfg_mode:'MODO', cfg_world:'MUNDO', cfg_lang:'IDIOMA',
       cfg_menu:'‹ MENÚ DE INICIO', cfg_lore:'LEER EL LORE',
       cfg_to_observe:'▶ OBSERVAR — volver al livestream', cfg_to_game:'⦿ TOMAR CONTROL DE R-01',
+      cfg_camera:'CÁMARA', cfg_cam_follow:'📹 SEGUIR A R-01 (como control)', cfg_cam_cctv:'📹 SEGURIDAD (CCTV)',
+      cfg_sim:'FEED EN VIVO', cfg_sim_all:'▶ ACTIVAR TODAS LAS RUTINAS Y EVENTOS', cfg_sim_done:'RUTINAS Y EVENTOS ACTIVOS',
       gh_energy:'ENERGÍA', gh_bees:'LIBERADAS', gh_colony:'COLONIA', gh_inv:'INVENTARIO', gh_slot_empty:'objeto', pr_col_low:'COLONIA MUY BAJA',
       pr_charge:'[E] CARGAR', pr_charging:'⚡ CARGANDO…', pr_energy_full:'⚡ ENERGÍA LLENA',
       pr_release:'[E] LIBERAR ABEJA', pr_releasing:'✦ LIBERANDO…', pr_take:'[E] TOMAR',
