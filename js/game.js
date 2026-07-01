@@ -3063,13 +3063,15 @@
     if(_radioHold)return;                            // CALIBRACIÓN: Beeko fijado en la radio en pose → no corre la rutina (no se va)
     doorY+=((doorTarget?1:0)-doorY)*Math.min(1,dt*4);hatchDoor.position.y=.66+doorY*1.5;hatchLight.intensity=doorY*1.8;
     if(ended||!running)return;
+    // LIVESTREAM (observar): el "OFFLINE por batería" NO existe acá — la mecánica de batería/colapso es EXCLUSIVA del modo beta.
+    // Si el robot quedó 'broken' (sesión previa al fix, un tramo forzado que nunca pasó por 'carga', o un mission legacy), revive a idle.
+    if(robot.status==='broken'){robot.status='idle';robot.bat=100;robot.temp=35;robot.moving=false;if(robot.model){robot.model.visible=true;setRobotAnim('Idle');}}
     if(robot.status==='mission'){robot.mT-=dt*speed;robot.temp=clamp(robot.temp+dt*1.2,0,100);if(robot.mT<=0)robotReturn();return;}
     if(robot.status==='leaving'&&robot.model){robot.bat=clamp(robot.bat-dt*.2,0,100);const px=robot.model.position.x,pz=robot.model.position.z,dx=robot.tx-px,dz=robot.tz-pz,d=Math.hypot(dx,dz);if(d<0.22){robot.model.visible=false;robot.status='mission';robot.mT=38;doorTarget=0;}else{const sp=dt*1.5;robot.model.position.x+=dx/d*sp;robot.model.position.z+=dz/d*sp;robot.model.rotation.y=Math.atan2(dx,dz);}robotUiAcc+=dt;if(robotUiAcc>.5){renderRobot();robotUiAcc=0;}return;}
     if(robot.status==='returning'&&robot.model){const px=robot.model.position.x,pz=robot.model.position.z,dx=robot.tx-px,dz=robot.tz-pz,d=Math.hypot(dx,dz);if(d<0.22){robot.status='idle';robot.moving=false;robot.wanderT=2;setRobotAnim('Idle');doorTarget=0;}else{const sp=dt*1.4;robot.model.position.x+=dx/d*sp;robot.model.position.z+=dz/d*sp;robot.model.rotation.y=Math.atan2(dx,dz);}return;}
     if(robot.status==='idle'){
-      robot.bat=clamp(robot.bat-dt*0.22,0,100);
+      robot.bat=100;                                   // LIVESTREAM: energía ESTABLE — Beeko nunca se queda sin batería ni pasa a OFFLINE (batería/colapso son EXCLUSIVOS del modo beta). La rutina/agenda (incluida la ronda forzada) corre siempre.
       robot.temp=clamp(robot.temp-dt*1.6,30,100);
-      if(robot.bat<=0){robot.status='broken';robot.moving=false;setRobotAnim('Death');showAlert(T('a_unit_no_battery'));renderRobot();return;}
       if(robot.model){
         if(robot.moving){
           const px=robot.model.position.x,pz=robot.model.position.z,dx=robot.tx-px,dz=robot.tz-pz,d=Math.hypot(dx,dz);
